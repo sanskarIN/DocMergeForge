@@ -23,11 +23,29 @@ _PATTERNS = {
 def audit_text(path: Path, text: str) -> list[AuditFinding]:
     findings: list[AuditFinding] = []
     if _PATTERNS["stale_next_part"].search(text):
-        findings.append(AuditFinding("stale-next-part", "Found a stale 'Next: Part 121' reference.", path))
+        findings.append(
+            AuditFinding(
+                "stale-next-part",
+                "Found a stale 'Next: Part 121' reference.",
+                path,
+            )
+        )
     githubs = set(_PATTERNS["github_url"].findall(text))
     if len(githubs) > 1:
-        findings.append(AuditFinding("github-inconsistent", f"Multiple GitHub URLs detected: {sorted(githubs)}", path))
+        findings.append(
+            AuditFinding(
+                "github-inconsistent",
+                f"Multiple GitHub URLs detected: {sorted(githubs)}",
+                path,
+            )
+        )
     emails = set(_PATTERNS["email"].findall(text))
     if len(emails) > 3:
-        findings.append(AuditFinding("email-review", f"Many email variants detected: {sorted(emails)}", path))
+        findings.append(
+            AuditFinding(
+                "email-review",
+                f"Many email variants detected: {sorted(emails)}",
+                path,
+            )
+        )
     return findings

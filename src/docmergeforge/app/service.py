@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path
+from dataclasses import dataclass
 
 from docmergeforge.core.models import (
     CompanionReference,
@@ -8,6 +8,7 @@ from docmergeforge.core.models import (
     InputDocument,
     MergeProject,
     OutputArtifact,
+    ValidationResult,
 )
 from docmergeforge.discovery.scanner import scan
 from docmergeforge.docx.engine import DocxMergeEngine
@@ -28,31 +29,50 @@ from docmergeforge.reports.generator import (
     write_report,
 )
 from docmergeforge.utilities.hashing import sha256_file, snapshot_hashes, verify_unchanged
-from docmergeforge.utilities.storage import require_storage
+from docmergeforge.utilities.storage import StorageEstimate, require_storage
 from docmergeforge.validation.service import validate_part_set
+
+
+@dataclass(slots=True, frozen=True)
+class DryRunResult:
+    pdf: ValidationResult
+    docx: ValidationResult
+    ignored: list[InputDocument]
+    companions: list[InputDocument]
+    storage: StorageEstimate
 
 
 class MergeApplicationService:
     def discover(self, project: MergeProject) -> list[InputDocument]:
         return scan(project.source_folders, recursive=True)
 
-    def dry_run(self, project: MergeProject) -> dict[str, object]:
+    def dry_run(self, project: MergeProject) -> DryRunResult:
         inputs = self.discover(project)
         pdf_result = validate_part_set(
-            inputs, DocumentKind.PDF, project.settings.expected_start, project.settings.expected_end
+            inputs,
+            DocumentKind.PDF,
+            project.settings.expected_start,
+            project.settings.expected_end,
         )
         docx_result = validate_part_set(
-            inputs, DocumentKind.DOCX, project.settings.expected_start, project.settings.expected_end
+            inputs,
+            DocumentKind.DOCX,
+            project.settings.expected_start,
+            project.settings.expected_end,
         )
-        docs = [item.path for item in inputs if item.kind in {DocumentKind.PDF, DocumentKind.DOCX}]
+        docs = [
+            item.path
+            for item in inputs
+            if item.kind in {DocumentKind.PDF, DocumentKind.DOCX}
+        ]
         estimate = require_storage(docs, project.output_folder)
-        return {
-            "pdf": pdf_result,
-            "docx": docx_result,
-            "ignored": [item for item in inputs if item.kind == DocumentKind.OTHER],
-            "companions": [item for item in inputs if item.kind == DocumentKind.COMPANION],
-            "storage": estimate,
-        }
+        return DryRunResult(
+            pdf=pdf_result,
+            docx=docx_result,
+            ignored=[item for item in inputs if item.kind == DocumentKind.OTHER],
+            companions=[item for item in inputs if item.kind == DocumentKind.COMPANION],
+            storage=estimate,
+        )
 
     def run_sql_preset(self, project: MergeProject) -> list[OutputArtifact]:
         inputs = self.discover(project)
@@ -62,13 +82,21 @@ class MergeApplicationService:
         ignored = [item.path for item in inputs if item.kind == DocumentKind.OTHER]
 
         pdf_result = validate_part_set(
-            inputs, DocumentKind.PDF, project.settings.expected_start, project.settings.expected_end
+            inputs,
+            DocumentKind.PDF,
+            project.settings.expected_start,
+            project.settings.expected_end,
         )
         docx_result = validate_part_set(
-            inputs, DocumentKind.DOCX, project.settings.expected_start, project.settings.expected_end
+            inputs,
+            DocumentKind.DOCX,
+            project.settings.expected_start,
+            project.settings.expected_end,
         )
         if not pdf_result.ready or not docx_result.ready:
-            raise ValueError("Mandatory validation failed. Run dry-run and resolve missing/duplicate parts.")
+            raise ValueError(
+                "Mandatory validation failed. Run dry-run and resolve missing/duplicate parts."
+            )
 
         tracked = [item.path for item in pdfs + docxs + companions]
         before = snapshot_hashes(tracked)
@@ -78,10 +106,16 @@ class MergeApplicationService:
         pdf_path = project.output_folder / PDF_FILENAME
         docx_path = project.output_folder / DOCX_FILENAME
         pdf_path = PdfMergeEngine().merge(
-            pdfs, pdf_path, project.settings.pdf, overwrite=project.settings.overwrite
+            pdfs,
+            pdf_path,
+            project.settings.pdf,
+            overwrite=project.settings.overwrite,
         )
         docx_path = DocxMergeEngine().merge(
-            docxs, docx_path, project.settings.docx, overwrite=project.settings.overwrite
+            docxs,
+            docx_path,
+            project.settings.docx,
+            overwrite=project.settings.overwrite,
         )
 
         changed = verify_unchanged(before)
@@ -89,11 +123,24 @@ class MergeApplicationService:
             raise RuntimeError(f"Original integrity guarantee failed: {changed}")
 
         outputs = [
-            OutputArtifact(pdf_path, sha256_file(pdf_path), pdf_path.stat().st_size, DocumentKind.PDF, True),
-            OutputArtifact(docx_path, sha256_file(docx_path), docx_path.stat().st_size, DocumentKind.DOCX, True),
+            OutputArtifact(
+                pdf_path,
+                sha256_file(pdf_path),
+                pdf_path.stat().st_size,
+                DocumentKind.PDF,
+                True,
+            ),
+            OutputArtifact(
+                docx_path,
+                sha256_file(docx_path),
+                docx_path.stat().st_size,
+                DocumentKind.DOCX,
+                True,
+            ),
         ]
         refs = [
-            CompanionReference(item.part.number, item.path, item.sha256, item.size) for item in companions
+            CompanionReference(item.part.number, item.path, item.sha256, item.size)
+            for item in companions
         ]
         write_companion_index(
             refs,

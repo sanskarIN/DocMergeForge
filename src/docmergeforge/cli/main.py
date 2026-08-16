@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from docmergeforge.app.service import MergeApplicationService
-from docmergeforge.core.models import DocumentKind
+from docmergeforge.core.models import DocxSettings, DocumentKind, PdfSettings
 from docmergeforge.discovery.scanner import scan
 from docmergeforge.docx.engine import DocxMergeEngine
 from docmergeforge.pdf.engine import PdfMergeEngine
@@ -32,7 +32,10 @@ def build_parser() -> argparse.ArgumentParser:
         merge.add_argument("--parts", default="1-120")
         merge.add_argument("--output", required=True, type=Path)
 
-    preset = sub.add_parser("sql-preset", help="Run the SQL Full Mastery 120-part guided preset.")
+    preset = sub.add_parser(
+        "sql-preset",
+        help="Run the SQL Full Mastery 120-part guided preset.",
+    )
     preset.add_argument("--input", required=True, type=Path)
     preset.add_argument("--output-dir", required=True, type=Path)
     preset.add_argument("--dry-run", action="store_true")
@@ -45,7 +48,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "validate":
         start, end = _parts(args.parts)
         items = scan([args.input])
-        payload = {}
+        payload: dict[str, object] = {}
         exit_code = 0
         for kind in (DocumentKind.PDF, DocumentKind.DOCX):
             result = validate_part_set(items, kind, start, end)
@@ -66,13 +69,20 @@ def main(argv: list[str] | None = None) -> int:
         items = [item for item in scan([args.input]) if item.kind == kind]
         result = validate_part_set(items, kind, start, end)
         if not result.ready:
-            print(json.dumps({"ready": False, "missing": result.missing_parts, "duplicates": result.duplicate_parts}, indent=2))
+            print(
+                json.dumps(
+                    {
+                        "ready": False,
+                        "missing": result.missing_parts,
+                        "duplicates": result.duplicate_parts,
+                    },
+                    indent=2,
+                )
+            )
             return 2
         if kind == DocumentKind.PDF:
-            from docmergeforge.core.models import PdfSettings
             PdfMergeEngine().merge(items, args.output, PdfSettings())
         else:
-            from docmergeforge.core.models import DocxSettings
             DocxMergeEngine().merge(items, args.output, DocxSettings())
         print(str(args.output))
         return 0
@@ -83,16 +93,16 @@ def main(argv: list[str] | None = None) -> int:
         print(
             json.dumps(
                 {
-                    "pdf_ready": result["pdf"].ready,
-                    "docx_ready": result["docx"].ready,
-                    "companions": len(result["companions"]),
-                    "ignored": len(result["ignored"]),
-                    "storage_sufficient": result["storage"].sufficient,
+                    "pdf_ready": result.pdf.ready,
+                    "docx_ready": result.docx.ready,
+                    "companions": len(result.companions),
+                    "ignored": len(result.ignored),
+                    "storage_sufficient": result.storage.sufficient,
                 },
                 indent=2,
             )
         )
-        return 0 if result["pdf"].ready and result["docx"].ready else 2
+        return 0 if result.pdf.ready and result.docx.ready else 2
     service.run_sql_preset(project)
     print(str(args.output_dir))
     return 0
