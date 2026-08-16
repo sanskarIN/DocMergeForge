@@ -67,10 +67,10 @@ class DocxMergeEngine:
                 )
 
             Document(str(temporary))
+            changed = verify_unchanged(before)
+            if changed:
+                raise ValidationError(f"Source integrity violation: {changed}")
 
-        changed = verify_unchanged(before)
-        if changed:
-            raise ValidationError(f"Source integrity violation: {changed}")
         return final_output
 
     @staticmethod

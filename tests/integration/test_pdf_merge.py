@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from docmergeforge.core.exceptions import ValidationError
 from docmergeforge.core.models import (
     DocumentKind,
     InputDocument,
@@ -41,3 +42,35 @@ def test_pdf_merge_preserves_page_count_and_sources(tmp_path: Path) -> None:
     reader = pypdf.PdfReader(str(output))
     assert len(reader.pages) == 3
     assert all(sha256_file(path) == digest for path, digest in source_hashes.items())
+
+
+@pytest.mark.integration
+def test_pdf_merge_does_not_promote_output_if_source_changes(tmp_path: Path) -> None:
+    pypdf = pytest.importorskip("pypdf")
+    source = tmp_path / "Part 1.pdf"
+    writer = pypdf.PdfWriter()
+    writer.add_blank_page(width=612, height=792)
+    with source.open("wb") as handle:
+        writer.write(handle)
+    document = InputDocument(
+        source,
+        DocumentKind.PDF,
+        PartIdentity(1, "Part 1"),
+        source.stat().st_size,
+        sha256_file(source),
+        1,
+    )
+    output = tmp_path / "master.pdf"
+
+    def mutate_source(_index: int, _total: int, path: Path) -> None:
+        path.write_bytes(path.read_bytes() + b"\nchanged")
+
+    with pytest.raises(ValidationError, match="Source integrity violation"):
+        PdfMergeEngine().merge(
+            [document],
+            output,
+            PdfSettings(),
+            progress=mutate_source,
+        )
+
+    assert not output.exists()

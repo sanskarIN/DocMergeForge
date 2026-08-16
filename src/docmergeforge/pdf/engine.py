@@ -74,9 +74,10 @@ class PdfMergeEngine:
                     f"expected {expected_pages}, got {len(check.pages)}."
                 )
 
-        changed = verify_unchanged(before)
-        if changed:
-            raise ValidationError(f"Source integrity violation: {changed}")
+            changed = verify_unchanged(before)
+            if changed:
+                raise ValidationError(f"Source integrity violation: {changed}")
+
         return final_output
 
     @staticmethod
