@@ -2,6 +2,8 @@ name: Build Smoke
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
   pull_request:
 
 permissions:
@@ -9,7 +11,9 @@ permissions:
 
 jobs:
   package:
+    name: build-smoke (${{ matrix.os }})
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
@@ -18,7 +22,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
       - run: python -m pip install --upgrade pip
       - run: pip install -e ".[build]"
       - run: python -m compileall -q src
       - run: docmergeforge --help
+      - run: python scripts/build_desktop.py --check
