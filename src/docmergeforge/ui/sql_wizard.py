@@ -13,9 +13,9 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QVBoxLayout,
+    QWidget,
     QWizard,
     QWizardPage,
-    QWidget,
 )
 
 from docmergeforge.audit.document import audit_tree
