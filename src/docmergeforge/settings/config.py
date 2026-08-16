@@ -23,7 +23,7 @@ class AppSettings:
         path.write_text(json.dumps(asdict(self), indent=2), encoding="utf-8")
 
     @classmethod
-    def load(cls, path: Path) -> "AppSettings":
+    def load(cls, path: Path) -> AppSettings:
         if not path.exists():
             return cls()
         return cls(**json.loads(path.read_text(encoding="utf-8")))

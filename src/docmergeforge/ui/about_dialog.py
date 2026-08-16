@@ -23,10 +23,16 @@ class AboutDialog(QDialog):
         title = QLabel("<h2>DocMergeForge</h2><p><b>Made by the Sanskar</b></p>")
         title.setTextFormat(Qt.TextFormat.RichText)
         layout.addWidget(title)
-        layout.addWidget(QLabel("Local-first document merging with source-integrity validation."))
+        layout.addWidget(
+            QLabel("Local-first document merging with source-integrity validation.")
+        )
         for label, url in LINKS.items():
             button = QPushButton(label)
-            button.clicked.connect(lambda _checked=False, value=url: QDesktopServices.openUrl(QUrl(value)))
+            button.clicked.connect(
+                lambda _checked=False, value=url: QDesktopServices.openUrl(QUrl(value))
+            )
             layout.addWidget(button)
-        layout.addWidget(QLabel("Business: sanskarin@outlook.in · sanskarin.business@gmail.com"))
+        layout.addWidget(
+            QLabel("Business: sanskarin@outlook.in · sanskarin.business@gmail.com")
+        )
         layout.addWidget(QLabel("Support: supportramsandesh@gmail.com"))

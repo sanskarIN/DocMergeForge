@@ -60,7 +60,10 @@ def risky_docx_constructs(path: Path) -> list[str]:
         if "customXml/" in " ".join(names):
             risks.append("Custom XML parts detected.")
         external = [
-            name for name in names if name.endswith(".rels") and b'TargetMode="External"' in archive.read(name)
+            name
+            for name in names
+            if name.endswith(".rels")
+            and b'TargetMode="External"' in archive.read(name)
         ]
         if external:
             risks.append("External relationships detected.")

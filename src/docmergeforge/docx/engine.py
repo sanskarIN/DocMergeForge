@@ -30,7 +30,11 @@ class DocxMergeEngine:
 
         ordered = sorted(
             documents,
-            key=lambda item: (item.part.number is None, item.part.number or 0, item.path.name.casefold()),
+            key=lambda item: (
+                item.part.number is None,
+                item.part.number or 0,
+                item.path.name.casefold(),
+            ),
         )
         if not ordered:
             raise ValidationError("No DOCX inputs were provided.")
@@ -40,7 +44,9 @@ class DocxMergeEngine:
         for item in ordered:
             diagnostics = validate_docx_package(item.path)
             if any(diag.level.value in {"ERROR", "FATAL"} for diag in diagnostics):
-                raise ValidationError(f"Invalid DOCX input: {item.path}: {diagnostics[0].message}")
+                raise ValidationError(
+                    f"Invalid DOCX input: {item.path}: {diagnostics[0].message}"
+                )
 
         with atomic_output(final_output, overwrite=True) as temporary:
             master = Document(str(ordered[0].path))
@@ -58,9 +64,11 @@ class DocxMergeEngine:
 
             diagnostics = validate_docx_package(temporary)
             if any(diag.level.value in {"ERROR", "FATAL"} for diag in diagnostics):
-                raise ValidationError(f"Output DOCX package validation failed: {diagnostics[0].message}")
+                raise ValidationError(
+                    "Output DOCX package validation failed: "
+                    f"{diagnostics[0].message}"
+                )
 
-            # Reopen smoke test.
             Document(str(temporary))
 
         changed = verify_unchanged(before)

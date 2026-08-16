@@ -27,7 +27,11 @@ class PdfMergeEngine:
 
         ordered = sorted(
             documents,
-            key=lambda item: (item.part.number is None, item.part.number or 0, item.path.name.casefold()),
+            key=lambda item: (
+                item.part.number is None,
+                item.part.number or 0,
+                item.path.name.casefold(),
+            ),
         )
         before = snapshot_hashes(item.path for item in ordered)
         final_output = output if overwrite else versioned_path(output)
@@ -40,7 +44,9 @@ class PdfMergeEngine:
                     raise MergeCancelled("PDF merge cancelled safely.")
                 reader = PdfReader(str(item.path), strict=False)
                 if reader.is_encrypted:
-                    raise ValidationError(f"Encrypted PDF requires a password: {item.path}")
+                    raise ValidationError(
+                        f"Encrypted PDF requires a password: {item.path}"
+                    )
                 start_page = len(writer.pages)
                 for page in reader.pages:
                     writer.add_page(page)
@@ -66,7 +72,8 @@ class PdfMergeEngine:
             check = PdfReader(str(temporary), strict=False)
             if len(check.pages) != expected_pages:
                 raise ValidationError(
-                    f"PDF page validation failed: expected {expected_pages}, got {len(check.pages)}."
+                    "PDF page validation failed: "
+                    f"expected {expected_pages}, got {len(check.pages)}."
                 )
 
         changed = verify_unchanged(before)
@@ -75,7 +82,10 @@ class PdfMergeEngine:
         return final_output
 
     @staticmethod
-    def validate_output(path: Path, expected_pages: int | None = None) -> dict[str, object]:
+    def validate_output(
+        path: Path,
+        expected_pages: int | None = None,
+    ) -> dict[str, object]:
         from pypdf import PdfReader
 
         reader = PdfReader(str(path), strict=False)
@@ -83,5 +93,12 @@ class PdfMergeEngine:
             raise ValidationError("Output PDF unexpectedly became encrypted.")
         pages = len(reader.pages)
         if expected_pages is not None and pages != expected_pages:
-            raise ValidationError(f"Expected {expected_pages} pages but output has {pages}.")
-        return {"path": str(path), "pages": pages, "sha256": sha256_file(path), "size": path.stat().st_size}
+            raise ValidationError(
+                f"Expected {expected_pages} pages but output has {pages}."
+            )
+        return {
+            "path": str(path),
+            "pages": pages,
+            "sha256": sha256_file(path),
+            "size": path.stat().st_size,
+        }

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from docmergeforge.core.models import InputDocument
 from docmergeforge.discovery.part_detection import natural_key
@@ -33,7 +32,10 @@ class OrderEditor:
 
     def sort_by_filename(self, descending: bool = False) -> None:
         self._snapshot()
-        self.items.sort(key=lambda item: natural_key(item.path.name), reverse=descending)
+        self.items.sort(
+            key=lambda item: natural_key(item.path.name),
+            reverse=descending,
+        )
 
     def move(self, source: int, target: int) -> None:
         self._snapshot()

@@ -33,7 +33,10 @@ class MainWindow(QMainWindow):
         root = QWidget()
         outer = QVBoxLayout(root)
 
-        heading = QLabel("<h1>DocMergeForge</h1><p>Discover correctly. Order correctly. Merge safely. Validate everything.</p>")
+        heading = QLabel(
+            "<h1>DocMergeForge</h1>"
+            "<p>Discover correctly. Order correctly. Merge safely. Validate everything.</p>"
+        )
         heading.setTextFormat(Qt.TextFormat.RichText)
         outer.addWidget(heading)
 
@@ -80,11 +83,15 @@ class MainWindow(QMainWindow):
         QMessageBox.information(
             self,
             "DocMergeForge",
-            "This screen is wired into the architecture but the guided SQL preset is the primary v0.1 workflow.",
+            "This screen is wired into the architecture, while the guided SQL preset "
+            "is the primary v0.1 workflow.",
         )
 
     def _sql_preset(self) -> None:
-        source = QFileDialog.getExistingDirectory(self, "Select root folder containing Parts 1–120")
+        source = QFileDialog.getExistingDirectory(
+            self,
+            "Select root folder containing Parts 1–120",
+        )
         if not source:
             return
         output = QFileDialog.getExistingDirectory(self, "Select output folder")
@@ -94,16 +101,20 @@ class MainWindow(QMainWindow):
         service = MergeApplicationService()
         try:
             dry = service.dry_run(project)
-            if not dry["pdf"].ready or not dry["docx"].ready:
+            if not dry.pdf.ready or not dry.docx.ready:
                 QMessageBox.warning(
                     self,
                     "Validation required",
-                    f"PDF ready: {dry['pdf'].ready}\nDOCX ready: {dry['docx'].ready}\n"
+                    f"PDF ready: {dry.pdf.ready}\nDOCX ready: {dry.docx.ready}\n"
                     "Resolve missing or duplicate parts before merge.",
                 )
                 return
             service.run_sql_preset(project)
-            QMessageBox.information(self, "Complete", f"Validated outputs created in:\n{output}")
+            QMessageBox.information(
+                self,
+                "Complete",
+                f"Validated outputs created in:\n{output}",
+            )
         except Exception as exc:
             QMessageBox.critical(self, "Merge failed safely", str(exc))
 
