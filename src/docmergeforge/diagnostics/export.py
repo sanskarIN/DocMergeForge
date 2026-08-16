@@ -17,5 +17,8 @@ def export_diagnostics(path: Path, warnings: list[str], recent_errors: list[str]
         "recent_errors": recent_errors,
         "privacy_note": "Document body text and passwords are intentionally excluded.",
     }
-    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_suffix(path.suffix + ".tmp")
+    temp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    temp.replace(path)
     return path
