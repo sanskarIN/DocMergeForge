@@ -74,9 +74,7 @@ class PdfMergeEngine:
                             f"Encrypted PDF password could not be verified: {item.path}"
                         ) from exc
                     if not decrypted:
-                        raise ValidationError(
-                            f"Encrypted PDF password is incorrect: {item.path}"
-                        )
+                        raise ValidationError(f"Encrypted PDF password is incorrect: {item.path}")
                 start_page = len(writer.pages)
                 for page in reader.pages:
                     writer.add_page(page)
