@@ -1,0 +1,30 @@
+name: Bug report
+description: Report a reproducible DocMergeForge defect without uploading sensitive manuscripts.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Privacy-safe diagnostics
+      description: Do not paste manuscript body text, passwords, or secrets.
