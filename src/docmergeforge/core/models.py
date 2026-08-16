@@ -117,6 +117,13 @@ class DocxSettings:
     start_each_part_on_new_page: bool = True
     preserve_sections: bool = True
     fidelity_mode: str = "portable"
+    add_part_headings: bool = True
+    create_toc_field: bool = True
+    style_conflict_policy: str = "prefer_master"
+    numbering_conflict_policy: str = "remap"
+    header_text: str | None = None
+    footer_text: str | None = None
+    continuous_page_numbering: bool = True
 
 
 @dataclass(slots=True)

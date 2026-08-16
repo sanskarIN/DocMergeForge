@@ -34,6 +34,12 @@ def create_sql_full_mastery_project(source: Path, output: Path) -> MergeProject:
             start_each_part_on_new_page=True,
             preserve_sections=True,
             fidelity_mode="portable",
+            add_part_headings=True,
+            create_toc_field=True,
+            style_conflict_policy="prefer_master",
+            numbering_conflict_policy="remap",
+            footer_text="SQL Full Mastery • Ram Sandesh",
+            continuous_page_numbering=True,
         ),
     )
     return MergeProject(
