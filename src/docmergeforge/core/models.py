@@ -133,6 +133,8 @@ class MergeSettings:
     checksum_generation: bool = True
     automatic_validation: bool = True
     overwrite: bool = False
+    profile_name: str = "Exact Preservation"
+    filename_template: str = "{series}_Master"
     pdf: PdfSettings = field(default_factory=PdfSettings)
     docx: DocxSettings = field(default_factory=DocxSettings)
 
