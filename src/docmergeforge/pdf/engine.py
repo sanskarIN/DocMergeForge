@@ -21,18 +21,23 @@ class PdfMergeEngine:
         settings: PdfSettings,
         *,
         overwrite: bool = False,
+        preserve_order: bool = False,
         progress: Progress | None = None,
         cancelled: Cancelled | None = None,
     ) -> Path:
         from pypdf import PdfReader, PdfWriter
 
-        ordered = sorted(
-            documents,
-            key=lambda item: (
-                item.part.number is None,
-                item.part.number or 0,
-                item.path.name.casefold(),
-            ),
+        ordered = (
+            list(documents)
+            if preserve_order
+            else sorted(
+                documents,
+                key=lambda item: (
+                    item.part.number is None,
+                    item.part.number or 0,
+                    item.path.name.casefold(),
+                ),
+            )
         )
         if not ordered:
             raise ValidationError("No PDF inputs were provided.")
