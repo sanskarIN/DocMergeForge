@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from docmergeforge.core.exceptions import MergeCancelled
 from docmergeforge.core.models import (
     CompanionReference,
     DocumentKind,
@@ -34,6 +36,9 @@ from docmergeforge.reports.generator import (
 from docmergeforge.utilities.hashing import sha256_file, snapshot_hashes, verify_unchanged
 from docmergeforge.utilities.storage import StorageEstimate, require_storage
 from docmergeforge.validation.service import validate_part_set
+
+ProgressCallback = Callable[[str, int, int, Path | None], None]
+CancellationCallback = Callable[[], bool]
 
 
 @dataclass(slots=True, frozen=True)
@@ -96,8 +101,33 @@ class MergeApplicationService:
             True,
         )
 
-    def run_project(self, project: MergeProject) -> list[OutputArtifact]:
+    @staticmethod
+    def _check_cancelled(cancelled: CancellationCallback | None) -> None:
+        if cancelled and cancelled():
+            raise MergeCancelled("Merge cancelled safely before final reporting.")
+
+    @staticmethod
+    def _emit(
+        progress: ProgressCallback | None,
+        stage: str,
+        current: int,
+        total: int,
+        path: Path | None = None,
+    ) -> None:
+        if progress:
+            progress(stage, current, total, path)
+
+    def run_project(
+        self,
+        project: MergeProject,
+        *,
+        progress: ProgressCallback | None = None,
+        cancelled: CancellationCallback | None = None,
+    ) -> list[OutputArtifact]:
+        self._check_cancelled(cancelled)
+        self._emit(progress, "discovering", 0, 1)
         inputs = self.discover(project)
+        self._emit(progress, "discovering", 1, 1)
         pdfs = [item for item in inputs if item.kind == DocumentKind.PDF]
         docxs = [item for item in inputs if item.kind == DocumentKind.DOCX]
         companions = [item for item in inputs if item.kind == DocumentKind.COMPANION]
@@ -105,6 +135,8 @@ class MergeApplicationService:
         if not pdfs and not docxs:
             raise ValueError("No PDF or DOCX inputs were discovered for this project.")
 
+        self._check_cancelled(cancelled)
+        self._emit(progress, "validating", 0, 1)
         validations: dict[str, ValidationResult] = {}
         skipped: list[str] = []
         if pdfs:
@@ -131,6 +163,7 @@ class MergeApplicationService:
                 raise ValueError("DOCX validation failed. Resolve missing or duplicate parts.")
         else:
             skipped.append("DOCX")
+        self._emit(progress, "validating", 1, 1)
 
         tracked = [item.path for item in pdfs + docxs + companions]
         before = snapshot_hashes(tracked)
@@ -145,21 +178,47 @@ class MergeApplicationService:
                 project.output_folder / f"{slug}_Master.pdf",
                 project.settings.pdf,
                 overwrite=project.settings.overwrite,
+                progress=(
+                    lambda current, total, path: self._emit(
+                        progress,
+                        "merging-pdf",
+                        current,
+                        total,
+                        path,
+                    )
+                ),
+                cancelled=cancelled,
             )
             outputs.append(self._artifact(pdf_path, DocumentKind.PDF))
+        self._check_cancelled(cancelled)
         if docxs:
             docx_path = DocxMergeEngine().merge(
                 docxs,
                 project.output_folder / f"{slug}_Master.docx",
                 project.settings.docx,
                 overwrite=project.settings.overwrite,
+                progress=(
+                    lambda current, total, path: self._emit(
+                        progress,
+                        "merging-docx",
+                        current,
+                        total,
+                        path,
+                    )
+                ),
+                cancelled=cancelled,
             )
             outputs.append(self._artifact(docx_path, DocumentKind.DOCX))
 
+        self._check_cancelled(cancelled)
+        self._emit(progress, "verifying", 0, 1)
         changed = verify_unchanged(before)
         if changed:
             raise RuntimeError(f"Original integrity guarantee failed: {changed}")
+        self._emit(progress, "verifying", 1, 1)
 
+        self._check_cancelled(cancelled)
+        self._emit(progress, "reporting", 0, 1)
         refs = [
             CompanionReference(item.part.number, item.path, item.sha256, item.size)
             for item in companions
@@ -193,15 +252,27 @@ class MergeApplicationService:
             project.output_folder / "Publishing_Checklist.md",
             f"Parts {project.settings.expected_start}–{project.settings.expected_end}",
         )
+        self._emit(progress, "reporting", 1, 1)
         return outputs
 
-    def run_sql_preset(self, project: MergeProject) -> list[OutputArtifact]:
+    def run_sql_preset(
+        self,
+        project: MergeProject,
+        *,
+        progress: ProgressCallback | None = None,
+        cancelled: CancellationCallback | None = None,
+    ) -> list[OutputArtifact]:
+        self._check_cancelled(cancelled)
+        self._emit(progress, "discovering", 0, 1)
         inputs = self.discover(project)
+        self._emit(progress, "discovering", 1, 1)
         pdfs = [item for item in inputs if item.kind == DocumentKind.PDF]
         docxs = [item for item in inputs if item.kind == DocumentKind.DOCX]
         companions = [item for item in inputs if item.kind == DocumentKind.COMPANION]
         ignored = [item.path for item in inputs if item.kind == DocumentKind.OTHER]
 
+        self._check_cancelled(cancelled)
+        self._emit(progress, "validating", 0, 1)
         pdf_result = validate_part_set(
             inputs,
             DocumentKind.PDF,
@@ -218,6 +289,7 @@ class MergeApplicationService:
             raise ValueError(
                 "Mandatory validation failed. Run dry-run and resolve missing/duplicate parts."
             )
+        self._emit(progress, "validating", 1, 1)
 
         tracked = [item.path for item in pdfs + docxs + companions]
         before = snapshot_hashes(tracked)
@@ -229,22 +301,48 @@ class MergeApplicationService:
             project.output_folder / PDF_FILENAME,
             project.settings.pdf,
             overwrite=project.settings.overwrite,
+            progress=(
+                lambda current, total, path: self._emit(
+                    progress,
+                    "merging-pdf",
+                    current,
+                    total,
+                    path,
+                )
+            ),
+            cancelled=cancelled,
         )
+        self._check_cancelled(cancelled)
         docx_path = DocxMergeEngine().merge(
             docxs,
             project.output_folder / DOCX_FILENAME,
             project.settings.docx,
             overwrite=project.settings.overwrite,
+            progress=(
+                lambda current, total, path: self._emit(
+                    progress,
+                    "merging-docx",
+                    current,
+                    total,
+                    path,
+                )
+            ),
+            cancelled=cancelled,
         )
 
+        self._check_cancelled(cancelled)
+        self._emit(progress, "verifying", 0, 1)
         changed = verify_unchanged(before)
         if changed:
             raise RuntimeError(f"Original integrity guarantee failed: {changed}")
+        self._emit(progress, "verifying", 1, 1)
 
         outputs = [
             self._artifact(pdf_path, DocumentKind.PDF),
             self._artifact(docx_path, DocumentKind.DOCX),
         ]
+        self._check_cancelled(cancelled)
+        self._emit(progress, "reporting", 0, 1)
         refs = [
             CompanionReference(item.part.number, item.path, item.sha256, item.size)
             for item in companions
@@ -275,4 +373,5 @@ class MergeApplicationService:
             project.output_folder / CHECKSUMS_FILENAME,
         )
         write_publishing_checklist(project.output_folder / "Publishing_Checklist.md")
+        self._emit(progress, "reporting", 1, 1)
         return outputs
