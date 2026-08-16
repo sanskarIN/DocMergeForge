@@ -25,6 +25,7 @@ from docmergeforge.presets.sql_full_mastery import (
     REPORT_HTML_FILENAME,
     REPORT_MD_FILENAME,
 )
+from docmergeforge.project.selection import apply_project_selection
 from docmergeforge.reports.generator import (
     write_checksums,
     write_companion_index,
@@ -61,7 +62,8 @@ class DryRunResult:
 
 class MergeApplicationService:
     def discover(self, project: MergeProject) -> list[InputDocument]:
-        return scan(project.source_folders, recursive=True)
+        discovered = scan(project.source_folders, recursive=True)
+        return apply_project_selection(discovered, project.selected_files)
 
     def dry_run(self, project: MergeProject) -> DryRunResult:
         inputs = self.discover(project)
@@ -170,6 +172,7 @@ class MergeApplicationService:
         require_storage([item.path for item in pdfs + docxs], project.output_folder)
         project.output_folder.mkdir(parents=True, exist_ok=True)
         slug = re.sub(r"[^A-Za-z0-9]+", "_", project.name).strip("_") or "DocMergeForge"
+        preserve_order = bool(project.selected_files)
 
         outputs: list[OutputArtifact] = []
         if pdfs:
@@ -178,6 +181,7 @@ class MergeApplicationService:
                 project.output_folder / f"{slug}_Master.pdf",
                 project.settings.pdf,
                 overwrite=project.settings.overwrite,
+                preserve_order=preserve_order,
                 progress=(
                     lambda current, total, path: self._emit(
                         progress,
@@ -197,6 +201,7 @@ class MergeApplicationService:
                 project.output_folder / f"{slug}_Master.docx",
                 project.settings.docx,
                 overwrite=project.settings.overwrite,
+                preserve_order=preserve_order,
                 progress=(
                     lambda current, total, path: self._emit(
                         progress,
