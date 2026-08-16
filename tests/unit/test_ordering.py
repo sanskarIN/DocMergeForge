@@ -5,7 +5,13 @@ from docmergeforge.ordering.editor import OrderEditor
 
 
 def item(part: int) -> InputDocument:
-    return InputDocument(Path(f"Part {part}.pdf"), DocumentKind.PDF, PartIdentity(part, f"Part {part}"), 1, str(part))
+    return InputDocument(
+        Path(f"Part {part}.pdf"),
+        DocumentKind.PDF,
+        PartIdentity(part, f"Part {part}"),
+        1,
+        str(part),
+    )
 
 
 def test_reorder_undo_redo_and_lock() -> None:

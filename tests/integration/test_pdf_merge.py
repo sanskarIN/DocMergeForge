@@ -2,17 +2,21 @@ from pathlib import Path
 
 import pytest
 
-pypdf = pytest.importorskip("pypdf")
-
-from docmergeforge.core.models import DocumentKind, InputDocument, PartIdentity, PdfSettings
+from docmergeforge.core.models import (
+    DocumentKind,
+    InputDocument,
+    PartIdentity,
+    PdfSettings,
+)
 from docmergeforge.pdf.engine import PdfMergeEngine
 from docmergeforge.utilities.hashing import sha256_file
 
 
 @pytest.mark.integration
 def test_pdf_merge_preserves_page_count_and_sources(tmp_path: Path) -> None:
-    docs = []
-    source_hashes = {}
+    pypdf = pytest.importorskip("pypdf")
+    docs: list[InputDocument] = []
+    source_hashes: dict[Path, str] = {}
     for part in range(1, 4):
         path = tmp_path / f"Part {part}.pdf"
         writer = pypdf.PdfWriter()
@@ -21,7 +25,16 @@ def test_pdf_merge_preserves_page_count_and_sources(tmp_path: Path) -> None:
             writer.write(handle)
         digest = sha256_file(path)
         source_hashes[path] = digest
-        docs.append(InputDocument(path, DocumentKind.PDF, PartIdentity(part, f"Part {part}"), path.stat().st_size, digest, 1))
+        docs.append(
+            InputDocument(
+                path,
+                DocumentKind.PDF,
+                PartIdentity(part, f"Part {part}"),
+                path.stat().st_size,
+                digest,
+                1,
+            )
+        )
 
     output = tmp_path / "master.pdf"
     PdfMergeEngine().merge(docs, output, PdfSettings(title="Test"))
