@@ -33,7 +33,7 @@ def insert_toc_field(document: Any) -> None:
     placeholder.text = "Right-click and update field if Word does not refresh automatically."
     end = OxmlElement("w:fldChar")
     end.set(qn("w:fldCharType"), "end")
-    run._r.extend([begin, instruction, separate, placeholder, end])  # type: ignore[attr-defined]
+    run._r.extend([begin, instruction, separate, placeholder, end])
 
     settings = document.settings.element
     update = settings.find(qn("w:updateFields"))
@@ -53,7 +53,7 @@ def apply_book_headers_footers(document: Any, header: str | None, footer: str | 
 
 def make_page_numbering_continuous(document: Any) -> None:
     for section in document.sections:
-        section_properties = section._sectPr  # type: ignore[attr-defined]
+        section_properties = section._sectPr
         for node in list(section_properties.findall(qn("w:pgNumType"))):
             section_properties.remove(node)
 
