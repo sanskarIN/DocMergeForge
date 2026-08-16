@@ -6,7 +6,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import QTimer, Qt, QUrl
 from PySide6.QtGui import QDesktopServices, QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -29,6 +29,7 @@ from docmergeforge.discovery.scanner import scan
 from docmergeforge.docx.engine import DocxMergeEngine
 from docmergeforge.pdf.engine import PdfMergeEngine
 from docmergeforge.presets.sql_full_mastery import PRESET_NAME, create_sql_full_mastery_project
+from docmergeforge.profiles.catalog import MergeProfile, apply_profile
 from docmergeforge.project.store import load_project, save_project
 from docmergeforge.settings.config import AppSettings
 from docmergeforge.ui.about_dialog import AboutDialog
@@ -39,10 +40,12 @@ from docmergeforge.ui.dialogs import (
     SettingsDialog,
     TextReportDialog,
 )
+from docmergeforge.ui.first_run import FirstRunDialog
 from docmergeforge.ui.order_dialog import OrderEditorDialog
 from docmergeforge.ui.paths import recent_projects_path, settings_path
 from docmergeforge.ui.recent import RecentProject, RecentProjectsStore
-from docmergeforge.ui.theme import apply_theme
+from docmergeforge.ui.support_dialog import SupportDialog
+from docmergeforge.ui.theme import apply_text_scale, apply_theme
 from docmergeforge.ui.workers import MergeWorker
 from docmergeforge.validation.compare import compare_docx, compare_pdf
 from docmergeforge.validation.service import validate_part_set
@@ -64,6 +67,7 @@ class MainWindow(QMainWindow):
         self.service = MergeApplicationService()
         self.app_settings = AppSettings.load(settings_path())
         self.recent = RecentProjectsStore(recent_projects_path())
+        self.recent_errors: list[str] = []
         self.setWindowTitle("DocMergeForge")
         self.resize(1080, 720)
         self.setMinimumSize(820, 560)
@@ -99,6 +103,7 @@ class MainWindow(QMainWindow):
             ("Recent Projects", self._recent_projects),
             ("Settings", self._settings),
             ("Help", self._help),
+            ("Support", self._support),
             ("About", self._about),
         ]
         for index, (label, callback) in enumerate(actions):
@@ -124,14 +129,46 @@ class MainWindow(QMainWindow):
         self.setStatusBar(QStatusBar())
         self.statusBar().showMessage("Drop a project folder here or choose an action.")
 
+    def show_first_run_if_needed(self) -> None:
+        if self.app_settings.first_run_completed:
+            return
+        FirstRunDialog().exec()
+        self.app_settings.first_run_completed = True
+        self.app_settings.save(settings_path())
+
+    def _record_error(self, message: str) -> None:
+        sanitized = message.strip()
+        if not sanitized:
+            return
+        self.recent_errors.append(sanitized[:4000])
+        self.recent_errors = self.recent_errors[-20:]
+
     def _about(self) -> None:
         AboutDialog().exec()
+
+    def _support(self) -> None:
+        SupportDialog(recent_errors=self.recent_errors).exec()
+
+    def _apply_project_defaults(self, project: MergeProject) -> None:
+        if project.name == PRESET_NAME:
+            return
+        try:
+            profile = MergeProfile(self.app_settings.merge_profile)
+        except ValueError:
+            profile = MergeProfile.CUSTOM
+        project.settings = apply_profile(project.settings, profile)
+        project.settings.checksum_generation = self.app_settings.checksum_generation
+        project.settings.automatic_validation = self.app_settings.automatic_validation
+        project.settings.filename_template = self.app_settings.filename_template or "{series}_Master"
+        project.settings.pdf.optimization = self.app_settings.pdf_optimization
+        project.settings.docx.fidelity_mode = self.app_settings.docx_fidelity_mode
 
     def _confirm_project_order(self, project: MergeProject) -> bool:
         try:
             discovered = self.service.discover(project)
         except (OSError, ValueError) as exc:
             QMessageBox.critical(self, "Discovery failed", str(exc))
+            self._record_error(str(exc))
             return False
         documents = [
             item
@@ -158,9 +195,12 @@ class MainWindow(QMainWindow):
 
     def _new_project(self, initial_source: Path | None = None) -> None:
         dialog = ProjectSetupDialog(initial_source)
+        if self.app_settings.default_output_folder:
+            dialog.output.set_path(Path(self.app_settings.default_output_folder))
         if dialog.exec() != int(dialog.DialogCode.Accepted):
             return
         project = dialog.project()
+        self._apply_project_defaults(project)
         if not self._confirm_project_order(project):
             return
         suggested = project.output_folder / "docmergeforge-project.json"
@@ -195,6 +235,7 @@ class MainWindow(QMainWindow):
             return self.service.run_project(project, progress=progress, cancelled=cancelled)
 
         worker = MergeWorker(runner)
+        worker.failed.connect(self._record_error)
         progress_dialog = MergeProgressDialog(worker, "DocMergeForge Merge")
         result = progress_dialog.start()
         if result == int(progress_dialog.DialogCode.Accepted):
@@ -237,7 +278,7 @@ class MainWindow(QMainWindow):
                 return PdfMergeEngine().merge(
                     items,
                     Path(output),
-                    PdfSettings(),
+                    PdfSettings(optimization=self.app_settings.pdf_optimization),
                     progress=lambda current, total, path: progress(
                         "merging-pdf", current, total, path
                     ),
@@ -246,7 +287,7 @@ class MainWindow(QMainWindow):
             return DocxMergeEngine().merge(
                 items,
                 Path(output),
-                DocxSettings(),
+                DocxSettings(fidelity_mode=self.app_settings.docx_fidelity_mode),
                 progress=lambda current, total, path: progress(
                     "merging-docx", current, total, path
                 ),
@@ -254,6 +295,7 @@ class MainWindow(QMainWindow):
             )
 
         worker = MergeWorker(runner)
+        worker.failed.connect(self._record_error)
         dialog = MergeProgressDialog(worker, f"Merge {kind.value.upper()}")
         if dialog.start() == int(dialog.DialogCode.Accepted):
             QMessageBox.information(self, "Validated output created", str(worker.result))
@@ -287,6 +329,7 @@ class MainWindow(QMainWindow):
             )
 
         worker = MergeWorker(runner)
+        worker.failed.connect(self._record_error)
         dialog = MergeProgressDialog(worker, "Validate Files")
         if dialog.start() == int(dialog.DialogCode.Accepted):
             TextReportDialog("Validation Results", str(worker.result)).exec()
@@ -305,6 +348,7 @@ class MainWindow(QMainWindow):
             return findings
 
         worker = MergeWorker(runner)
+        worker.failed.connect(self._record_error)
         dialog = MergeProgressDialog(worker, "Publication Audit")
         if dialog.start() != int(dialog.DialogCode.Accepted):
             return
@@ -333,14 +377,19 @@ class MainWindow(QMainWindow):
         )
         if not pdf_output and not docx_output:
             return
-        items = scan([Path(source)])
-        evidence: dict[str, object] = {}
-        if pdf_output:
-            pdfs = [item for item in items if item.kind == DocumentKind.PDF]
-            evidence["pdf"] = asdict(compare_pdf(pdfs, Path(pdf_output)))
-        if docx_output:
-            docxs = [item for item in items if item.kind == DocumentKind.DOCX]
-            evidence["docx"] = compare_docx(docxs, Path(docx_output)).to_dict()
+        try:
+            items = scan([Path(source)])
+            evidence: dict[str, object] = {}
+            if pdf_output:
+                pdfs = [item for item in items if item.kind == DocumentKind.PDF]
+                evidence["pdf"] = asdict(compare_pdf(pdfs, Path(pdf_output)))
+            if docx_output:
+                docxs = [item for item in items if item.kind == DocumentKind.DOCX]
+                evidence["docx"] = compare_docx(docxs, Path(docx_output)).to_dict()
+        except (OSError, ValueError) as exc:
+            self._record_error(str(exc))
+            QMessageBox.critical(self, "Comparison failed", str(exc))
+            return
         TextReportDialog(
             "Output Comparison",
             json.dumps(evidence, indent=2, default=str),
@@ -356,7 +405,12 @@ class MainWindow(QMainWindow):
         if not project_file:
             return
         path = Path(project_file)
-        project = load_project(path)
+        try:
+            project = load_project(path)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            self._record_error(str(exc))
+            QMessageBox.critical(self, "Project could not be opened", str(exc))
+            return
         if not self._confirm_project_order(project):
             return
         save_project(project, path)
@@ -364,6 +418,13 @@ class MainWindow(QMainWindow):
         self._run_project(project)
 
     def _recent_projects(self) -> None:
+        if not self.app_settings.recent_project_history:
+            QMessageBox.information(
+                self,
+                "Recent Projects",
+                "Recent project history is disabled in Settings.",
+            )
+            return
         projects = self.recent.remove_missing()
         if not projects:
             QMessageBox.information(self, "Recent Projects", "No saved recent projects were found.")
@@ -376,6 +437,8 @@ class MainWindow(QMainWindow):
             self._run_project(load_project(selected.project_file))
 
     def _remember_project(self, project: MergeProject, project_file: Path) -> None:
+        if not self.app_settings.recent_project_history:
+            return
         source = project.source_folders[0] if project.source_folders else Path()
         self.recent.add(
             RecentProject(
@@ -395,6 +458,7 @@ class MainWindow(QMainWindow):
         app = QApplication.instance()
         if isinstance(app, QApplication):
             apply_theme(app, self.app_settings.theme)
+            apply_text_scale(app, self.app_settings.text_scale_percent)
         self.statusBar().showMessage("Settings saved locally.", 5000)
 
     def _help(self) -> None:
@@ -402,9 +466,10 @@ class MainWindow(QMainWindow):
             "DocMergeForge Help",
             "Local-first workflow:\n\n"
             "1. Select or drop the folder containing numbered Parts.\n"
-            "2. Validate missing and duplicate Parts.\n"
-            "3. Merge PDF and DOCX independently.\n"
-            "4. Review generated reports, checksums, and manifests.\n\n"
+            "2. Confirm the final document order.\n"
+            "3. Validate missing and duplicate Parts.\n"
+            "4. Merge PDF and DOCX independently.\n"
+            "5. Review generated reports, checksums, and manifests.\n\n"
             "Original documents are never overwritten. Companion code remains separate.\n\n"
             "Support: supportramsandesh@gmail.com\n"
             "Repository: https://github.com/sanskarIN/DocMergeForge\n"
@@ -431,8 +496,10 @@ def main() -> int:
     app.setOrganizationName("Sanskar")
     settings = AppSettings.load(settings_path())
     apply_theme(app, settings.theme)
+    apply_text_scale(app, settings.text_scale_percent)
     window = MainWindow()
     window.show()
+    QTimer.singleShot(0, window.show_first_run_if_needed)
     return app.exec()
 
 
