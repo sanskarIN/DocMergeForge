@@ -1,6 +1,8 @@
 from pathlib import Path
 
-from docmergeforge.packaging.desktop import build_args
+import pytest
+
+from docmergeforge.packaging.desktop import build_args, validate_build_root
 
 
 def test_build_args_create_windowed_onedir_app(tmp_path: Path) -> None:
@@ -20,3 +22,22 @@ def test_build_args_can_create_one_file_app(tmp_path: Path) -> None:
     args = build_args(tmp_path, one_file=True)
     assert "--onefile" in args
     assert "--onedir" not in args
+
+
+def test_validate_build_root_accepts_required_layout(tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
+    entry = tmp_path / "src" / "docmergeforge" / "ui" / "main.py"
+    entry.parent.mkdir(parents=True)
+    entry.write_text("def main():\n    return 0\n", encoding="utf-8")
+
+    assert validate_build_root(tmp_path) == tmp_path.resolve()
+
+
+def test_validate_build_root_reports_missing_files(tmp_path: Path) -> None:
+    with pytest.raises(ValueError) as exc_info:
+        validate_build_root(tmp_path)
+
+    message = str(exc_info.value)
+    assert "pyproject.toml" in message
+    assert "src" in message
+    assert "main.py" in message
