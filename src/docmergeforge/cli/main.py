@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from docmergeforge.app.service import MergeApplicationService
-from docmergeforge.core.models import DocxSettings, DocumentKind, PdfSettings
+from docmergeforge.core.models import DocumentKind, DocxSettings, PdfSettings
 from docmergeforge.discovery.scanner import scan
 from docmergeforge.docx.engine import DocxMergeEngine
 from docmergeforge.pdf.engine import PdfMergeEngine
