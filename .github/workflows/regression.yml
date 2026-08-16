@@ -1,6 +1,8 @@
 name: 120-Part Regression
 
 on:
+  push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -9,6 +11,7 @@ permissions:
 
 jobs:
   regression:
+    name: 120-part regression
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,6 +19,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+      - run: python -m pip install --upgrade pip
       - run: pip install -e ".[dev]"
       - run: python scripts/generate_120_fixture.py fixtures/generated/sql-120
       - run: pytest -m "regression or integration" tests/regression tests/integration
