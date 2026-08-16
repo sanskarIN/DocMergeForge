@@ -220,9 +220,7 @@ class MainWindow(QMainWindow):
             self._record_error(str(exc))
             return False
         documents = [
-            item
-            for item in discovered
-            if item.kind in {DocumentKind.PDF, DocumentKind.DOCX}
+            item for item in discovered if item.kind in {DocumentKind.PDF, DocumentKind.DOCX}
         ]
         if not documents:
             QMessageBox.warning(
