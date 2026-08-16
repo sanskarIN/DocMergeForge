@@ -20,12 +20,19 @@ class StorageEstimate:
         return self.free_bytes >= self.safe_required_bytes
 
 
+def _existing_anchor(path: Path) -> Path:
+    candidate = path
+    while not candidate.exists() and candidate != candidate.parent:
+        candidate = candidate.parent
+    return candidate
+
+
 def estimate_storage(paths: list[Path], output_folder: Path) -> StorageEstimate:
     source = sum(path.stat().st_size for path in paths if path.exists())
     projected = max(source, 1)
     temporary = int(projected * 1.25)
     safe = projected + temporary + 128 * 1024 * 1024
-    free = shutil.disk_usage(output_folder if output_folder.exists() else output_folder.parent).free
+    free = shutil.disk_usage(_existing_anchor(output_folder)).free
     return StorageEstimate(source, projected, temporary, safe, free)
 
 

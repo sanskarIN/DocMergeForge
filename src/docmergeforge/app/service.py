@@ -77,8 +77,12 @@ class MergeApplicationService:
 
         pdf_path = project.output_folder / PDF_FILENAME
         docx_path = project.output_folder / DOCX_FILENAME
-        PdfMergeEngine().merge(pdfs, pdf_path, project.settings.pdf, overwrite=project.settings.overwrite)
-        DocxMergeEngine().merge(docxs, docx_path, project.settings.docx, overwrite=project.settings.overwrite)
+        pdf_path = PdfMergeEngine().merge(
+            pdfs, pdf_path, project.settings.pdf, overwrite=project.settings.overwrite
+        )
+        docx_path = DocxMergeEngine().merge(
+            docxs, docx_path, project.settings.docx, overwrite=project.settings.overwrite
+        )
 
         changed = verify_unchanged(before)
         if changed:

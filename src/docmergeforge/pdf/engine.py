@@ -5,7 +5,7 @@ from pathlib import Path
 
 from docmergeforge.core.exceptions import MergeCancelled, ValidationError
 from docmergeforge.core.models import InputDocument, PdfSettings
-from docmergeforge.utilities.atomic import atomic_output
+from docmergeforge.utilities.atomic import atomic_output, versioned_path
 from docmergeforge.utilities.hashing import sha256_file, snapshot_hashes, verify_unchanged
 
 Progress = Callable[[int, int, Path], None]
@@ -30,8 +30,9 @@ class PdfMergeEngine:
             key=lambda item: (item.part.number is None, item.part.number or 0, item.path.name.casefold()),
         )
         before = snapshot_hashes(item.path for item in ordered)
+        final_output = output if overwrite else versioned_path(output)
 
-        with atomic_output(output, overwrite=overwrite) as temporary:
+        with atomic_output(final_output, overwrite=True) as temporary:
             writer = PdfWriter()
             expected_pages = 0
             for index, item in enumerate(ordered, start=1):
@@ -71,7 +72,7 @@ class PdfMergeEngine:
         changed = verify_unchanged(before)
         if changed:
             raise ValidationError(f"Source integrity violation: {changed}")
-        return output
+        return final_output
 
     @staticmethod
     def validate_output(path: Path, expected_pages: int | None = None) -> dict[str, object]:

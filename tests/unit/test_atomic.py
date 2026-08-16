@@ -25,3 +25,11 @@ def test_versioned_path(tmp_path: Path) -> None:
     first = tmp_path / "Book.pdf"
     first.write_bytes(b"x")
     assert versioned_path(first).name == "Book_v2.pdf"
+
+def test_atomic_output_versions_existing_file(tmp_path: Path) -> None:
+    first = tmp_path / "Book.pdf"
+    first.write_bytes(b"old")
+    with atomic_output(first, overwrite=False) as temp:
+        temp.write_bytes(b"new")
+    assert first.read_bytes() == b"old"
+    assert (tmp_path / "Book_v2.pdf").read_bytes() == b"new"

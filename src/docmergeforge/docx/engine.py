@@ -6,7 +6,7 @@ from pathlib import Path
 
 from docmergeforge.core.exceptions import MergeCancelled, ValidationError
 from docmergeforge.core.models import DocxSettings, InputDocument
-from docmergeforge.utilities.atomic import atomic_output
+from docmergeforge.utilities.atomic import atomic_output, versioned_path
 from docmergeforge.utilities.hashing import snapshot_hashes, verify_unchanged
 from docmergeforge.validation.ooxml import validate_docx_package
 
@@ -36,12 +36,13 @@ class DocxMergeEngine:
             raise ValidationError("No DOCX inputs were provided.")
 
         before = snapshot_hashes(item.path for item in ordered)
+        final_output = output if overwrite else versioned_path(output)
         for item in ordered:
             diagnostics = validate_docx_package(item.path)
             if any(diag.level.value in {"ERROR", "FATAL"} for diag in diagnostics):
                 raise ValidationError(f"Invalid DOCX input: {item.path}: {diagnostics[0].message}")
 
-        with atomic_output(output, overwrite=overwrite) as temporary:
+        with atomic_output(final_output, overwrite=True) as temporary:
             master = Document(str(ordered[0].path))
             composer = Composer(master)
             for index, item in enumerate(ordered[1:], start=2):
@@ -65,7 +66,7 @@ class DocxMergeEngine:
         changed = verify_unchanged(before)
         if changed:
             raise ValidationError(f"Source integrity violation: {changed}")
-        return output
+        return final_output
 
     @staticmethod
     def high_fidelity_available() -> bool:
