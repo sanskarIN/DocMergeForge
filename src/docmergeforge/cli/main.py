@@ -78,11 +78,8 @@ def _preflight_payload(project: MergeProject, allow_encrypted_pdf: bool) -> dict
 def _filter_pattern(items: list[InputDocument], pattern: str | None) -> list[InputDocument]:
     if not pattern:
         return items
-    return [
-        item
-        for item in items
-        if fnmatch.fnmatch(item.path.name.casefold(), pattern.casefold())
-    ]
+    normalized_pattern = pattern.casefold()
+    return [item for item in items if fnmatch.fnmatch(item.path.name.casefold(), normalized_pattern)]
 
 
 def _ordered_items(items: list[InputDocument], natural_sort: bool) -> list[InputDocument]:
