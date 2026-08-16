@@ -13,11 +13,7 @@ def collect_pdf_passwords(
     documents: list[InputDocument],
 ) -> dict[Path, str] | None:
     """Collect and verify encrypted-PDF passwords only in process memory."""
-    encrypted = [
-        item
-        for item in documents
-        if item.kind == DocumentKind.PDF and item.encrypted
-    ]
+    encrypted = [item for item in documents if item.kind == DocumentKind.PDF and item.encrypted]
     passwords: dict[Path, str] = {}
     for item in encrypted:
         while True:
