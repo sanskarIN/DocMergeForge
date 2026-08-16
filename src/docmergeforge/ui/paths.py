@@ -25,3 +25,7 @@ def recent_projects_path() -> Path:
 
 def recovery_dir() -> Path:
     return app_data_dir() / "recovery"
+
+
+def log_path() -> Path:
+    return app_data_dir() / "logs" / "docmergeforge.log"
