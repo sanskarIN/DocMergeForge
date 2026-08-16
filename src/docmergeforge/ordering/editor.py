@@ -1,9 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from docmergeforge.core.models import InputDocument
 from docmergeforge.discovery.part_detection import natural_key
+
+
+def _path_key(path: Path) -> str:
+    try:
+        return str(path.resolve(strict=False)).casefold()
+    except OSError:
+        return str(path.absolute()).casefold()
 
 
 @dataclass(slots=True)
@@ -37,7 +45,26 @@ class OrderEditor:
             reverse=descending,
         )
 
+    def set_order(self, ordered_paths: list[Path]) -> None:
+        """Replace the complete order after validating a drag/drop result."""
+        if len(ordered_paths) != len(self.items):
+            raise ValueError("Replacement order must contain every current item exactly once.")
+
+        by_path = {_path_key(item.path): item for item in self.items}
+        requested_keys = [_path_key(path) for path in ordered_paths]
+        if len(set(requested_keys)) != len(requested_keys):
+            raise ValueError("Replacement order contains duplicate paths.")
+        if set(requested_keys) != set(by_path):
+            raise ValueError("Replacement order must contain the same document paths.")
+
+        self._snapshot()
+        self.items = [by_path[key] for key in requested_keys]
+
     def move(self, source: int, target: int) -> None:
+        if source < 0 or source >= len(self.items):
+            raise IndexError("Source index is outside the document order.")
+        if target < 0 or target >= len(self.items):
+            raise IndexError("Target index is outside the document order.")
         self._snapshot()
         item = self.items.pop(source)
         self.items.insert(target, item)
@@ -79,6 +106,8 @@ class OrderEditor:
         return [item for item in self.items if needle in item.path.name.casefold()]
 
     def adjacent(self, index: int) -> tuple[InputDocument | None, InputDocument | None]:
+        if index < 0 or index >= len(self.items):
+            raise IndexError("Index is outside the document order.")
         before = self.items[index - 1] if index > 0 else None
         after = self.items[index + 1] if index < len(self.items) - 1 else None
         return before, after
