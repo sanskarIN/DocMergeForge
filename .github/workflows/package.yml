@@ -1,0 +1,78 @@
+name: Package Desktop
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: package (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+        python-version: ["3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install project and packaging tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e . pyinstaller
+
+      - name: Build desktop application
+        run: python scripts/build_desktop.py
+
+      - name: Archive Windows artifact
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist/DocMergeForge/* -DestinationPath DocMergeForge-Windows-unsigned.zip
+
+      - name: Archive macOS artifact
+        if: runner.os == 'macOS'
+        run: tar -czf DocMergeForge-macOS-unsigned.tar.gz -C dist DocMergeForge
+
+      - name: Archive Linux artifact
+        if: runner.os == 'Linux'
+        run: tar -czf DocMergeForge-Linux-unsigned.tar.gz -C dist DocMergeForge
+
+      - name: Upload Windows artifact
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: DocMergeForge-Windows-unsigned
+          path: DocMergeForge-Windows-unsigned.zip
+          if-no-files-found: error
+
+      - name: Upload macOS artifact
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: DocMergeForge-macOS-unsigned
+          path: DocMergeForge-macOS-unsigned.tar.gz
+          if-no-files-found: error
+
+      - name: Upload Linux artifact
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: DocMergeForge-Linux-unsigned
+          path: DocMergeForge-Linux-unsigned.tar.gz
+          if-no-files-found: error
+
+      - name: Packaging notice
+        run: >-
+          echo "These CI artifacts are unsigned development builds. Code signing and notarization
+          must be configured with platform credentials before production distribution."
