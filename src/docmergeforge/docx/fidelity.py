@@ -56,9 +56,7 @@ def require_production_fidelity(mode: str) -> None:
     if capability.production_ready:
         return
     if not capability.available:
-        raise ValidationError(
-            f"DOCX fidelity mode '{mode}' is unavailable: {capability.detail}"
-        )
+        raise ValidationError(f"DOCX fidelity mode '{mode}' is unavailable: {capability.detail}")
     raise ValidationError(
         f"DOCX fidelity mode '{mode}' is not production-ready: {capability.detail} "
         "Choose portable mode instead of silently falling back."
