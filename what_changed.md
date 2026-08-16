@@ -2,6 +2,38 @@
 
 This file records meaningful DocMergeForge development changes, validation evidence, and known limitations. An item is not treated as finished merely because code was pushed; CI, packaging, and acceptance evidence remain part of the completion gate.
 
+## 2026-08-16 — Packaging preflight and continuously exercised release gates
+
+### Added
+- `validate_build_root()` in `src/docmergeforge/packaging/desktop.py` to fail early when the selected packaging root does not contain the required `pyproject.toml` and desktop entry point.
+- `python scripts/build_desktop.py --check` as a packaging preflight command that validates repository layout without importing or running PyInstaller.
+- Unit coverage for valid and invalid desktop build roots.
+- An integration test that executes the real desktop build script preflight from the repository root and verifies its successful exit/result message.
+
+### Changed
+- Build Smoke now runs on pushes to `main`, pull requests, and manual dispatch instead of depending only on pull-request/manual execution.
+- Build Smoke now executes the packaging preflight on Ubuntu, Windows, and macOS after installing the declared build dependencies and verifying the CLI/importable source tree.
+- 120-Part Regression now runs automatically on pushes to `main` as well as pull requests/manual dispatch, continuously exercising the generated 120-part fixture and CLI validation path.
+- Package Desktop now installs the repository-declared `.[build]` extra and runs the same packaging preflight before invoking PyInstaller.
+- Packaging configuration remains centralized in the installable application package so tests, smoke checks, and the packaging script share one source of build arguments.
+
+### Fixed
+- Quality CI initially rejected the new packaging integration test because its import block did not exactly match Ruff's repository policy. The import layout was corrected without weakening or disabling the lint rule.
+
+### Verified CI Evidence
+- Source-code checkpoint: `8cc96d714c43922b0effcbb16400fb2952f056b1`.
+- Quality run `31948936694` completed successfully on both Python 3.12 and Python 3.13. Ruff, Black, strict `mypy`, and full pytest with coverage all passed on both matrix jobs.
+- 120-Part Regression run `31948936615` completed successfully for the same checkpoint.
+- Build Smoke run `31948936667` completed successfully for the same checkpoint across the configured Ubuntu, Windows, and macOS runner matrix.
+- Security run `31948936651` completed successfully for the same checkpoint.
+- The Package Desktop workflow itself was not executed as part of this checkpoint. Its artifacts remain an unsigned pipeline foundation and are not represented here as production release binaries.
+
+### Release-Gate Status After This Work
+- Packaging configuration errors can now be detected before a PyInstaller build begins.
+- Cross-platform build-smoke configuration and the 120-part regression path are continuously exercised on `main` pushes.
+- This does not satisfy production packaging acceptance by itself. Signed Windows distribution, macOS signing/notarization, installer/bundle acceptance, real packaged-app launch testing, and signature verification remain separate release gates.
+- The project remains below `v1.0.0` until the remaining stress, recovery, fidelity, accessibility, and production-distribution acceptance work is verified.
+
 ## 2026-08-16 — Desktop workflow, packaging foundation, encrypted-PDF support, and CI recovery
 
 ### Added
@@ -64,7 +96,7 @@ This file records meaningful DocMergeForge development changes, validation evide
 - Cross-platform packaging exists as an unsigned pipeline foundation; signed installers, notarization, platform-specific installer polish, and signature verification are not complete claims.
 - Multi-gigabyte stress testing, disk-full behavior, repeated cancellation/recovery testing, large real-world manuscript fidelity testing, and full accessibility verification remain release-gate work.
 - GUI accessibility features require final keyboard-only, screen-reader, high-contrast, scaling, and reduced-motion acceptance testing even where labels/settings are already implemented.
-- Build Smoke, 120-Part Regression, and Package Desktop workflows are manually dispatchable (and some also run on pull requests/tags); their manual cross-platform acceptance runs are not claimed here unless separately executed and verified.
+- Build Smoke and 120-Part Regression now run automatically on `main` pushes and remain manually dispatchable; Package Desktop remains manually/tag-triggered. Successful smoke/regression runs do not constitute signed production-package acceptance.
 - The project continues to enforce the core safety rule: PDF manuscripts may merge with PDF manuscripts and DOCX manuscripts may merge with DOCX manuscripts, while companion/source code remains separate and is never merged into a manuscript.
 
 ### Repository / Commit Identity
