@@ -16,7 +16,7 @@ def main() -> int:
         from docx import Document
         from pypdf import PdfWriter
     except ImportError as exc:
-        raise SystemExit(f"Install project dependencies first: {exc}")
+        raise SystemExit(f"Install project dependencies first: {exc}") from exc
 
     for part in range(1, 121):
         pdf = args.output / f"SQL_Full_Mastery_Part_{part:03d}_Ram_Sandesh.pdf"
@@ -43,10 +43,13 @@ def main() -> int:
 
         archive = args.output / f"SQL_Full_Mastery_Part_{part:03d}_Companion_Code.zip"
         with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-            zf.writestr("README.txt", f"Independent companion project for Part {part}.\\n")
-            zf.writestr("example.sql", f"-- Part {part}\\nSELECT {part};\\n")
+            zf.writestr("README.txt", f"Independent companion project for Part {part}.\n")
+            zf.writestr("example.sql", f"-- Part {part}\nSELECT {part};\n")
 
-    print(f"Generated 120 PDF, 120 DOCX, and 120 independent companion ZIP fixtures in {args.output}")
+    print(
+        "Generated 120 PDF, 120 DOCX, and 120 independent companion ZIP fixtures "
+        f"in {args.output}"
+    )
     return 0
 
 
