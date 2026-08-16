@@ -6,7 +6,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QTimer, Qt, QUrl
+from PySide6.QtCore import Qt, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices, QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -197,7 +197,9 @@ class MainWindow(QMainWindow):
         project.settings = apply_profile(project.settings, profile)
         project.settings.checksum_generation = self.app_settings.checksum_generation
         project.settings.automatic_validation = self.app_settings.automatic_validation
-        project.settings.filename_template = self.app_settings.filename_template or "{series}_Master"
+        project.settings.filename_template = (
+            self.app_settings.filename_template or "{series}_Master"
+        )
         project.settings.pdf.optimization = self.app_settings.pdf_optimization
         project.settings.docx.fidelity_mode = self.app_settings.docx_fidelity_mode
 
@@ -269,7 +271,9 @@ class MainWindow(QMainWindow):
         passwords = self._project_passwords(project)
         if passwords is None:
             return
-        password_provider = lambda path: passwords.get(path)
+
+        def password_provider(path: Path) -> str | None:
+            return passwords.get(path)
 
         def runner(progress: Any, cancelled: Any) -> object:
             def checkpointing_progress(
