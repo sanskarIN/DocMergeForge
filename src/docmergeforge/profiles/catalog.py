@@ -20,6 +20,7 @@ def profile_names() -> list[str]:
 
 def apply_profile(settings: MergeSettings, profile: MergeProfile) -> MergeSettings:
     result = deepcopy(settings)
+    result.profile_name = profile.value
     if profile is MergeProfile.EXACT_PRESERVATION:
         result.checksum_generation = True
         result.automatic_validation = True
