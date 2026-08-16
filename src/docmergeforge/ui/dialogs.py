@@ -145,46 +145,97 @@ class ProjectSetupDialog(QDialog):
 class SettingsDialog(QDialog):
     def __init__(self, settings: AppSettings) -> None:
         super().__init__()
+        self._base = settings
         self.setWindowTitle("DocMergeForge Settings")
-        self.setMinimumWidth(600)
+        self.setMinimumWidth(680)
         layout = QVBoxLayout(self)
         form = QFormLayout()
 
         self.theme = QComboBox()
         self.theme.addItems(["system", "light", "dark"])
         self.theme.setCurrentText(settings.theme)
+
+        self.profile = QComboBox()
+        self.profile.addItems(
+            ["Exact Preservation", "Master eBook", "Print Draft", "Archive", "Custom"]
+        )
+        self.profile.setCurrentText(settings.merge_profile)
+
+        self.filename_template = QLineEdit(settings.filename_template)
+        self.filename_template.setPlaceholderText(
+            "{series}_Complete_{part_count}_Part_Master_Edition"
+        )
+
         self.output = PathPicker("Select default output folder")
         if settings.default_output_folder:
             self.output.set_path(Path(settings.default_output_folder))
         self.temp = PathPicker("Select temporary directory")
         if settings.temporary_directory:
             self.temp.set_path(Path(settings.temporary_directory))
+
         self.workers = QSpinBox()
         self.workers.setRange(1, 64)
         self.workers.setValue(settings.worker_count)
+
         self.logging = QComboBox()
         self.logging.addItems(["DEBUG", "INFO", "WARNING", "ERROR"])
         self.logging.setCurrentText(settings.logging_level)
+
         self.checksums = QCheckBox()
         self.checksums.setChecked(settings.checksum_generation)
         self.validation = QCheckBox()
         self.validation.setChecked(settings.automatic_validation)
-        self.recovery = QCheckBox()
-        self.recovery.setChecked(settings.crash_recovery)
+
+        self.pdf_optimization = QComboBox()
+        self.pdf_optimization.addItems(["preserve", "balanced", "archive"])
+        self.pdf_optimization.setCurrentText(settings.pdf_optimization)
+
         self.fidelity = QComboBox()
         self.fidelity.addItems(["portable", "libreoffice", "word"])
         self.fidelity.setCurrentText(settings.docx_fidelity_mode)
 
+        self.libreoffice = QCheckBox()
+        self.libreoffice.setChecked(settings.libreoffice_integration)
+        self.word_fidelity = QCheckBox()
+        self.word_fidelity.setChecked(settings.word_high_fidelity)
+        self.recovery = QCheckBox()
+        self.recovery.setChecked(settings.crash_recovery)
+        self.recent_history = QCheckBox()
+        self.recent_history.setChecked(settings.recent_project_history)
+        self.reduced_motion = QCheckBox()
+        self.reduced_motion.setChecked(settings.reduced_motion)
+
+        self.text_scale = QSpinBox()
+        self.text_scale.setRange(80, 200)
+        self.text_scale.setSingleStep(10)
+        self.text_scale.setSuffix("%")
+        self.text_scale.setValue(settings.text_scale_percent)
+
         form.addRow("Theme", self.theme)
+        form.addRow("Merge profile", self.profile)
+        form.addRow("Filename template", self.filename_template)
         form.addRow("Default output", self.output)
         form.addRow("Temporary directory", self.temp)
         form.addRow("Worker count", self.workers)
         form.addRow("Logging level", self.logging)
         form.addRow("Generate checksums", self.checksums)
         form.addRow("Automatic validation", self.validation)
-        form.addRow("Crash recovery", self.recovery)
+        form.addRow("PDF optimization", self.pdf_optimization)
         form.addRow("DOCX fidelity mode", self.fidelity)
+        form.addRow("Enable LibreOffice integration", self.libreoffice)
+        form.addRow("Enable Word high-fidelity mode", self.word_fidelity)
+        form.addRow("Crash recovery", self.recovery)
+        form.addRow("Recent project history", self.recent_history)
+        form.addRow("Reduced motion", self.reduced_motion)
+        form.addRow("Text scale", self.text_scale)
         layout.addLayout(form)
+
+        fidelity_note = QLabel(
+            "High-fidelity adapters are used only when explicitly selected and available. "
+            "Portable mode remains the default."
+        )
+        fidelity_note.setWordWrap(True)
+        layout.addWidget(fidelity_note)
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Save
@@ -202,8 +253,17 @@ class SettingsDialog(QDialog):
             logging_level=self.logging.currentText(),
             checksum_generation=self.checksums.isChecked(),
             automatic_validation=self.validation.isChecked(),
+            pdf_optimization=self.pdf_optimization.currentText(),
             docx_fidelity_mode=self.fidelity.currentText(),
             crash_recovery=self.recovery.isChecked(),
+            merge_profile=self.profile.currentText(),
+            filename_template=self.filename_template.text().strip(),
+            libreoffice_integration=self.libreoffice.isChecked(),
+            word_high_fidelity=self.word_fidelity.isChecked(),
+            recent_project_history=self.recent_history.isChecked(),
+            reduced_motion=self.reduced_motion.isChecked(),
+            text_scale_percent=self.text_scale.value(),
+            first_run_completed=self._base.first_run_completed,
         )
 
 
