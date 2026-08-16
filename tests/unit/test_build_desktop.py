@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from scripts.build_desktop import build_args
+from docmergeforge.packaging.desktop import build_args
 
 
 def test_build_args_create_windowed_onedir_app(tmp_path: Path) -> None:
