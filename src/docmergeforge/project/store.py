@@ -37,6 +37,8 @@ def load_project(path: Path) -> MergeProject:
         checksum_generation=settings_data.get("checksum_generation", True),
         automatic_validation=settings_data.get("automatic_validation", True),
         overwrite=settings_data.get("overwrite", False),
+        profile_name=settings_data.get("profile_name", "Exact Preservation"),
+        filename_template=settings_data.get("filename_template", "{series}_Master"),
         pdf=pdf,
         docx=docx,
     )
