@@ -22,6 +22,7 @@ class MergeWorker(QThread):
         super().__init__()
         self._runner = runner
         self._cancel_event = Event()
+        self.result: Any = None
 
     def request_cancel(self) -> None:
         self._cancel_event.set()
@@ -34,11 +35,11 @@ class MergeWorker(QThread):
 
     def run(self) -> None:
         try:
-            result = self._runner(self._progress, self.is_cancelled)
+            self.result = self._runner(self._progress, self.is_cancelled)
             if self.is_cancelled():
                 self.cancelled.emit()
             else:
-                self.completed.emit(result)
+                self.completed.emit(self.result)
         except Exception as exc:
             if self.is_cancelled():
                 self.cancelled.emit()
