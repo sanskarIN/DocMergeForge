@@ -181,14 +181,14 @@ def main(argv: list[str] | None = None) -> int:
             print("At least one of --pdf-output or --docx-output is required.")
             return 2
         items = scan([args.input])
-        payload: dict[str, object] = {}
+        compare_payload: dict[str, object] = {}
         if args.pdf_output is not None:
             pdf_inputs = [item for item in items if item.kind == DocumentKind.PDF]
-            payload["pdf"] = asdict(compare_pdf(pdf_inputs, args.pdf_output))
+            compare_payload["pdf"] = asdict(compare_pdf(pdf_inputs, args.pdf_output))
         if args.docx_output is not None:
             docx_inputs = [item for item in items if item.kind == DocumentKind.DOCX]
-            payload["docx"] = compare_docx(docx_inputs, args.docx_output).to_dict()
-        print(json.dumps(payload, indent=2))
+            compare_payload["docx"] = compare_docx(docx_inputs, args.docx_output).to_dict()
+        print(json.dumps(compare_payload, indent=2))
         return 0
 
     project = create_sql_full_mastery_project(args.input, args.output_dir)
