@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -35,6 +34,7 @@ from docmergeforge.reports.generator import (
     write_report,
 )
 from docmergeforge.utilities.hashing import sha256_file, snapshot_hashes, verify_unchanged
+from docmergeforge.utilities.output_naming import render_project_basename
 from docmergeforge.utilities.storage import StorageEstimate, require_storage
 from docmergeforge.validation.service import validate_part_set
 
@@ -171,14 +171,14 @@ class MergeApplicationService:
         before = snapshot_hashes(tracked)
         require_storage([item.path for item in pdfs + docxs], project.output_folder)
         project.output_folder.mkdir(parents=True, exist_ok=True)
-        slug = re.sub(r"[^A-Za-z0-9]+", "_", project.name).strip("_") or "DocMergeForge"
+        base_name = render_project_basename(project)
         preserve_order = bool(project.selected_files)
 
         outputs: list[OutputArtifact] = []
         if pdfs:
             pdf_path = PdfMergeEngine().merge(
                 pdfs,
-                project.output_folder / f"{slug}_Master.pdf",
+                project.output_folder / f"{base_name}.pdf",
                 project.settings.pdf,
                 overwrite=project.settings.overwrite,
                 preserve_order=preserve_order,
@@ -198,7 +198,7 @@ class MergeApplicationService:
         if docxs:
             docx_path = DocxMergeEngine().merge(
                 docxs,
-                project.output_folder / f"{slug}_Master.docx",
+                project.output_folder / f"{base_name}.docx",
                 project.settings.docx,
                 overwrite=project.settings.overwrite,
                 preserve_order=preserve_order,
@@ -237,22 +237,23 @@ class MergeApplicationService:
             validations,
             skipped,
             len(companions),
-            project.output_folder / f"{slug}_Merge_Report.md",
-            project.output_folder / f"{slug}_Merge_Report.html",
+            project.output_folder / f"{base_name}_Merge_Report.md",
+            project.output_folder / f"{base_name}_Merge_Report.html",
         )
         write_manifest(
             pdfs + docxs,
             outputs,
             ignored,
             project.warnings,
-            project.output_folder / f"{slug}_Merge_Manifest.json",
-            "Custom",
+            project.output_folder / f"{base_name}_Merge_Manifest.json",
+            project.settings.profile_name,
         )
-        write_checksums(
-            pdfs + docxs + companions,
-            outputs,
-            project.output_folder / f"{slug}_SHA256SUMS.txt",
-        )
+        if project.settings.checksum_generation:
+            write_checksums(
+                pdfs + docxs + companions,
+                outputs,
+                project.output_folder / f"{base_name}_SHA256SUMS.txt",
+            )
         write_publishing_checklist(
             project.output_folder / "Publishing_Checklist.md",
             f"Parts {project.settings.expected_start}–{project.settings.expected_end}",
@@ -372,11 +373,12 @@ class MergeApplicationService:
             project.output_folder / MANIFEST_FILENAME,
             "Master eBook",
         )
-        write_checksums(
-            pdfs + docxs + companions,
-            outputs,
-            project.output_folder / CHECKSUMS_FILENAME,
-        )
+        if project.settings.checksum_generation:
+            write_checksums(
+                pdfs + docxs + companions,
+                outputs,
+                project.output_folder / CHECKSUMS_FILENAME,
+            )
         write_publishing_checklist(project.output_folder / "Publishing_Checklist.md")
         self._emit(progress, "reporting", 1, 1)
         return outputs
