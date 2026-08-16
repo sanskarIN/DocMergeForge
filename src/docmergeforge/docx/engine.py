@@ -34,19 +34,24 @@ class DocxMergeEngine:
         settings: DocxSettings,
         *,
         overwrite: bool = False,
+        preserve_order: bool = False,
         progress: Progress | None = None,
         cancelled: Cancelled | None = None,
     ) -> Path:
         from docx import Document
         from docxcompose.composer import Composer  # type: ignore[import-untyped]
 
-        ordered = sorted(
-            documents,
-            key=lambda item: (
-                item.part.number is None,
-                item.part.number or 0,
-                item.path.name.casefold(),
-            ),
+        ordered = (
+            list(documents)
+            if preserve_order
+            else sorted(
+                documents,
+                key=lambda item: (
+                    item.part.number is None,
+                    item.part.number or 0,
+                    item.path.name.casefold(),
+                ),
+            )
         )
         if not ordered:
             raise ValidationError("No DOCX inputs were provided.")
