@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import shutil
 from collections.abc import Callable
 from pathlib import Path
 
 from docmergeforge.core.exceptions import MergeCancelled, ValidationError
 from docmergeforge.core.models import DocxSettings, InputDocument
 from docmergeforge.docx.analysis import PackageCollision, detect_docx_collisions
+from docmergeforge.docx.fidelity import fidelity_capabilities, require_production_fidelity
 from docmergeforge.docx.publication import (
     apply_book_headers_footers,
     insert_part_heading,
@@ -41,6 +41,7 @@ class DocxMergeEngine:
         from docx import Document
         from docxcompose.composer import Composer  # type: ignore[import-untyped]
 
+        require_production_fidelity(settings.fidelity_mode)
         ordered = (
             list(documents)
             if preserve_order
@@ -130,4 +131,7 @@ class DocxMergeEngine:
 
     @staticmethod
     def high_fidelity_available() -> bool:
-        return shutil.which("libreoffice") is not None or shutil.which("soffice") is not None
+        return any(
+            item.mode != "portable" and item.available and item.production_ready
+            for item in fidelity_capabilities()
+        )
