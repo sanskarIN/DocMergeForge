@@ -108,3 +108,39 @@ def test_pdf_merge_can_preserve_confirmed_manual_order(tmp_path: Path) -> None:
     reader = pypdf.PdfReader(str(output))
     assert float(reader.pages[0].mediabox.width) == 500
     assert float(reader.pages[1].mediabox.width) == 300
+
+
+@pytest.mark.integration
+def test_pdf_merge_requires_and_accepts_in_memory_password(tmp_path: Path) -> None:
+    pypdf = pytest.importorskip("pypdf")
+    source = tmp_path / "Part 1.pdf"
+    writer = pypdf.PdfWriter()
+    writer.add_blank_page(width=612, height=792)
+    writer.encrypt("local-secret")
+    with source.open("wb") as handle:
+        writer.write(handle)
+
+    document = InputDocument(
+        source,
+        DocumentKind.PDF,
+        PartIdentity(1, "Part 1"),
+        source.stat().st_size,
+        sha256_file(source),
+        1,
+        encrypted=True,
+    )
+    missing_output = tmp_path / "missing-password.pdf"
+    with pytest.raises(ValidationError, match="requires a local password"):
+        PdfMergeEngine().merge([document], missing_output, PdfSettings())
+    assert not missing_output.exists()
+
+    output = tmp_path / "decrypted-master.pdf"
+    PdfMergeEngine().merge(
+        [document],
+        output,
+        PdfSettings(),
+        password_provider=lambda _path: "local-secret",
+    )
+    reader = pypdf.PdfReader(str(output))
+    assert not reader.is_encrypted
+    assert len(reader.pages) == 1
