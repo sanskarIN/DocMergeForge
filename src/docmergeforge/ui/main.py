@@ -175,7 +175,10 @@ class MainWindow(QMainWindow):
             )
 
     def _quick_merge(self, kind: DocumentKind) -> None:
-        source = QFileDialog.getExistingDirectory(self, f"Select folder containing {kind.value.upper()}")
+        source = QFileDialog.getExistingDirectory(
+            self,
+            f"Select folder containing {kind.value.upper()}",
+        )
         if not source:
             return
         output, _ = QFileDialog.getSaveFileName(
@@ -245,7 +248,10 @@ class MainWindow(QMainWindow):
             pdf = validate_part_set(items, DocumentKind.PDF, 1, 120)
             docx = validate_part_set(items, DocumentKind.DOCX, 1, 120)
             companions = sum(item.kind == DocumentKind.COMPANION for item in items)
-            return f"PDF\n{_parts_text(pdf)}\n\nDOCX\n{_parts_text(docx)}\n\nCompanion packages: {companions}"
+            return (
+                f"PDF\n{_parts_text(pdf)}\n\nDOCX\n{_parts_text(docx)}\n\n"
+                f"Companion packages: {companions}"
+            )
 
         worker = MergeWorker(runner)
         dialog = MergeProgressDialog(worker, "Validate Files")
