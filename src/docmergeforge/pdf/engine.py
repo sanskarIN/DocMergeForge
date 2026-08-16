@@ -11,6 +11,7 @@ from docmergeforge.utilities.hashing import sha256_file, snapshot_hashes, verify
 
 Progress = Callable[[int, int, Path], None]
 Cancelled = Callable[[], bool]
+PasswordProvider = Callable[[Path], str | None]
 
 
 class PdfMergeEngine:
@@ -24,6 +25,7 @@ class PdfMergeEngine:
         preserve_order: bool = False,
         progress: Progress | None = None,
         cancelled: Cancelled | None = None,
+        password_provider: PasswordProvider | None = None,
     ) -> Path:
         from pypdf import PdfReader, PdfWriter
 
@@ -56,7 +58,25 @@ class PdfMergeEngine:
                     raise MergeCancelled("PDF merge cancelled safely.")
                 reader = PdfReader(str(item.path), strict=False)
                 if reader.is_encrypted:
-                    raise ValidationError(f"Encrypted PDF requires a password: {item.path}")
+                    if password_provider is None:
+                        raise ValidationError(
+                            f"Encrypted PDF requires a local password: {item.path}"
+                        )
+                    password = password_provider(item.path)
+                    if password is None:
+                        raise ValidationError(
+                            f"Encrypted PDF password was not provided: {item.path}"
+                        )
+                    try:
+                        decrypted = reader.decrypt(password)
+                    except Exception as exc:
+                        raise ValidationError(
+                            f"Encrypted PDF password could not be verified: {item.path}"
+                        ) from exc
+                    if not decrypted:
+                        raise ValidationError(
+                            f"Encrypted PDF password is incorrect: {item.path}"
+                        )
                 start_page = len(writer.pages)
                 for page in reader.pages:
                     writer.add_page(page)
