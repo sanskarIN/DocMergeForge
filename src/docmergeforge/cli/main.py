@@ -5,13 +5,20 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
-from docmergeforge.app.service import MergeApplicationService
+from docmergeforge.app.service import DryRunResult, MergeApplicationService
 from docmergeforge.audit.document import audit_tree
-from docmergeforge.core.models import DocumentKind, DocxSettings, PdfSettings
+from docmergeforge.core.models import (
+    DocumentKind,
+    DocxSettings,
+    MergeProject,
+    MergeSettings,
+    PdfSettings,
+)
 from docmergeforge.discovery.scanner import scan
 from docmergeforge.docx.engine import DocxMergeEngine
 from docmergeforge.pdf.engine import PdfMergeEngine
-from docmergeforge.presets.sql_full_mastery import create_sql_full_mastery_project
+from docmergeforge.presets.sql_full_mastery import PRESET_NAME, create_sql_full_mastery_project
+from docmergeforge.project.store import load_project, save_project
 from docmergeforge.validation.compare import compare_docx, compare_pdf
 from docmergeforge.validation.service import validate_part_set
 
@@ -19,6 +26,19 @@ from docmergeforge.validation.service import validate_part_set
 def _parts(value: str) -> tuple[int, int]:
     start, end = value.split("-", 1)
     return int(start), int(end)
+
+
+def _dry_run_payload(result: DryRunResult) -> dict[str, object]:
+    return {
+        "pdf_count": result.pdf_count,
+        "pdf_ready": result.pdf.ready,
+        "docx_count": result.docx_count,
+        "docx_ready": result.docx.ready,
+        "ready_for_available_kinds": result.ready_for_available_kinds,
+        "companions": len(result.companions),
+        "ignored": len(result.ignored),
+        "storage_sufficient": result.storage.sufficient,
+    }
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -30,10 +50,10 @@ def build_parser() -> argparse.ArgumentParser:
     validate.add_argument("--parts", default="1-120")
 
     for name in ("pdf", "docx"):
-        merge = sub.add_parser(name, help=f"Merge {name.upper()} files.")
-        merge.add_argument("--input", required=True, type=Path)
-        merge.add_argument("--parts", default="1-120")
-        merge.add_argument("--output", required=True, type=Path)
+        merge_kind = sub.add_parser(name, help=f"Merge {name.upper()} files.")
+        merge_kind.add_argument("--input", required=True, type=Path)
+        merge_kind.add_argument("--parts", default="1-120")
+        merge_kind.add_argument("--output", required=True, type=Path)
 
     preset = sub.add_parser(
         "sql-preset",
@@ -42,6 +62,18 @@ def build_parser() -> argparse.ArgumentParser:
     preset.add_argument("--input", required=True, type=Path)
     preset.add_argument("--output-dir", required=True, type=Path)
     preset.add_argument("--dry-run", action="store_true")
+
+    project_create = sub.add_parser("project-create", help="Create a reusable merge project file.")
+    project_create.add_argument("--input", required=True, type=Path)
+    project_create.add_argument("--output-dir", required=True, type=Path)
+    project_create.add_argument("--project-file", required=True, type=Path)
+    project_create.add_argument("--name", default="DocMergeForge Project")
+    project_create.add_argument("--parts", default="1-120")
+    project_create.add_argument("--sql-preset", action="store_true")
+
+    project_merge = sub.add_parser("merge", help="Run a reusable DocMergeForge project file.")
+    project_merge.add_argument("--project", required=True, type=Path)
+    project_merge.add_argument("--dry-run", action="store_true")
 
     audit = sub.add_parser("audit", help="Audit PDF and DOCX manuscript content locally.")
     audit.add_argument("--input", required=True, type=Path)
@@ -98,6 +130,34 @@ def main(argv: list[str] | None = None) -> int:
         print(str(args.output))
         return 0
 
+    if args.command == "project-create":
+        if args.sql_preset:
+            project = create_sql_full_mastery_project(args.input, args.output_dir)
+        else:
+            start, end = _parts(args.parts)
+            project = MergeProject(
+                name=args.name,
+                source_folders=[args.input],
+                output_folder=args.output_dir,
+                settings=MergeSettings(expected_start=start, expected_end=end),
+            )
+        save_project(project, args.project_file)
+        print(str(args.project_file))
+        return 0
+
+    if args.command == "merge":
+        project = load_project(args.project)
+        if args.dry_run:
+            dry_run = service.dry_run(project)
+            print(json.dumps(_dry_run_payload(dry_run), indent=2))
+            return 0 if dry_run.ready_for_available_kinds else 2
+        if project.name == PRESET_NAME:
+            service.run_sql_preset(project)
+        else:
+            service.run_project(project)
+        print(str(project.output_folder))
+        return 0
+
     if args.command == "audit":
         findings = audit_tree(args.input)
         print(
@@ -134,18 +194,7 @@ def main(argv: list[str] | None = None) -> int:
     project = create_sql_full_mastery_project(args.input, args.output_dir)
     if args.dry_run:
         dry_run = service.dry_run(project)
-        print(
-            json.dumps(
-                {
-                    "pdf_ready": dry_run.pdf.ready,
-                    "docx_ready": dry_run.docx.ready,
-                    "companions": len(dry_run.companions),
-                    "ignored": len(dry_run.ignored),
-                    "storage_sufficient": dry_run.storage.sufficient,
-                },
-                indent=2,
-            )
-        )
+        print(json.dumps(_dry_run_payload(dry_run), indent=2))
         return 0 if dry_run.pdf.ready and dry_run.docx.ready else 2
     service.run_sql_preset(project)
     print(str(args.output_dir))

@@ -94,30 +94,37 @@ def _summary(result: ValidationResult) -> str:
     )
 
 
-def write_report(
-    pdf_result: ValidationResult,
-    docx_result: ValidationResult,
+def write_project_report(
+    results: dict[str, ValidationResult],
+    skipped_kinds: list[str],
     companion_count: int,
     md_path: Path,
     html_path: Path,
 ) -> None:
-    md = f"""# DocMergeForge Merge Report
-
-## Validation
-
-- PDF: {_summary(pdf_result)}
-- DOCX: {_summary(docx_result)}
-- Companion code packages detected: {companion_count}
-- Companion code packages merged: 0
-- Reason: Per-part code remains intentionally independent.
-
-## PDF Diagnostics
-"""
-    for diagnostic in pdf_result.diagnostics:
-        md += f"- **{diagnostic.level.value}** — {diagnostic.message}\n"
-    md += "\n## DOCX Diagnostics\n"
-    for diagnostic in docx_result.diagnostics:
-        md += f"- **{diagnostic.level.value}** — {diagnostic.message}\n"
+    lines = [
+        "# DocMergeForge Merge Report",
+        "",
+        "## Validation",
+        "",
+    ]
+    for label, result in results.items():
+        lines.append(f"- {label}: {_summary(result)}")
+    for label in skipped_kinds:
+        lines.append(f"- {label}: SKIPPED — no selected inputs")
+    lines.extend(
+        [
+            f"- Companion code packages detected: {companion_count}",
+            "- Companion code packages merged: 0",
+            "- Reason: Per-part code remains intentionally independent.",
+        ]
+    )
+    for label, result in results.items():
+        lines.extend(["", f"## {label} Diagnostics"])
+        if not result.diagnostics:
+            lines.append("- No diagnostics.")
+        for diagnostic in result.diagnostics:
+            lines.append(f"- **{diagnostic.level.value}** — {diagnostic.message}")
+    md = "\n".join(lines) + "\n"
     md_path.write_text(md, encoding="utf-8")
 
     escaped = html.escape(md)
@@ -132,11 +139,27 @@ def write_report(
     )
 
 
-def write_publishing_checklist(path: Path) -> None:
+def write_report(
+    pdf_result: ValidationResult,
+    docx_result: ValidationResult,
+    companion_count: int,
+    md_path: Path,
+    html_path: Path,
+) -> None:
+    write_project_report(
+        {"PDF": pdf_result, "DOCX": docx_result},
+        [],
+        companion_count,
+        md_path,
+        html_path,
+    )
+
+
+def write_publishing_checklist(path: Path, parts_label: str = "Parts 1–120") -> None:
     items = [
         "Master PDF exists",
         "Master DOCX exists",
-        "Parts 1–120 verified",
+        f"{parts_label} verified",
         "PDF page sequence reviewed",
         "DOCX structure reviewed",
         "Table of contents reviewed",
