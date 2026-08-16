@@ -18,6 +18,13 @@ class AppSettings:
     pdf_optimization: str = "preserve"
     docx_fidelity_mode: str = "portable"
     crash_recovery: bool = True
+    merge_profile: str = "Exact Preservation"
+    filename_template: str = "{series}_Complete_{part_count}_Part_Master_Edition"
+    libreoffice_integration: bool = True
+    word_high_fidelity: bool = False
+    recent_project_history: bool = True
+    reduced_motion: bool = False
+    text_scale_percent: int = 100
     first_run_completed: bool = False
 
     def save(self, path: Path) -> None:
