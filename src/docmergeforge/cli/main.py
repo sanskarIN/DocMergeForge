@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import asdict
 from pathlib import Path
 
 from docmergeforge.app.service import MergeApplicationService
+from docmergeforge.audit.document import audit_tree
 from docmergeforge.core.models import DocumentKind, DocxSettings, PdfSettings
 from docmergeforge.discovery.scanner import scan
 from docmergeforge.docx.engine import DocxMergeEngine
 from docmergeforge.pdf.engine import PdfMergeEngine
 from docmergeforge.presets.sql_full_mastery import create_sql_full_mastery_project
+from docmergeforge.validation.compare import compare_docx, compare_pdf
 from docmergeforge.validation.service import validate_part_set
 
 
@@ -39,6 +42,14 @@ def build_parser() -> argparse.ArgumentParser:
     preset.add_argument("--input", required=True, type=Path)
     preset.add_argument("--output-dir", required=True, type=Path)
     preset.add_argument("--dry-run", action="store_true")
+
+    audit = sub.add_parser("audit", help="Audit PDF and DOCX manuscript content locally.")
+    audit.add_argument("--input", required=True, type=Path)
+
+    compare = sub.add_parser("compare", help="Compare merged outputs with source evidence.")
+    compare.add_argument("--input", required=True, type=Path)
+    compare.add_argument("--pdf-output", type=Path)
+    compare.add_argument("--docx-output", type=Path)
     return parser
 
 
@@ -85,6 +96,39 @@ def main(argv: list[str] | None = None) -> int:
         else:
             DocxMergeEngine().merge(items, args.output, DocxSettings())
         print(str(args.output))
+        return 0
+
+    if args.command == "audit":
+        findings = audit_tree(args.input)
+        print(
+            json.dumps(
+                [
+                    {
+                        "code": finding.code,
+                        "message": finding.message,
+                        "path": str(finding.path),
+                        "severity": finding.severity,
+                    }
+                    for finding in findings
+                ],
+                indent=2,
+            )
+        )
+        return 0
+
+    if args.command == "compare":
+        if args.pdf_output is None and args.docx_output is None:
+            print("At least one of --pdf-output or --docx-output is required.")
+            return 2
+        items = scan([args.input])
+        payload: dict[str, object] = {}
+        if args.pdf_output is not None:
+            pdf_inputs = [item for item in items if item.kind == DocumentKind.PDF]
+            payload["pdf"] = asdict(compare_pdf(pdf_inputs, args.pdf_output))
+        if args.docx_output is not None:
+            docx_inputs = [item for item in items if item.kind == DocumentKind.DOCX]
+            payload["docx"] = compare_docx(docx_inputs, args.docx_output).to_dict()
+        print(json.dumps(payload, indent=2))
         return 0
 
     project = create_sql_full_mastery_project(args.input, args.output_dir)
