@@ -22,8 +22,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from docmergeforge.app.preflight import build_preflight, format_preflight
 from docmergeforge.app.service import MergeApplicationService
 from docmergeforge.audit.document import audit_tree
+from docmergeforge.core.exceptions import DocMergeForgeError
 from docmergeforge.core.models import (
     DocumentKind,
     DocxSettings,
@@ -31,6 +33,7 @@ from docmergeforge.core.models import (
     MergeState,
     PdfSettings,
 )
+from docmergeforge.diagnostics.logging import configure_logging, get_logger
 from docmergeforge.discovery.scanner import scan
 from docmergeforge.docx.engine import DocxMergeEngine
 from docmergeforge.pdf.engine import PdfMergeEngine
@@ -47,9 +50,10 @@ from docmergeforge.ui.dialogs import (
     SettingsDialog,
     TextReportDialog,
 )
+from docmergeforge.ui.dry_run_dialog import DryRunDialog
 from docmergeforge.ui.first_run import FirstRunDialog
 from docmergeforge.ui.order_dialog import OrderEditorDialog
-from docmergeforge.ui.paths import recent_projects_path, recovery_dir, settings_path
+from docmergeforge.ui.paths import log_path, recent_projects_path, recovery_dir, settings_path
 from docmergeforge.ui.pdf_passwords import collect_pdf_passwords
 from docmergeforge.ui.recent import RecentProject, RecentProjectsStore
 from docmergeforge.ui.sql_wizard import SQLPresetWizard
@@ -88,6 +92,7 @@ class MainWindow(QMainWindow):
         self.recent = RecentProjectsStore(recent_projects_path())
         self.recovery = RecoveryStore(recovery_dir())
         self.recent_errors: list[str] = []
+        self.logger = get_logger()
         self.setWindowTitle("DocMergeForge")
         self.resize(1080, 720)
         self.setMinimumSize(820, 560)
@@ -148,6 +153,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(root)
         self.setStatusBar(QStatusBar())
         self.statusBar().showMessage("Drop a project folder here or choose an action.")
+        self.logger.info("desktop application initialized")
 
     def show_startup_dialogs(self) -> None:
         if not self.app_settings.first_run_completed:
@@ -171,6 +177,7 @@ class MainWindow(QMainWindow):
             f"An interrupted project was found at {checkpoint}. Resume it now?",
         )
         if answer == QMessageBox.StandardButton.Yes:
+            self.logger.info("recovering project from checkpoint=%s", checkpoint)
             self._run_project(project)
         else:
             self.recovery.clear()
@@ -181,6 +188,7 @@ class MainWindow(QMainWindow):
             return
         self.recent_errors.append(sanitized[:4000])
         self.recent_errors = self.recent_errors[-20:]
+        self.logger.error("%s", sanitized)
 
     def _about(self) -> None:
         AboutDialog().exec()
@@ -232,6 +240,8 @@ class MainWindow(QMainWindow):
         if order_dialog.exec() != int(order_dialog.DialogCode.Accepted):
             return False
         project.selected_files = order_dialog.ordered_paths()
+        if self.app_settings.crash_recovery:
+            self.recovery.checkpoint(project, "ordering")
         return True
 
     def _new_project(self, initial_source: Path | None = None) -> None:
@@ -272,6 +282,25 @@ class MainWindow(QMainWindow):
         passwords = self._project_passwords(project)
         if passwords is None:
             return
+        try:
+            preflight = build_preflight(
+                project,
+                allow_encrypted_pdf=bool(passwords),
+            )
+        except (DocMergeForgeError, OSError, ValueError) as exc:
+            passwords.clear()
+            self._record_error(str(exc))
+            QMessageBox.critical(self, "Dry run failed", str(exc))
+            return
+        ready = preflight.result.storage.sufficient
+        if use_sql:
+            ready = ready and preflight.result.pdf.ready and preflight.result.docx.ready
+        else:
+            ready = ready and preflight.result.ready_for_available_kinds
+        dry_run_dialog = DryRunDialog(format_preflight(preflight), ready)
+        if dry_run_dialog.exec() != int(dry_run_dialog.DialogCode.Accepted):
+            passwords.clear()
+            return
 
         def password_provider(path: Path) -> str | None:
             return passwords.get(path)
@@ -284,6 +313,13 @@ class MainWindow(QMainWindow):
                 path: Path | None,
             ) -> None:
                 progress(stage, current, total, path)
+                self.logger.info(
+                    "merge stage=%s current=%s total=%s file=%s",
+                    stage,
+                    current,
+                    total,
+                    path or "",
+                )
                 if not self.app_settings.crash_recovery or current != total:
                     return
                 state = _STATE_BY_STAGE.get(stage)
@@ -315,7 +351,8 @@ class MainWindow(QMainWindow):
 
         worker = MergeWorker(runner)
         worker.failed.connect(self._record_error)
-        progress_dialog = MergeProgressDialog(worker, "DocMergeForge Merge")
+        title = "SQL Full Mastery — Steps 7–10" if use_sql else "DocMergeForge Merge"
+        progress_dialog = MergeProgressDialog(worker, title)
         try:
             result = progress_dialog.start()
         finally:
@@ -325,9 +362,11 @@ class MainWindow(QMainWindow):
             self.recovery.clear()
             outputs = worker.result or []
             paths = "\n".join(str(item.path) for item in outputs)
+            self.logger.info("merge completed after validation outputs=%s", paths)
+            summary_title = "Step 11 — Final Summary" if use_sql else "Validated outputs created"
             QMessageBox.information(
                 self,
-                "Validated outputs created",
+                summary_title,
                 paths or str(project.output_folder),
             )
 
@@ -407,7 +446,10 @@ class MainWindow(QMainWindow):
         wizard = SQLPresetWizard()
         if wizard.exec() != int(wizard.DialogCode.Accepted):
             return
-        self._run_project(wizard.project())
+        project = wizard.project()
+        if self.app_settings.crash_recovery:
+            self.recovery.checkpoint(project, "sql-preflight")
+        self._run_project(project)
 
     def _validate_files(self) -> None:
         source = QFileDialog.getExistingDirectory(self, "Select folder to validate")
@@ -531,8 +573,15 @@ class MainWindow(QMainWindow):
         if dialog.exec() != int(dialog.DialogCode.Accepted):
             return
         selected = dialog.selected()
-        if selected:
-            self._run_project(load_project(selected.project_file))
+        if selected is None:
+            return
+        try:
+            project = load_project(selected.project_file)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            self._record_error(str(exc))
+            QMessageBox.critical(self, "Recent project could not be opened", str(exc))
+            return
+        self._run_project(project)
 
     def _remember_project(self, project: MergeProject, project_file: Path) -> None:
         if not self.app_settings.recent_project_history:
@@ -553,6 +602,7 @@ class MainWindow(QMainWindow):
             return
         self.app_settings = dialog.settings()
         self.app_settings.save(settings_path())
+        self.logger = configure_logging(log_path(), self.app_settings.logging_level)
         app = QApplication.instance()
         if isinstance(app, QApplication):
             apply_theme(app, self.app_settings.theme)
@@ -565,9 +615,10 @@ class MainWindow(QMainWindow):
             "Local-first workflow:\n\n"
             "1. Select or drop the folder containing numbered Parts.\n"
             "2. Confirm the final document order.\n"
-            "3. Validate missing and duplicate Parts.\n"
-            "4. Merge PDF and DOCX independently.\n"
-            "5. Review generated reports, checksums, and manifests.\n\n"
+            "3. Review the dry-run evidence.\n"
+            "4. Validate missing and duplicate Parts.\n"
+            "5. Merge PDF and DOCX independently.\n"
+            "6. Review generated reports, checksums, and manifests.\n\n"
             "Original documents are never overwritten. Companion code remains separate.\n\n"
             "Support: supportramsandesh@gmail.com\n"
             "Repository: https://github.com/sanskarIN/DocMergeForge\n"
@@ -593,6 +644,7 @@ def main() -> int:
     app.setApplicationName("DocMergeForge")
     app.setOrganizationName("Sanskar")
     settings = AppSettings.load(settings_path())
+    configure_logging(log_path(), settings.logging_level)
     apply_theme(app, settings.theme)
     apply_text_scale(app, settings.text_scale_percent)
     window = MainWindow()
