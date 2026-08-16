@@ -277,9 +277,7 @@ class MainWindow(QMainWindow):
             return
         findings = worker.result or []
         if findings:
-            text = "\n".join(
-                f"[{item.severity}] {item.path}: {item.message}" for item in findings
-            )
+            text = "\n".join(f"[{item.severity}] {item.path}: {item.message}" for item in findings)
         else:
             text = "No configured publication-audit findings were detected."
         TextReportDialog("Publication Audit", text).exec()
