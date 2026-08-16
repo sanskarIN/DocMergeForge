@@ -39,6 +39,7 @@ from docmergeforge.ui.dialogs import (
     SettingsDialog,
     TextReportDialog,
 )
+from docmergeforge.ui.order_dialog import OrderEditorDialog
 from docmergeforge.ui.paths import recent_projects_path, settings_path
 from docmergeforge.ui.recent import RecentProject, RecentProjectsStore
 from docmergeforge.ui.theme import apply_theme
@@ -126,11 +127,42 @@ class MainWindow(QMainWindow):
     def _about(self) -> None:
         AboutDialog().exec()
 
+    def _confirm_project_order(self, project: MergeProject) -> bool:
+        try:
+            discovered = self.service.discover(project)
+        except (OSError, ValueError) as exc:
+            QMessageBox.critical(self, "Discovery failed", str(exc))
+            return False
+        documents = [
+            item
+            for item in discovered
+            if item.kind in {DocumentKind.PDF, DocumentKind.DOCX}
+        ]
+        if not documents:
+            QMessageBox.warning(
+                self,
+                "No documents found",
+                "No PDF or DOCX documents are available for this project.",
+            )
+            return False
+        order_dialog = OrderEditorDialog(
+            documents,
+            project.settings.expected_start,
+            project.settings.expected_end,
+            allow_manual_order=project.name != PRESET_NAME,
+        )
+        if order_dialog.exec() != int(order_dialog.DialogCode.Accepted):
+            return False
+        project.selected_files = order_dialog.ordered_paths()
+        return True
+
     def _new_project(self, initial_source: Path | None = None) -> None:
         dialog = ProjectSetupDialog(initial_source)
         if dialog.exec() != int(dialog.DialogCode.Accepted):
             return
         project = dialog.project()
+        if not self._confirm_project_order(project):
+            return
         suggested = project.output_folder / "docmergeforge-project.json"
         project_file, _ = QFileDialog.getSaveFileName(
             self,
@@ -234,7 +266,8 @@ class MainWindow(QMainWindow):
         if not output:
             return
         project = create_sql_full_mastery_project(Path(source), Path(output))
-        self._run_project(project)
+        if self._confirm_project_order(project):
+            self._run_project(project)
 
     def _validate_files(self) -> None:
         source = QFileDialog.getExistingDirectory(self, "Select folder to validate")
@@ -324,6 +357,9 @@ class MainWindow(QMainWindow):
             return
         path = Path(project_file)
         project = load_project(path)
+        if not self._confirm_project_order(project):
+            return
+        save_project(project, path)
         self._remember_project(project, path)
         self._run_project(project)
 
