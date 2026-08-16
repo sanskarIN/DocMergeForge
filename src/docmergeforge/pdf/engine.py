@@ -1,0 +1,86 @@
+from __future__ import annotations
+
+from collections.abc import Callable
+from pathlib import Path
+
+from docmergeforge.core.exceptions import MergeCancelled, ValidationError
+from docmergeforge.core.models import InputDocument, PdfSettings
+from docmergeforge.utilities.atomic import atomic_output
+from docmergeforge.utilities.hashing import sha256_file, snapshot_hashes, verify_unchanged
+
+Progress = Callable[[int, int, Path], None]
+Cancelled = Callable[[], bool]
+
+
+class PdfMergeEngine:
+    def merge(
+        self,
+        documents: list[InputDocument],
+        output: Path,
+        settings: PdfSettings,
+        *,
+        overwrite: bool = False,
+        progress: Progress | None = None,
+        cancelled: Cancelled | None = None,
+    ) -> Path:
+        from pypdf import PdfReader, PdfWriter
+
+        ordered = sorted(
+            documents,
+            key=lambda item: (item.part.number is None, item.part.number or 0, item.path.name.casefold()),
+        )
+        before = snapshot_hashes(item.path for item in ordered)
+
+        with atomic_output(output, overwrite=overwrite) as temporary:
+            writer = PdfWriter()
+            expected_pages = 0
+            for index, item in enumerate(ordered, start=1):
+                if cancelled and cancelled():
+                    raise MergeCancelled("PDF merge cancelled safely.")
+                reader = PdfReader(str(item.path), strict=False)
+                if reader.is_encrypted:
+                    raise ValidationError(f"Encrypted PDF requires a password: {item.path}")
+                start_page = len(writer.pages)
+                for page in reader.pages:
+                    writer.add_page(page)
+                expected_pages += len(reader.pages)
+                if settings.add_part_bookmarks:
+                    title = item.part.title or item.path.stem
+                    writer.add_outline_item(f"{item.part.label} — {title}", start_page)
+                if progress:
+                    progress(index, len(ordered), item.path)
+
+            metadata: dict[str, str] = {}
+            if settings.title:
+                metadata["/Title"] = settings.title
+            if settings.author:
+                metadata["/Author"] = settings.author
+            if settings.edition:
+                metadata["/Subject"] = f"Edition: {settings.edition}"
+            if metadata:
+                writer.add_metadata(metadata)
+            with temporary.open("wb") as handle:
+                writer.write(handle)
+
+            check = PdfReader(str(temporary), strict=False)
+            if len(check.pages) != expected_pages:
+                raise ValidationError(
+                    f"PDF page validation failed: expected {expected_pages}, got {len(check.pages)}."
+                )
+
+        changed = verify_unchanged(before)
+        if changed:
+            raise ValidationError(f"Source integrity violation: {changed}")
+        return output
+
+    @staticmethod
+    def validate_output(path: Path, expected_pages: int | None = None) -> dict[str, object]:
+        from pypdf import PdfReader
+
+        reader = PdfReader(str(path), strict=False)
+        if reader.is_encrypted:
+            raise ValidationError("Output PDF unexpectedly became encrypted.")
+        pages = len(reader.pages)
+        if expected_pages is not None and pages != expected_pages:
+            raise ValidationError(f"Expected {expected_pages} pages but output has {pages}.")
+        return {"path": str(path), "pages": pages, "sha256": sha256_file(path), "size": path.stat().st_size}
