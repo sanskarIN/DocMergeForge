@@ -79,7 +79,8 @@ def _filter_pattern(items: list[InputDocument], pattern: str | None) -> list[Inp
     if not pattern:
         return items
     normalized_pattern = pattern.casefold()
-    return [item for item in items if fnmatch.fnmatch(item.path.name.casefold(), normalized_pattern)]
+    matches = fnmatch.fnmatch
+    return [item for item in items if matches(item.path.name.casefold(), normalized_pattern)]
 
 
 def _ordered_items(items: list[InputDocument], natural_sort: bool) -> list[InputDocument]:
