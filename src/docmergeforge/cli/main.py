@@ -51,14 +51,14 @@ def main(argv: list[str] | None = None) -> int:
         payload: dict[str, object] = {}
         exit_code = 0
         for kind in (DocumentKind.PDF, DocumentKind.DOCX):
-            result = validate_part_set(items, kind, start, end)
+            validation_result = validate_part_set(items, kind, start, end)
             payload[kind.value] = {
-                "ready": result.ready,
-                "missing": result.missing_parts,
-                "duplicates": result.duplicate_parts,
-                "found": result.found_parts,
+                "ready": validation_result.ready,
+                "missing": validation_result.missing_parts,
+                "duplicates": validation_result.duplicate_parts,
+                "found": validation_result.found_parts,
             }
-            if not result.ready:
+            if not validation_result.ready:
                 exit_code = 2
         print(json.dumps(payload, indent=2))
         return exit_code
@@ -67,14 +67,14 @@ def main(argv: list[str] | None = None) -> int:
         start, end = _parts(args.parts)
         kind = DocumentKind.PDF if args.command == "pdf" else DocumentKind.DOCX
         items = [item for item in scan([args.input]) if item.kind == kind]
-        result = validate_part_set(items, kind, start, end)
-        if not result.ready:
+        validation_result = validate_part_set(items, kind, start, end)
+        if not validation_result.ready:
             print(
                 json.dumps(
                     {
                         "ready": False,
-                        "missing": result.missing_parts,
-                        "duplicates": result.duplicate_parts,
+                        "missing": validation_result.missing_parts,
+                        "duplicates": validation_result.duplicate_parts,
                     },
                     indent=2,
                 )
@@ -89,20 +89,20 @@ def main(argv: list[str] | None = None) -> int:
 
     project = create_sql_full_mastery_project(args.input, args.output_dir)
     if args.dry_run:
-        result = service.dry_run(project)
+        dry_run = service.dry_run(project)
         print(
             json.dumps(
                 {
-                    "pdf_ready": result.pdf.ready,
-                    "docx_ready": result.docx.ready,
-                    "companions": len(result.companions),
-                    "ignored": len(result.ignored),
-                    "storage_sufficient": result.storage.sufficient,
+                    "pdf_ready": dry_run.pdf.ready,
+                    "docx_ready": dry_run.docx.ready,
+                    "companions": len(dry_run.companions),
+                    "ignored": len(dry_run.ignored),
+                    "storage_sufficient": dry_run.storage.sufficient,
                 },
                 indent=2,
             )
         )
-        return 0 if result.pdf.ready and result.docx.ready else 2
+        return 0 if dry_run.pdf.ready and dry_run.docx.ready else 2
     service.run_sql_preset(project)
     print(str(args.output_dir))
     return 0

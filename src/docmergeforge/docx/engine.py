@@ -26,7 +26,7 @@ class DocxMergeEngine:
         cancelled: Cancelled | None = None,
     ) -> Path:
         from docx import Document
-        from docxcompose.composer import Composer
+        from docxcompose.composer import Composer  # type: ignore[import-untyped]
 
         ordered = sorted(
             documents,
@@ -54,7 +54,7 @@ class DocxMergeEngine:
                     raise MergeCancelled("DOCX merge cancelled safely.")
                 source = Document(str(item.path))
                 if settings.start_each_part_on_new_page:
-                    master.add_page_break()
+                    master.add_page_break()  # type: ignore[no-untyped-call]
                 composer.append(source)
                 if progress:
                     progress(index, len(ordered), item.path)
