@@ -62,8 +62,7 @@ def risky_docx_constructs(path: Path) -> list[str]:
         external = [
             name
             for name in names
-            if name.endswith(".rels")
-            and b'TargetMode="External"' in archive.read(name)
+            if name.endswith(".rels") and b'TargetMode="External"' in archive.read(name)
         ]
         if external:
             risks.append("External relationships detected.")

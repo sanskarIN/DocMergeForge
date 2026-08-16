@@ -44,9 +44,7 @@ class DocxMergeEngine:
         for item in ordered:
             diagnostics = validate_docx_package(item.path)
             if any(diag.level.value in {"ERROR", "FATAL"} for diag in diagnostics):
-                raise ValidationError(
-                    f"Invalid DOCX input: {item.path}: {diagnostics[0].message}"
-                )
+                raise ValidationError(f"Invalid DOCX input: {item.path}: {diagnostics[0].message}")
 
         with atomic_output(final_output, overwrite=True) as temporary:
             master = Document(str(ordered[0].path))
@@ -65,8 +63,7 @@ class DocxMergeEngine:
             diagnostics = validate_docx_package(temporary)
             if any(diag.level.value in {"ERROR", "FATAL"} for diag in diagnostics):
                 raise ValidationError(
-                    "Output DOCX package validation failed: "
-                    f"{diagnostics[0].message}"
+                    "Output DOCX package validation failed: " f"{diagnostics[0].message}"
                 )
 
             Document(str(temporary))

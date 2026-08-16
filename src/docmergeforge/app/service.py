@@ -60,11 +60,7 @@ class MergeApplicationService:
             project.settings.expected_start,
             project.settings.expected_end,
         )
-        docs = [
-            item.path
-            for item in inputs
-            if item.kind in {DocumentKind.PDF, DocumentKind.DOCX}
-        ]
+        docs = [item.path for item in inputs if item.kind in {DocumentKind.PDF, DocumentKind.DOCX}]
         estimate = require_storage(docs, project.output_folder)
         return DryRunResult(
             pdf=pdf_result,

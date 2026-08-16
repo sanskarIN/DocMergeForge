@@ -86,9 +86,13 @@ class ValidationResult:
 
     @property
     def ready(self) -> bool:
-        return not self.missing_parts and not self.duplicate_parts and not any(
-            item.level in {DiagnosticLevel.ERROR, DiagnosticLevel.FATAL}
-            for item in self.diagnostics
+        return (
+            not self.missing_parts
+            and not self.duplicate_parts
+            and not any(
+                item.level in {DiagnosticLevel.ERROR, DiagnosticLevel.FATAL}
+                for item in self.diagnostics
+            )
         )
 
 

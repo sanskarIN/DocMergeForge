@@ -44,9 +44,7 @@ class PdfMergeEngine:
                     raise MergeCancelled("PDF merge cancelled safely.")
                 reader = PdfReader(str(item.path), strict=False)
                 if reader.is_encrypted:
-                    raise ValidationError(
-                        f"Encrypted PDF requires a password: {item.path}"
-                    )
+                    raise ValidationError(f"Encrypted PDF requires a password: {item.path}")
                 start_page = len(writer.pages)
                 for page in reader.pages:
                     writer.add_page(page)
@@ -93,9 +91,7 @@ class PdfMergeEngine:
             raise ValidationError("Output PDF unexpectedly became encrypted.")
         pages = len(reader.pages)
         if expected_pages is not None and pages != expected_pages:
-            raise ValidationError(
-                f"Expected {expected_pages} pages but output has {pages}."
-            )
+            raise ValidationError(f"Expected {expected_pages} pages but output has {pages}.")
         return {
             "path": str(path),
             "pages": pages,

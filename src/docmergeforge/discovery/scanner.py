@@ -18,10 +18,7 @@ def classify(path: Path) -> DocumentKind:
         return DocumentKind.DOCX
     if suffix in _COMPANION_SUFFIXES or (
         path.is_dir()
-        and any(
-            token in path.name.casefold()
-            for token in ("code", "companion", "project")
-        )
+        and any(token in path.name.casefold() for token in ("code", "companion", "project"))
     ):
         return DocumentKind.COMPANION
     return DocumentKind.OTHER

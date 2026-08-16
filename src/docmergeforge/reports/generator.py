@@ -127,9 +127,7 @@ def write_report(
         "<style>body{font-family:system-ui;max-width:1000px;margin:40px auto;"
         "padding:0 24px;line-height:1.55}pre{white-space:pre-wrap;"
         "background:#f5f5f5;padding:20px;border-radius:12px}</style></head>"
-        "<body><h1>DocMergeForge Merge Report</h1><pre>"
-        + escaped
-        + "</pre></body></html>",
+        "<body><h1>DocMergeForge Merge Report</h1><pre>" + escaped + "</pre></body></html>",
         encoding="utf-8",
     )
 

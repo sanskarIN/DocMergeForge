@@ -19,7 +19,5 @@ def snapshot_hashes(paths: Iterable[Path]) -> dict[Path, str]:
 
 def verify_unchanged(before: dict[Path, str]) -> list[Path]:
     return [
-        path
-        for path, digest in before.items()
-        if not path.exists() or sha256_file(path) != digest
+        path for path, digest in before.items() if not path.exists() or sha256_file(path) != digest
     ]
