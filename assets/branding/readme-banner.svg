@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 420" role="img" aria-label="DocMergeForge README banner">
+  <defs><linearGradient id="bg" x1="0" x2="1"><stop stop-color="#0f172a"/><stop offset="1" stop-color="#312e81"/></linearGradient></defs>
+  <rect width="1280" height="420" rx="34" fill="url(#bg)"/>
+  <g transform="translate(90 70)">
+    <rect width="260" height="280" rx="44" fill="#fff" opacity=".96"/>
+    <path d="M55 80h150M55 140h150M55 200h105" stroke="#6366f1" stroke-width="22" stroke-linecap="round"/>
+    <circle cx="205" cy="230" r="34" fill="#22c55e"/>
+  </g>
+  <text x="420" y="155" fill="#fff" font-family="system-ui,sans-serif" font-weight="800" font-size="64">DocMergeForge</text>
+  <text x="420" y="215" fill="#c7d2fe" font-family="system-ui,sans-serif" font-size="30">Merge documents. Preserve originals. Validate everything.</text>
+  <text x="420" y="286" fill="#fff" font-family="system-ui,sans-serif" font-weight="600" font-size="26">Made by the Sanskar</text>
+  <text x="420" y="332" fill="#fbbf24" font-family="system-ui,sans-serif" font-size="24">☕ buymeacoffee.com/sanskarIN</text>
+</svg>

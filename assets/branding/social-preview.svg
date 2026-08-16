@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" role="img" aria-label="DocMergeForge social preview">
+  <defs><linearGradient id="a" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#111827"/><stop offset="1" stop-color="#4338ca"/></linearGradient></defs>
+  <rect width="1280" height="640" fill="url(#a)"/>
+  <text x="90" y="230" fill="#fff" font-family="system-ui,sans-serif" font-weight="900" font-size="86">DocMergeForge</text>
+  <text x="90" y="310" fill="#c7d2fe" font-family="system-ui,sans-serif" font-size="36">Large multi-part publications, merged safely.</text>
+  <text x="90" y="390" fill="#86efac" font-family="system-ui,sans-serif" font-size="31">PDF + DOCX • source integrity • validation • local-first</text>
+  <text x="90" y="500" fill="#fff" font-family="system-ui,sans-serif" font-size="28" font-weight="700">Made by the Sanskar</text>
+  <text x="90" y="548" fill="#fbbf24" font-family="system-ui,sans-serif" font-size="26">Buy Me a Coffee · buymeacoffee.com/sanskarIN</text>
+</svg>
