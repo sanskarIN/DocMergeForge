@@ -237,7 +237,9 @@ def _run_project(project: MergeProject, dry_run: bool) -> int:
                 return 0 if payload["pdf_ready"] and payload["docx_ready"] else 2
             return 0 if payload["ready_for_available_kinds"] else 2
 
-        provider = lambda path: passwords.get(path)
+        def provider(path: Path) -> str | None:
+            return passwords.get(path)
+
         if project.name == PRESET_NAME:
             service.run_sql_preset(project, pdf_password_provider=provider)
         else:
