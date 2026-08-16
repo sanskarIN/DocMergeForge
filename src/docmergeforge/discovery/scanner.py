@@ -59,6 +59,11 @@ def scan(roots: Iterable[Path], recursive: bool = True) -> list[InputDocument]:
         warnings: list[str] = []
         if kind == DocumentKind.PDF:
             page_count, encrypted, warnings = _pdf_info(path)
+        elif path.suffix.casefold() == ".doc":
+            warnings.append(
+                "Legacy .doc detected. It is not mergeable until the user explicitly creates "
+                "a separate converted .docx copy; the original is never auto-converted."
+            )
 
         results.append(
             InputDocument(
