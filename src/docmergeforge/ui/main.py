@@ -34,7 +34,7 @@ from docmergeforge.core.models import (
 from docmergeforge.discovery.scanner import scan
 from docmergeforge.docx.engine import DocxMergeEngine
 from docmergeforge.pdf.engine import PdfMergeEngine
-from docmergeforge.presets.sql_full_mastery import PRESET_NAME, create_sql_full_mastery_project
+from docmergeforge.presets.sql_full_mastery import PRESET_NAME
 from docmergeforge.profiles.catalog import MergeProfile, apply_profile
 from docmergeforge.project.recovery import RecoveryStore
 from docmergeforge.project.store import load_project, save_project
@@ -52,6 +52,7 @@ from docmergeforge.ui.order_dialog import OrderEditorDialog
 from docmergeforge.ui.paths import recent_projects_path, recovery_dir, settings_path
 from docmergeforge.ui.pdf_passwords import collect_pdf_passwords
 from docmergeforge.ui.recent import RecentProject, RecentProjectsStore
+from docmergeforge.ui.sql_wizard import SQLPresetWizard
 from docmergeforge.ui.support_dialog import SupportDialog
 from docmergeforge.ui.theme import apply_text_scale, apply_theme
 from docmergeforge.ui.workers import MergeWorker
@@ -403,15 +404,10 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Validated output created", str(worker.result))
 
     def _sql_preset(self) -> None:
-        source = QFileDialog.getExistingDirectory(self, "Select root folder containing Parts 1–120")
-        if not source:
+        wizard = SQLPresetWizard()
+        if wizard.exec() != int(wizard.DialogCode.Accepted):
             return
-        output = QFileDialog.getExistingDirectory(self, "Select output folder")
-        if not output:
-            return
-        project = create_sql_full_mastery_project(Path(source), Path(output))
-        if self._confirm_project_order(project):
-            self._run_project(project)
+        self._run_project(wizard.project())
 
     def _validate_files(self) -> None:
         source = QFileDialog.getExistingDirectory(self, "Select folder to validate")
