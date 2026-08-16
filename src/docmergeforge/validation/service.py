@@ -16,6 +16,8 @@ def validate_part_set(
     kind: DocumentKind,
     expected_start: int,
     expected_end: int,
+    *,
+    allow_encrypted_pdf: bool = False,
 ) -> ValidationResult:
     selected = [item for item in documents if item.kind == kind]
     expected = list(range(expected_start, expected_end + 1))
@@ -44,14 +46,24 @@ def validate_part_set(
             continue
         by_part[item.part.number].append(item)
         if kind == DocumentKind.PDF and item.encrypted:
-            diagnostics.append(
-                Diagnostic(
-                    DiagnosticLevel.ERROR,
-                    f"Part {item.part.number} PDF is password protected.",
-                    item.path,
-                    "Provide the password locally before merging.",
+            if allow_encrypted_pdf:
+                diagnostics.append(
+                    Diagnostic(
+                        DiagnosticLevel.INFO,
+                        f"Part {item.part.number} PDF password will be supplied in memory.",
+                        item.path,
+                        "The password is not stored in the project or diagnostics.",
+                    )
                 )
-            )
+            else:
+                diagnostics.append(
+                    Diagnostic(
+                        DiagnosticLevel.ERROR,
+                        f"Part {item.part.number} PDF is password protected.",
+                        item.path,
+                        "Provide the password locally before merging.",
+                    )
+                )
         for warning in item.warnings:
             diagnostics.append(
                 Diagnostic(
