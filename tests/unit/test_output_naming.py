@@ -7,7 +7,7 @@ from docmergeforge.utilities.output_naming import render_project_basename, safe_
 
 
 def test_safe_basename_removes_cross_platform_invalid_characters() -> None:
-    assert safe_basename('Book: Part 1/2? *Draft*') == "Book_Part_1_2_Draft"
+    assert safe_basename("Book: Part 1/2? *Draft*") == "Book_Part_1_2_Draft"
     assert safe_basename("CON") == "_CON"
     assert safe_basename("  ") == "DocMergeForge_Master"
 
@@ -25,10 +25,7 @@ def test_project_filename_template_uses_project_metadata() -> None:
             pdf=PdfSettings(author="Ram Sandesh", edition="August 2026"),
         ),
     )
-    assert (
-        render_project_basename(project)
-        == "SQL_Full_Mastery_120_August_2026_Master_eBook"
-    )
+    assert render_project_basename(project) == "SQL_Full_Mastery_120_August_2026_Master_eBook"
 
 
 def test_project_filename_template_rejects_unknown_variables() -> None:
