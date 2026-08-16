@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields
 from pathlib import Path
+from typing import Any
 
 
 @dataclass(slots=True)
@@ -17,13 +18,19 @@ class AppSettings:
     pdf_optimization: str = "preserve"
     docx_fidelity_mode: str = "portable"
     crash_recovery: bool = True
+    first_run_completed: bool = False
 
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(asdict(self), indent=2), encoding="utf-8")
+        temp = path.with_suffix(path.suffix + ".tmp")
+        temp.write_text(json.dumps(asdict(self), indent=2), encoding="utf-8")
+        temp.replace(path)
 
     @classmethod
     def load(cls, path: Path) -> AppSettings:
         if not path.exists():
             return cls()
-        return cls(**json.loads(path.read_text(encoding="utf-8")))
+        raw: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+        known = {field.name for field in fields(cls)}
+        values = {key: value for key, value in raw.items() if key in known}
+        return cls(**values)
