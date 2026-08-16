@@ -27,6 +27,7 @@ from docmergeforge.core.models import MergeProject, MergeSettings
 from docmergeforge.presets.sql_full_mastery import create_sql_full_mastery_project
 from docmergeforge.settings.config import AppSettings
 from docmergeforge.ui.recent import RecentProject
+from docmergeforge.ui.source_picker import SourcePicker
 from docmergeforge.ui.workers import MergeWorker
 
 
@@ -62,16 +63,17 @@ class ProjectSetupDialog(QDialog):
     def __init__(self, initial_source: Path | None = None) -> None:
         super().__init__()
         self.setWindowTitle("New Merge Project")
-        self.setMinimumWidth(650)
+        self.resize(760, 640)
         layout = QVBoxLayout(self)
         form = QFormLayout()
 
         self.name = QLineEdit("DocMergeForge Project")
-        self.source = PathPicker("Select input folder")
+        self.sources = SourcePicker()
         self.output = PathPicker("Select output folder")
         if initial_source:
-            self.source.set_path(initial_source)
-            self.output.set_path(initial_source / "DocMergeForge-Output")
+            self.sources.add_path(initial_source)
+            output_base = initial_source if initial_source.is_dir() else initial_source.parent
+            self.output.set_path(output_base / "DocMergeForge-Output")
         self.start_part = QSpinBox()
         self.start_part.setRange(1, 999999)
         self.start_part.setValue(1)
@@ -82,7 +84,7 @@ class ProjectSetupDialog(QDialog):
         self.sql_preset.toggled.connect(self._preset_changed)
 
         form.addRow("Project name", self.name)
-        form.addRow("Input folder", self.source)
+        form.addRow("Source folders/files", self.sources)
         form.addRow("Output folder", self.output)
         form.addRow("First part", self.start_part)
         form.addRow("Last part", self.end_part)
@@ -90,8 +92,8 @@ class ProjectSetupDialog(QDialog):
         layout.addLayout(form)
 
         note = QLabel(
-            "PDF and DOCX are merged independently. Companion code is indexed only "
-            "and never merged."
+            "Add one or more folders and/or individual files. PDF and DOCX are merged "
+            "independently. Companion code is indexed only and never merged."
         )
         note.setWordWrap(True)
         layout.addWidget(note)
@@ -115,25 +117,52 @@ class ProjectSetupDialog(QDialog):
             self.end_part.setEnabled(True)
 
     def _validate_and_accept(self) -> None:
-        source = self.source.path()
+        sources = self.sources.paths()
         output = self.output.path()
-        if not source.exists() or not source.is_dir():
-            QMessageBox.warning(self, "Input required", "Choose an existing input folder.")
+        if not sources:
+            QMessageBox.warning(
+                self,
+                "Sources required",
+                "Add at least one source folder or individual file.",
+            )
+            return
+        missing = [path for path in sources if not path.exists()]
+        if missing:
+            QMessageBox.warning(
+                self,
+                "Source unavailable",
+                "One or more selected sources no longer exist:\n"
+                + "\n".join(str(path) for path in missing[:10]),
+            )
+            return
+        if self.sql_preset.isChecked() and (len(sources) != 1 or not sources[0].is_dir()):
+            QMessageBox.warning(
+                self,
+                "SQL preset source",
+                "The SQL Full Mastery preset requires exactly one root folder. "
+                "Use its dedicated guided workflow for the complete preset experience.",
+            )
             return
         if self.end_part.value() < self.start_part.value():
             QMessageBox.warning(self, "Invalid range", "Last part must be at least the first part.")
             return
-        if not str(output):
+        if not self.output.edit.text().strip():
             QMessageBox.warning(self, "Output required", "Choose an output folder.")
+            return
+        try:
+            output.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            QMessageBox.warning(self, "Output unavailable", str(exc))
             return
         self.accept()
 
     def project(self) -> MergeProject:
+        sources = self.sources.paths()
         if self.sql_preset.isChecked():
-            return create_sql_full_mastery_project(self.source.path(), self.output.path())
+            return create_sql_full_mastery_project(sources[0], self.output.path())
         return MergeProject(
             name=self.name.text().strip() or "DocMergeForge Project",
-            source_folders=[self.source.path()],
+            source_folders=sources,
             output_folder=self.output.path(),
             settings=MergeSettings(
                 expected_start=self.start_part.value(),
