@@ -24,12 +24,19 @@ from PySide6.QtWidgets import (
 
 from docmergeforge.app.service import MergeApplicationService
 from docmergeforge.audit.document import audit_tree
-from docmergeforge.core.models import DocumentKind, DocxSettings, MergeProject, PdfSettings
+from docmergeforge.core.models import (
+    DocumentKind,
+    DocxSettings,
+    MergeProject,
+    MergeState,
+    PdfSettings,
+)
 from docmergeforge.discovery.scanner import scan
 from docmergeforge.docx.engine import DocxMergeEngine
 from docmergeforge.pdf.engine import PdfMergeEngine
 from docmergeforge.presets.sql_full_mastery import PRESET_NAME, create_sql_full_mastery_project
 from docmergeforge.profiles.catalog import MergeProfile, apply_profile
+from docmergeforge.project.recovery import RecoveryStore
 from docmergeforge.project.store import load_project, save_project
 from docmergeforge.settings.config import AppSettings
 from docmergeforge.ui.about_dialog import AboutDialog
@@ -42,7 +49,8 @@ from docmergeforge.ui.dialogs import (
 )
 from docmergeforge.ui.first_run import FirstRunDialog
 from docmergeforge.ui.order_dialog import OrderEditorDialog
-from docmergeforge.ui.paths import recent_projects_path, settings_path
+from docmergeforge.ui.paths import recent_projects_path, recovery_dir, settings_path
+from docmergeforge.ui.pdf_passwords import collect_pdf_passwords
 from docmergeforge.ui.recent import RecentProject, RecentProjectsStore
 from docmergeforge.ui.support_dialog import SupportDialog
 from docmergeforge.ui.theme import apply_text_scale, apply_theme
@@ -61,12 +69,23 @@ def _parts_text(result: Any) -> str:
     )
 
 
+_STATE_BY_STAGE = {
+    "discovering": MergeState.DISCOVERING,
+    "validating": MergeState.VALIDATING,
+    "merging-pdf": MergeState.MERGING,
+    "merging-docx": MergeState.MERGING,
+    "verifying": MergeState.VERIFYING,
+    "reporting": MergeState.REPORTING,
+}
+
+
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.service = MergeApplicationService()
         self.app_settings = AppSettings.load(settings_path())
         self.recent = RecentProjectsStore(recent_projects_path())
+        self.recovery = RecoveryStore(recovery_dir())
         self.recent_errors: list[str] = []
         self.setWindowTitle("DocMergeForge")
         self.resize(1080, 720)
@@ -129,12 +148,31 @@ class MainWindow(QMainWindow):
         self.setStatusBar(QStatusBar())
         self.statusBar().showMessage("Drop a project folder here or choose an action.")
 
-    def show_first_run_if_needed(self) -> None:
-        if self.app_settings.first_run_completed:
+    def show_startup_dialogs(self) -> None:
+        if not self.app_settings.first_run_completed:
+            FirstRunDialog().exec()
+            self.app_settings.first_run_completed = True
+            self.app_settings.save(settings_path())
+        if not self.app_settings.crash_recovery:
             return
-        FirstRunDialog().exec()
-        self.app_settings.first_run_completed = True
-        self.app_settings.save(settings_path())
+        try:
+            project = self.recovery.recover()
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            self._record_error(str(exc))
+            self.recovery.clear()
+            return
+        if project is None:
+            return
+        checkpoint = project.last_successful_checkpoint or "saved checkpoint"
+        answer = QMessageBox.question(
+            self,
+            "Recover interrupted merge?",
+            f"An interrupted project was found at {checkpoint}. Resume it now?",
+        )
+        if answer == QMessageBox.StandardButton.Yes:
+            self._run_project(project)
+        else:
+            self.recovery.clear()
 
     def _record_error(self, message: str) -> None:
         sanitized = message.strip()
@@ -217,28 +255,69 @@ class MainWindow(QMainWindow):
         self._remember_project(project, path)
         self._run_project(project)
 
+    def _project_passwords(self, project: MergeProject) -> dict[Path, str] | None:
+        try:
+            inputs = self.service.discover(project)
+        except (OSError, ValueError) as exc:
+            self._record_error(str(exc))
+            QMessageBox.critical(self, "Discovery failed", str(exc))
+            return None
+        return collect_pdf_passwords(self, inputs)
+
     def _run_project(self, project: MergeProject) -> None:
         use_sql = project.name == PRESET_NAME
+        passwords = self._project_passwords(project)
+        if passwords is None:
+            return
+        password_provider = lambda path: passwords.get(path)
 
         def runner(progress: Any, cancelled: Any) -> object:
-            dry_run = self.service.dry_run(project)
+            def checkpointing_progress(
+                stage: str,
+                current: int,
+                total: int,
+                path: Path | None,
+            ) -> None:
+                progress(stage, current, total, path)
+                if not self.app_settings.crash_recovery or current != total:
+                    return
+                state = _STATE_BY_STAGE.get(stage)
+                if state is not None:
+                    project.state = state
+                self.recovery.checkpoint(project, stage)
+
+            dry_run = self.service.dry_run(
+                project,
+                allow_encrypted_pdf=bool(passwords),
+            )
             if use_sql:
                 if not dry_run.pdf.ready or not dry_run.docx.ready:
                     raise ValueError("SQL preset requires valid PDF and DOCX Parts 1–120.")
                 return self.service.run_sql_preset(
                     project,
-                    progress=progress,
+                    progress=checkpointing_progress,
                     cancelled=cancelled,
+                    pdf_password_provider=password_provider,
                 )
             if not dry_run.ready_for_available_kinds:
                 raise ValueError("Dry-run validation failed for the available document inputs.")
-            return self.service.run_project(project, progress=progress, cancelled=cancelled)
+            return self.service.run_project(
+                project,
+                progress=checkpointing_progress,
+                cancelled=cancelled,
+                pdf_password_provider=password_provider,
+            )
 
         worker = MergeWorker(runner)
         worker.failed.connect(self._record_error)
         progress_dialog = MergeProgressDialog(worker, "DocMergeForge Merge")
-        result = progress_dialog.start()
+        try:
+            result = progress_dialog.start()
+        finally:
+            passwords.clear()
         if result == int(progress_dialog.DialogCode.Accepted):
+            project.state = MergeState.SUCCEEDED
+            self.recovery.clear()
             outputs = worker.result or []
             paths = "\n".join(str(item.path) for item in outputs)
             QMessageBox.information(
@@ -254,6 +333,15 @@ class MainWindow(QMainWindow):
         )
         if not source:
             return
+        try:
+            items = [item for item in scan([Path(source)]) if item.kind == kind]
+        except OSError as exc:
+            self._record_error(str(exc))
+            QMessageBox.critical(self, "Discovery failed", str(exc))
+            return
+        passwords = collect_pdf_passwords(self, items) if kind == DocumentKind.PDF else {}
+        if passwords is None:
+            return
         output, _ = QFileDialog.getSaveFileName(
             self,
             f"Save merged {kind.value.upper()}",
@@ -261,17 +349,22 @@ class MainWindow(QMainWindow):
             f"{kind.value.upper()} (*.{kind.value})",
         )
         if not output:
+            passwords.clear()
             return
 
         def runner(progress: Any, cancelled: Any) -> object:
-            progress("discovering", 0, 1, None)
-            items = [item for item in scan([Path(source)]) if item.kind == kind]
             progress("discovering", 1, 1, None)
             numbered = [item.part.number for item in items if item.part.number is not None]
             if not items or not numbered:
                 raise ValueError("No numbered document inputs were found.")
             start, end = min(numbered), max(numbered)
-            validation = validate_part_set(items, kind, start, end)
+            validation = validate_part_set(
+                items,
+                kind,
+                start,
+                end,
+                allow_encrypted_pdf=bool(passwords),
+            )
             if not validation.ready:
                 raise ValueError(_parts_text(validation))
             if kind == DocumentKind.PDF:
@@ -283,6 +376,7 @@ class MainWindow(QMainWindow):
                         "merging-pdf", current, total, path
                     ),
                     cancelled=cancelled,
+                    password_provider=lambda path: passwords.get(path),
                 )
             return DocxMergeEngine().merge(
                 items,
@@ -297,7 +391,11 @@ class MainWindow(QMainWindow):
         worker = MergeWorker(runner)
         worker.failed.connect(self._record_error)
         dialog = MergeProgressDialog(worker, f"Merge {kind.value.upper()}")
-        if dialog.start() == int(dialog.DialogCode.Accepted):
+        try:
+            result = dialog.start()
+        finally:
+            passwords.clear()
+        if result == int(dialog.DialogCode.Accepted):
             QMessageBox.information(self, "Validated output created", str(worker.result))
 
     def _sql_preset(self) -> None:
@@ -499,7 +597,7 @@ def main() -> int:
     apply_text_scale(app, settings.text_scale_percent)
     window = MainWindow()
     window.show()
-    QTimer.singleShot(0, window.show_first_run_if_needed)
+    QTimer.singleShot(0, window.show_startup_dialogs)
     return app.exec()
 
 
