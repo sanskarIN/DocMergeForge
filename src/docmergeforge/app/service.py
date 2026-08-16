@@ -15,7 +15,7 @@ from docmergeforge.core.models import (
 )
 from docmergeforge.discovery.scanner import scan
 from docmergeforge.docx.engine import DocxMergeEngine
-from docmergeforge.pdf.engine import PdfMergeEngine
+from docmergeforge.pdf.engine import PasswordProvider, PdfMergeEngine
 from docmergeforge.presets.sql_full_mastery import (
     CHECKSUMS_FILENAME,
     DOCX_FILENAME,
@@ -65,7 +65,12 @@ class MergeApplicationService:
         discovered = scan(project.source_folders, recursive=True)
         return apply_project_selection(discovered, project.selected_files)
 
-    def dry_run(self, project: MergeProject) -> DryRunResult:
+    def dry_run(
+        self,
+        project: MergeProject,
+        *,
+        allow_encrypted_pdf: bool = False,
+    ) -> DryRunResult:
         inputs = self.discover(project)
         pdfs = [item for item in inputs if item.kind == DocumentKind.PDF]
         docxs = [item for item in inputs if item.kind == DocumentKind.DOCX]
@@ -74,6 +79,7 @@ class MergeApplicationService:
             DocumentKind.PDF,
             project.settings.expected_start,
             project.settings.expected_end,
+            allow_encrypted_pdf=allow_encrypted_pdf,
         )
         docx_result = validate_part_set(
             inputs,
@@ -125,6 +131,7 @@ class MergeApplicationService:
         *,
         progress: ProgressCallback | None = None,
         cancelled: CancellationCallback | None = None,
+        pdf_password_provider: PasswordProvider | None = None,
     ) -> list[OutputArtifact]:
         self._check_cancelled(cancelled)
         self._emit(progress, "discovering", 0, 1)
@@ -147,6 +154,7 @@ class MergeApplicationService:
                 DocumentKind.PDF,
                 project.settings.expected_start,
                 project.settings.expected_end,
+                allow_encrypted_pdf=pdf_password_provider is not None,
             )
             validations["PDF"] = pdf_result
             if not pdf_result.ready:
@@ -192,6 +200,7 @@ class MergeApplicationService:
                     )
                 ),
                 cancelled=cancelled,
+                password_provider=pdf_password_provider,
             )
             outputs.append(self._artifact(pdf_path, DocumentKind.PDF))
         self._check_cancelled(cancelled)
@@ -267,6 +276,7 @@ class MergeApplicationService:
         *,
         progress: ProgressCallback | None = None,
         cancelled: CancellationCallback | None = None,
+        pdf_password_provider: PasswordProvider | None = None,
     ) -> list[OutputArtifact]:
         self._check_cancelled(cancelled)
         self._emit(progress, "discovering", 0, 1)
@@ -284,6 +294,7 @@ class MergeApplicationService:
             DocumentKind.PDF,
             project.settings.expected_start,
             project.settings.expected_end,
+            allow_encrypted_pdf=pdf_password_provider is not None,
         )
         docx_result = validate_part_set(
             inputs,
@@ -317,6 +328,7 @@ class MergeApplicationService:
                 )
             ),
             cancelled=cancelled,
+            password_provider=pdf_password_provider,
         )
         self._check_cancelled(cancelled)
         docx_path = DocxMergeEngine().merge(
