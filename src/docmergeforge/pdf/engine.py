@@ -5,6 +5,7 @@ from pathlib import Path
 
 from docmergeforge.core.exceptions import MergeCancelled, ValidationError
 from docmergeforge.core.models import InputDocument, PdfSettings
+from docmergeforge.pdf.rendering import create_overlay, render_front_matter
 from docmergeforge.utilities.atomic import atomic_output, versioned_path
 from docmergeforge.utilities.hashing import sha256_file, snapshot_hashes, verify_unchanged
 
@@ -33,12 +34,18 @@ class PdfMergeEngine:
                 item.path.name.casefold(),
             ),
         )
+        if not ordered:
+            raise ValidationError("No PDF inputs were provided.")
         before = snapshot_hashes(item.path for item in ordered)
         final_output = output if overwrite else versioned_path(output)
 
         with atomic_output(final_output, overwrite=True) as temporary:
             writer = PdfWriter()
-            expected_pages = 0
+            front_matter = render_front_matter(ordered, settings)
+            for page in front_matter:
+                writer.add_page(page)
+            expected_pages = len(front_matter)
+
             for index, item in enumerate(ordered, start=1):
                 if cancelled and cancelled():
                     raise MergeCancelled("PDF merge cancelled safely.")
@@ -55,6 +62,18 @@ class PdfMergeEngine:
                 if progress:
                     progress(index, len(ordered), item.path)
 
+            for index, page in enumerate(writer.pages, start=1):
+                overlay = create_overlay(
+                    float(page.mediabox.width),
+                    float(page.mediabox.height),
+                    settings,
+                    index,
+                )
+                if overlay is not None:
+                    page.merge_page(overlay)
+                if settings.optimization in {"balanced", "archive"}:
+                    page.compress_content_streams()
+
             metadata: dict[str, str] = {}
             if settings.title:
                 metadata["/Title"] = settings.title
@@ -62,8 +81,8 @@ class PdfMergeEngine:
                 metadata["/Author"] = settings.author
             if settings.edition:
                 metadata["/Subject"] = f"Edition: {settings.edition}"
-            if metadata:
-                writer.add_metadata(metadata)
+            metadata["/Creator"] = "DocMergeForge — Made by the Sanskar"
+            writer.add_metadata(metadata)
             with temporary.open("wb") as handle:
                 writer.write(handle)
 

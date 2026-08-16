@@ -102,6 +102,14 @@ class PdfSettings:
     title: str | None = None
     author: str | None = None
     edition: str | None = None
+    include_title_page: bool = False
+    visible_toc: bool = False
+    page_numbers: bool = False
+    page_number_start: int = 1
+    header_text: str | None = None
+    footer_text: str | None = None
+    watermark_text: str | None = None
+    optimization: str = "preserve"
 
 
 @dataclass(slots=True)

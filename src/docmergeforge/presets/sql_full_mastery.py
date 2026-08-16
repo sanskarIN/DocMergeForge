@@ -24,6 +24,11 @@ def create_sql_full_mastery_project(source: Path, output: Path) -> MergeProject:
             title="SQL Full Mastery — Complete 120-Part Master Edition",
             author="Ram Sandesh",
             edition="August 2026",
+            include_title_page=True,
+            visible_toc=True,
+            page_numbers=True,
+            footer_text="SQL Full Mastery • Ram Sandesh",
+            optimization="balanced",
         ),
         docx=DocxSettings(
             start_each_part_on_new_page=True,
