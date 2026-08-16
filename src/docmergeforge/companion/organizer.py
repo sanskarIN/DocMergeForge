@@ -29,7 +29,9 @@ def copy_companion_packages(
         key=lambda item: (item.part is None, item.part or 0, item.path.name.casefold()),
     ):
         if not companion.path.is_file():
-            raise ValueError(f"Companion copy currently supports package files only: {companion.path}")
+            raise ValueError(
+                f"Companion copy currently supports package files only: {companion.path}"
+            )
         before = sha256_file(companion.path)
         if before != companion.sha256:
             raise ValueError(f"Companion package changed since discovery: {companion.path}")
