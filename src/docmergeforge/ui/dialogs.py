@@ -90,7 +90,8 @@ class ProjectSetupDialog(QDialog):
         layout.addLayout(form)
 
         note = QLabel(
-            "PDF and DOCX are merged independently. Companion code is indexed only and never merged."
+            "PDF and DOCX are merged independently. Companion code is indexed only "
+            "and never merged."
         )
         note.setWordWrap(True)
         layout.addWidget(note)
