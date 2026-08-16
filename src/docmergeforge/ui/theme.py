@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication
 
 _DARK = """
@@ -46,3 +47,14 @@ def apply_theme(app: QApplication, theme: str) -> None:
         app.setStyleSheet(_LIGHT)
     else:
         app.setStyleSheet("")
+
+
+def apply_text_scale(app: QApplication, percent: int) -> None:
+    bounded = max(80, min(200, percent))
+    base_value = app.property("docmergeforgeBasePointSize")
+    if not isinstance(base_value, float):
+        base_value = float(app.font().pointSizeF())
+        app.setProperty("docmergeforgeBasePointSize", base_value)
+    font = QFont(app.font())
+    font.setPointSizeF(base_value * bounded / 100)
+    app.setFont(font)
