@@ -23,8 +23,7 @@ class PrivacyFilter(logging.Filter):
         if record.args:
             if isinstance(record.args, dict):
                 record.args = {
-                    key: redact_sensitive_text(str(value))
-                    for key, value in record.args.items()
+                    key: redact_sensitive_text(str(value)) for key, value in record.args.items()
                 }
             else:
                 record.args = tuple(redact_sensitive_text(str(value)) for value in record.args)
@@ -47,9 +46,7 @@ def configure_logging(path: Path, level: str = "INFO") -> logging.Logger:
         backupCount=3,
         encoding="utf-8",
     )
-    handler.setFormatter(
-        logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
-    )
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
     handler.addFilter(PrivacyFilter())
     logger.addHandler(handler)
     return logger
