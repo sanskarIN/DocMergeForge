@@ -68,7 +68,8 @@ class DocxMergeEngine:
             )
         if settings.numbering_conflict_policy not in {"remap", "error"}:
             raise ValidationError(
-                "Portable DOCX mode currently supports numbering_conflict_policy='remap' or 'error'."
+                "Portable DOCX mode currently supports "
+                "numbering_conflict_policy='remap' or 'error'."
             )
         if settings.style_conflict_policy == "error" and style_collisions:
             raise ValidationError(
