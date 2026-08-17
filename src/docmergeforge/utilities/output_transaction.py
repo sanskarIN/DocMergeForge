@@ -85,13 +85,9 @@ def _load_journal(transaction_folder: Path) -> dict[str, Any]:
             f"Could not read transaction recovery journal: {journal_path}: {exc}"
         ) from exc
     if not isinstance(payload, dict) or payload.get("version") != JOURNAL_VERSION:
-        raise TransactionRecoveryError(
-            f"Unsupported transaction recovery journal: {journal_path}"
-        )
+        raise TransactionRecoveryError(f"Unsupported transaction recovery journal: {journal_path}")
     if payload.get("phase") not in JOURNAL_PHASES:
-        raise TransactionRecoveryError(
-            f"Invalid transaction recovery phase in: {journal_path}"
-        )
+        raise TransactionRecoveryError(f"Invalid transaction recovery phase in: {journal_path}")
     entries = payload.get("entries")
     if not isinstance(entries, list) or not entries:
         raise TransactionRecoveryError(
@@ -126,9 +122,7 @@ def _recover_promoting_transaction(
         staging = _safe_child(transaction_folder, staging_name)
         final = _safe_final(output_folder, final_relative)
         backup = (
-            _safe_child(transaction_folder, str(backup_name))
-            if backup_name is not None
-            else None
+            _safe_child(transaction_folder, str(backup_name)) if backup_name is not None else None
         )
 
         if backup is not None and backup.exists():
@@ -238,9 +232,7 @@ class OutputTransaction:
                 "Interrupted publication transaction detected. Recover it before starting "
                 f"another merge: {pending[0]}"
             )
-        self._staging_folder = Path(
-            tempfile.mkdtemp(prefix=STAGING_PREFIX, dir=self.output_folder)
-        )
+        self._staging_folder = Path(tempfile.mkdtemp(prefix=STAGING_PREFIX, dir=self.output_folder))
         return self
 
     def __exit__(
