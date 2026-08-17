@@ -10,6 +10,7 @@ def validate_build_root(root: Path) -> Path:
     required = (
         resolved / "pyproject.toml",
         resolved / "src" / "docmergeforge" / "ui" / "main.py",
+        resolved / "src" / "docmergeforge" / "ui" / "packaged_entry.py",
     )
     missing = [path.relative_to(resolved) for path in required if not path.is_file()]
     if missing:
@@ -21,7 +22,7 @@ def validate_build_root(root: Path) -> Path:
 def build_args(root: Path, *, one_file: bool = False) -> list[str]:
     """Return reproducible PyInstaller arguments for the desktop application."""
     root = root.resolve()
-    entry = root / "src" / "docmergeforge" / "ui" / "main.py"
+    entry = root / "src" / "docmergeforge" / "ui" / "packaged_entry.py"
     branding = root / "assets" / "branding"
     args = [
         str(entry),
