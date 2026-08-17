@@ -1,3 +1,4 @@
+import errno
 from pathlib import Path
 
 import pytest
@@ -18,6 +19,19 @@ def test_atomic_output_cleans_failed_temp(tmp_path: Path) -> None:
     with pytest.raises(RuntimeError), atomic_output(target):
         raise RuntimeError("boom")
     assert not target.exists()
+
+
+def test_atomic_output_preserves_published_file_on_disk_exhaustion(tmp_path: Path) -> None:
+    target = tmp_path / "out.bin"
+    target.write_bytes(b"published")
+
+    with pytest.raises(OSError) as error, atomic_output(target, overwrite=True) as temp:
+        temp.write_bytes(b"partial")
+        raise OSError(errno.ENOSPC, "No space left on device")
+
+    assert error.value.errno == errno.ENOSPC
+    assert target.read_bytes() == b"published"
+    assert not list(tmp_path.glob("*.part"))
 
 
 def test_versioned_path(tmp_path: Path) -> None:
