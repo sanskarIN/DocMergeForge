@@ -1,8 +1,8 @@
 # Release Packaging
 
-DocMergeForge has a cross-platform PyInstaller packaging foundation and GitHub Actions workflow. The current workflow produces **unsigned development archives**. Production signing, notarization, installer creation, and clean-machine acceptance remain explicit release gates.
+DocMergeForge has verified native PyInstaller pipelines for default onedir and optional onefile packages on Windows, macOS, and Ubuntu. Current CI outputs remain **unsigned development archives**; production platform signing, notarization, installer/container distribution, and human clean-machine acceptance remain separate release gates.
 
-For command-by-command local builds, see [Building Executables](building-executables.md). For the complete acceptance sequence, see [Release Process](release-process.md).
+For commands, see [Building Executables](building-executables.md) and the [Complete Executable Build Manual](build/README.md). For acceptance policy, see [Release Process](release-process.md) and [Release Evidence Ledger](release-evidence.md).
 
 ## Shared packaging configuration
 
@@ -12,55 +12,31 @@ Packaging arguments live in:
 src/docmergeforge/packaging/desktop.py
 ```
 
-The build script:
+The build helper:
 
 ```text
 scripts/build_desktop.py
 ```
 
-imports that shared configuration. This avoids having tests, local builds, and CI each maintain a different PyInstaller argument list.
+uses that shared configuration so tests, local builds, and CI share one PyInstaller argument source.
 
-## Build-root validation
-
-Before importing/running PyInstaller, the helper validates the repository root.
-
-Required inputs currently include:
+Current packaged entry point:
 
 ```text
-pyproject.toml
-src/docmergeforge/ui/main.py
+src/docmergeforge/ui/packaged_entry.py
 ```
 
-Run:
-
-```bash
-python scripts/build_desktop.py --check
-```
-
-A bad root fails early with a list of missing required paths.
-
-## PyInstaller configuration
-
-The shared builder currently configures:
-
-- entry point: `src/docmergeforge/ui/main.py`;
-- app name: `DocMergeForge`;
-- windowed desktop mode;
-- clean build;
-- noninteractive overwrite (`--noconfirm`);
-- collection of `docmergeforge` submodules;
-- full collection for `docxcompose`, `docx`, and `pypdf`;
-- inclusion of `assets/branding` when present;
-- `--onedir` by default;
-- `--onefile` when explicitly requested.
+Normal packaged launches delegate to the desktop main behavior. `--packaged-smoke` is a deterministic CI acceptance interface.
 
 ## Local packaging
 
-Install:
+Install build tooling:
 
 ```bash
 pip install -e ".[build]"
 ```
+
+The build extra currently includes PyInstaller and pinned `cyclonedx-bom==7.3.1` for supply-chain evidence generation.
 
 Preflight:
 
@@ -74,20 +50,15 @@ Onedir:
 python scripts/build_desktop.py
 ```
 
-One-file:
+Onefile:
 
 ```bash
 python scripts/build_desktop.py --one-file
 ```
 
-PyInstaller normally writes local build state under:
+PyInstaller normally writes generated state to `build/` and `dist/`.
 
-```text
-build/
-dist/
-```
-
-## GitHub Actions workflow
+## Package Desktop — default onedir
 
 Workflow:
 
@@ -95,233 +66,173 @@ Workflow:
 .github/workflows/package.yml
 ```
 
-Name:
-
-```text
-Package Desktop
-```
-
 Triggers:
 
-- manual workflow dispatch;
-- tags matching `v*`.
+- manual dispatch;
+- tags matching `v*`;
+- packaging/UI-related changes on `main`.
 
-Matrix:
+Per-workflow/ref concurrency cancels stale in-progress package runs so obsolete `main` commits do not continue consuming native runner capacity.
+
+Native matrix:
 
 - `windows-latest`;
 - `macos-latest`;
 - `ubuntu-latest`;
 - Python 3.12.
 
-## Workflow steps
+Every platform builds the real application, runs packaged mixed PDF+DOCX smoke, archives it, creates checksum/JSON provenance/CycloneDX evidence, creates two signed GitHub/Sigstore attestations, uploads the evidence bundle, then participates in a separate fresh-runner verification matrix.
 
-For each platform, Package Desktop currently:
+## Onefile Acceptance
 
-1. checks out the repository;
-2. sets up Python 3.12 with pip cache;
-3. upgrades pip;
-4. installs `pip install -e ".[build]"`;
-5. validates packaging configuration;
-6. runs the PyInstaller build helper;
-7. archives `dist/DocMergeForge`;
-8. uploads the platform artifact;
-9. prints an explicit unsigned-development-build notice.
+Workflow:
 
-## Current CI artifact names
+```text
+.github/workflows/onefile-acceptance.yml
+```
 
-Windows:
+Onefile is independently built and accepted on the same three native runner families. It has its own stale-run cancellation group and must pass its own build-host plus fresh-runner sequence; onedir evidence is not reused to prove onefile behavior.
+
+## Current evidence bundle
+
+For each unsigned native archive, CI uploads:
+
+```text
+<archive>
+<archive>.sha256
+<artifact-label>.provenance.json
+<artifact-label>.cdx.json
+```
+
+The JSON provenance is privacy-filtered and bound to the exact archive filename, byte size, and SHA-256.
+
+The CycloneDX 1.6 JSON describes the Python **build environment** used by PyInstaller. It may include build-time tools and is not claimed to be a byte-perfect post-bundling executable inventory.
+
+## Signed GitHub/Sigstore predicates
+
+Each archive receives two separate `actions/attest@v4` attestations:
+
+1. default build provenance;
+2. CycloneDX predicate type `https://cyclonedx.org/bom`.
+
+Fresh runners require both:
+
+```bash
+gh attestation verify <archive> --repo sanskarIN/DocMergeForge
+
+gh attestation verify <archive> \
+  --repo sanskarIN/DocMergeForge \
+  --predicate-type https://cyclonedx.org/bom
+```
+
+Only after both signed predicates pass does verification continue to local provenance, `.sha256`, extraction, and the downloaded packaged smoke.
+
+GitHub/Sigstore build attestations do **not** mean the Windows executable is Authenticode-signed or the macOS application is Developer ID signed/notarized.
+
+## Verified executable evidence
+
+Verified SBOM/two-predicate onedir acceptance:
+
+```text
+Package Desktop run: 32033135355
+Checkpoint:          59dc14bbf1d4301177e475ac350694bdd9d90ada
+All six jobs:        PASS
+```
+
+Verified SBOM/two-predicate onefile acceptance:
+
+```text
+Onefile Acceptance run: 32033541414
+Checkpoint:              dc624e23d07e0ce94ef345245630d153ee60091a
+All six jobs:            PASS
+```
+
+Subsequent concurrency-only workflow commits are verified separately in `CHANGELOG.md` / `what_changed.md` once their full matrices complete.
+
+## Current unsigned archive names
+
+Onedir:
 
 ```text
 DocMergeForge-Windows-unsigned.zip
-```
-
-macOS:
-
-```text
 DocMergeForge-macOS-unsigned.tar.gz
-```
-
-Linux:
-
-```text
 DocMergeForge-Linux-unsigned.tar.gz
 ```
 
-Uploaded GitHub Actions artifact labels likewise contain `unsigned`.
+Onefile:
 
-This naming is intentional to prevent accidental claims that CI archives have platform trust signatures.
+```text
+DocMergeForge-Windows-onefile-unsigned.zip
+DocMergeForge-macOS-onefile-unsigned.tar.gz
+DocMergeForge-Linux-onefile-unsigned.tar.gz
+```
+
+The `unsigned` label is intentional and must remain until real platform signing/notarization has been performed and verified.
 
 ## Windows distribution status
 
-Current foundation:
+Automated foundation now includes native PyInstaller build, archive, checksum, JSON provenance, CycloneDX SBOM, signed build/SBOM predicates, fresh-runner verification, and packaged mixed-document smoke.
 
-- PyInstaller application directory;
-- ZIP archive in CI.
+Still separate production gates:
 
-Not yet claimed as completed production distribution:
-
-- signed executable;
-- MSI/MSIX/Inno/NSIS installer;
+- Authenticode signing and timestamping;
+- SmartScreen/trust review;
+- MSI/MSIX/Inno/NSIS or another intentional installer;
 - installer signing;
-- SmartScreen reputation acceptance;
-- clean-machine install/upgrade/uninstall matrix.
-
-A future Windows installer must preserve user manuscripts/projects during uninstall and should not require Administrator privileges without a real need.
+- representative human clean-machine install/upgrade/uninstall acceptance.
 
 ## macOS distribution status
 
-Current foundation:
+Automated foundation now includes native `.app`/PyInstaller output, archive, checksum, JSON provenance, CycloneDX SBOM, both signed predicates, fresh-runner verification, and packaged mixed-document smoke.
 
-- native macOS PyInstaller build on GitHub runner;
-- tar.gz archive in CI.
-
-Not yet claimed:
+Still separate production gates:
 
 - Developer ID signing;
-- hardened runtime/entitlements acceptance;
+- hardened runtime/entitlements review where required;
 - notarization;
 - stapling;
-- DMG/PKG production distribution;
-- Gatekeeper clean-machine acceptance;
-- universal/architecture strategy beyond the actual runner/build being tested.
+- Gatekeeper acceptance;
+- DMG/PKG or another intentional distribution container;
+- representative clean-Mac human acceptance.
 
 ## Linux distribution status
 
-Current foundation:
+Automated foundation includes Ubuntu-hosted PyInstaller build, tar archive, checksum/provenance/SBOM, both signed predicates, and fresh-runner smoke using only the documented `libegl1` system runtime prerequisite.
 
-- Ubuntu-hosted PyInstaller build;
-- tar.gz archive.
-
-Not yet claimed:
+Still separate claims if desired:
 
 - AppImage;
-- `.deb`/`.rpm`;
+- DEB/RPM;
 - repository/package signing;
 - broad distro/glibc compatibility;
 - Flatpak/Snap.
 
-Do not state those formats are available until corresponding build/release code and acceptance exist.
+## Build Smoke versus Package Desktop
 
-## Build Smoke is not Package Desktop
+Build Smoke verifies source compilation, CLI availability, accessibility metadata/preference smoke, and packaging preflight on Windows/macOS/Linux. It does not run full PyInstaller packaging.
 
-`Build Smoke` runs on every relevant development event and verifies:
+Package Desktop and Onefile Acceptance create and independently consume real uploaded packages, including supply-chain evidence and packaged mixed-document execution.
 
-- source compilation;
-- CLI entry point;
-- accessibility smoke;
-- packaging preflight.
+## Artifact hashing and final-byte rule
 
-It does **not** invoke a complete production package/signing process.
+Current hashes/provenance/SBOM predicates describe exact **unsigned CI archive bytes**.
 
-`Package Desktop` actually invokes PyInstaller, but its archives remain unsigned development artifacts.
+If signing, notarization, stapling, installer wrapping, or repackaging changes bytes, generate new final SHA-256 and appropriate final-stage provenance/SBOM/attestation evidence. Never publish an unsigned-stage hash as the hash of a changed signed artifact.
 
 ## Signing credentials
 
-Production signing secrets must never be committed to the repository.
+Production signing secrets must never be committed. Use protected CI secret stores, HSM/certificate services where appropriate, least privilege, controlled trigger permissions, rotation procedures, and independent verification.
 
-Use protected CI secret stores/HSM/certificate services and platform-appropriate least-privilege controls.
+## Human packaged-app acceptance
 
-Document:
-
-- certificate identity;
-- expiration/renewal procedure;
-- timestamping/notarization endpoint requirements;
-- secret rotation;
-- who can trigger signing;
-- verification commands;
-- incident response for compromised credentials.
-
-## Artifact hashing
-
-Every distributed artifact should have a SHA-256 recorded after the final signing/archive step that users download.
-
-Hashing an unsigned intermediate is not sufficient if signing later changes the binary bytes.
-
-Release records should include:
-
-```text
-filename
-byte size
-SHA-256
-commit/tag
-workflow run ID
-platform/architecture
-signing/notarization status
-```
-
-## Packaged-app smoke testing
-
-Before release, test the package itself—not only source Python.
-
-Minimum representative packaged-app test:
-
-- launch UI;
-- open/create project;
-- source selection/file dialogs;
-- dry-run/preflight;
-- PDF merge;
-- DOCX merge;
-- mixed project merge;
-- generated evidence;
-- encrypted PDF prompt;
-- cancellation;
-- recovery path;
-- Unicode/long paths;
-- branding resources;
-- application exit/relaunch.
-
-Perform on clean machines/VMs representative of target users.
-
-## One-file versus onedir
-
-Treat these as separate distribution targets.
-
-One-file builds can extract bundled files to temporary runtime locations and can differ in startup time, antivirus behavior, resource-path semantics, and crash cleanup.
-
-Do not ship one-file simply because it is convenient without testing its real target behavior.
+Automated `--packaged-smoke` is strong downloaded-artifact evidence but remains headless/deterministic. Before production support claims, representative clean machines should exercise normal UI launch, project/source selection, ordering, PDF/DOCX/mixed projects, encrypted-PDF interaction, cancellation/recovery, Unicode/long paths, accessibility, trust prompts, and normal exit/relaunch.
 
 ## Reproducibility
 
-Centralized arguments improve reproducibility, but bit-for-bit reproducible binaries are not currently claimed.
-
-For a release, pin/record as much build context as practical:
-
-- OS runner image;
-- Python version;
-- dependency versions;
-- PyInstaller version;
-- commit/tag;
-- workflow run;
-- final hash.
-
-## Release tag behavior
-
-Package Desktop triggers for tags matching:
-
-```text
-v*
-```
-
-Before pushing a release tag:
-
-- ensure it points to the final reviewed commit;
-- ensure changelog/version are correct;
-- ensure source CI is green;
-- ensure unresolved release blockers are documented;
-- understand that the resulting CI artifacts are still unsigned unless a future signing stage is explicitly added.
+Centralized build arguments, dependency snapshots, checksums, SBOMs, and attestations improve traceability, but bit-for-bit reproducible binaries are not currently claimed. If reproducible-build equivalence becomes a requirement, add a deliberate repeated-build comparison gate.
 
 ## Production packaging definition of done
 
-A platform packaging target is complete only when:
+A production distribution target is complete only when the intended final bytes have passed relevant source/recovery/stress/fidelity/accessibility gates; downloaded-artifact evidence is current; signing/notarization succeeds where claimed; final signatures/trust are independently verified; intended installer/container behavior is accepted; final hashes/provenance/SBOM evidence match the distributed bytes; and release notes accurately state support and limitations.
 
-- package builds consistently;
-- packaged app passes functional acceptance on clean machine;
-- recovery/fidelity/accessibility paths relevant to that platform are accepted;
-- installer/distribution format is intentional;
-- signing/notarization succeeds where required;
-- final artifact signature is verified independently;
-- final download hash is recorded;
-- installation/launch/update/uninstall behavior is documented;
-- release notes correctly state support/limitations.
-
-Until then, use the phrase **unsigned development build** for the current CI artifacts.
+Until then, the correct term remains **unsigned development build**.
