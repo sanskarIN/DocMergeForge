@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -19,27 +20,39 @@ class SourcePicker(QWidget):
 
     def __init__(self) -> None:
         super().__init__()
+        self.setAccessibleName("Project sources")
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
         self.list = QListWidget()
         self.list.setAccessibleName("Project source folders and files")
+        self.list.setAccessibleDescription(
+            "Selected source folders and individual files. Multiple rows may be selected."
+        )
         self.list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         layout.addWidget(self.list)
 
         controls = QHBoxLayout()
-        add_folder = QPushButton("Add Folder…")
-        add_folder.clicked.connect(self._add_folder)
-        add_files = QPushButton("Add Files…")
-        add_files.clicked.connect(self._add_files)
-        remove = QPushButton("Remove Selected")
-        remove.clicked.connect(self._remove_selected)
-        clear = QPushButton("Clear")
-        clear.clicked.connect(self.list.clear)
-        controls.addWidget(add_folder)
-        controls.addWidget(add_files)
-        controls.addWidget(remove)
-        controls.addWidget(clear)
+        self.add_folder_button = QPushButton("Add Folder…")
+        self.add_folder_button.setAccessibleName("Add source folder")
+        self.add_folder_button.setShortcut(QKeySequence("Ctrl+Shift+O"))
+        self.add_folder_button.clicked.connect(self._add_folder)
+        self.add_files_button = QPushButton("Add Files…")
+        self.add_files_button.setAccessibleName("Add source files")
+        self.add_files_button.setShortcut(QKeySequence("Ctrl+O"))
+        self.add_files_button.clicked.connect(self._add_files)
+        self.remove_button = QPushButton("Remove Selected")
+        self.remove_button.setAccessibleName("Remove selected sources")
+        self.remove_button.setShortcut(QKeySequence("Delete"))
+        self.remove_button.clicked.connect(self._remove_selected)
+        self.clear_button = QPushButton("Clear")
+        self.clear_button.setAccessibleName("Clear all sources")
+        self.clear_button.setShortcut(QKeySequence("Ctrl+Shift+Delete"))
+        self.clear_button.clicked.connect(self.list.clear)
+        controls.addWidget(self.add_folder_button)
+        controls.addWidget(self.add_files_button)
+        controls.addWidget(self.remove_button)
+        controls.addWidget(self.clear_button)
         layout.addLayout(controls)
 
     def paths(self) -> list[Path]:
