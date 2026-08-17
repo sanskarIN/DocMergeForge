@@ -11,6 +11,7 @@ on:
       - ".github/workflows/package.yml"
       - "pyproject.toml"
       - "scripts/build_desktop.py"
+      - "scripts/write_build_provenance.py"
       - "src/docmergeforge/packaging/**"
       - "src/docmergeforge/ui/**"
 
@@ -123,6 +124,30 @@ jobs:
           sha256sum DocMergeForge-Linux-unsigned.tar.gz > DocMergeForge-Linux-unsigned.tar.gz.sha256
           sha256sum -c DocMergeForge-Linux-unsigned.tar.gz.sha256
 
+      - name: Write Windows build provenance
+        if: runner.os == 'Windows'
+        run: >-
+          python scripts/write_build_provenance.py
+          --output DocMergeForge-Windows-unsigned.provenance.json
+          --mode onedir
+          --artifact-label DocMergeForge-Windows-unsigned
+
+      - name: Write macOS build provenance
+        if: runner.os == 'macOS'
+        run: >-
+          python scripts/write_build_provenance.py
+          --output DocMergeForge-macOS-unsigned.provenance.json
+          --mode onedir
+          --artifact-label DocMergeForge-macOS-unsigned
+
+      - name: Write Linux build provenance
+        if: runner.os == 'Linux'
+        run: >-
+          python scripts/write_build_provenance.py
+          --output DocMergeForge-Linux-unsigned.provenance.json
+          --mode onedir
+          --artifact-label DocMergeForge-Linux-unsigned
+
       - name: Upload Windows artifact
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
@@ -131,6 +156,7 @@ jobs:
           path: |
             DocMergeForge-Windows-unsigned.zip
             DocMergeForge-Windows-unsigned.zip.sha256
+            DocMergeForge-Windows-unsigned.provenance.json
           if-no-files-found: error
 
       - name: Upload macOS artifact
@@ -141,6 +167,7 @@ jobs:
           path: |
             DocMergeForge-macOS-unsigned.tar.gz
             DocMergeForge-macOS-unsigned.tar.gz.sha256
+            DocMergeForge-macOS-unsigned.provenance.json
           if-no-files-found: error
 
       - name: Upload Linux artifact
@@ -151,6 +178,7 @@ jobs:
           path: |
             DocMergeForge-Linux-unsigned.tar.gz
             DocMergeForge-Linux-unsigned.tar.gz.sha256
+            DocMergeForge-Linux-unsigned.provenance.json
           if-no-files-found: error
 
       - name: Packaging notice
@@ -169,12 +197,15 @@ jobs:
           - os: windows-latest
             artifact: DocMergeForge-Windows-unsigned
             archive: DocMergeForge-Windows-unsigned.zip
+            provenance: DocMergeForge-Windows-unsigned.provenance.json
           - os: macos-latest
             artifact: DocMergeForge-macOS-unsigned
             archive: DocMergeForge-macOS-unsigned.tar.gz
+            provenance: DocMergeForge-macOS-unsigned.provenance.json
           - os: ubuntu-latest
             artifact: DocMergeForge-Linux-unsigned
             archive: DocMergeForge-Linux-unsigned.tar.gz
+            provenance: DocMergeForge-Linux-unsigned.provenance.json
 
     steps:
       - name: Download packaged artifact only
@@ -188,6 +219,28 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libegl1
+
+      - name: Verify Windows provenance
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $provenance = Get-Content (Join-Path "artifact" "${{ matrix.provenance }}") -Raw | ConvertFrom-Json
+          if ($provenance.source.commit_sha -ne "$env:GITHUB_SHA") { throw "Windows provenance commit mismatch" }
+          if ($provenance.artifact.build_mode -ne "onedir") { throw "Windows provenance build mode mismatch" }
+          if ($provenance.artifact.label -ne "${{ matrix.artifact }}") { throw "Windows provenance artifact label mismatch" }
+          if ($provenance.artifact.signed -ne $false) { throw "Windows provenance unexpectedly claims signing" }
+          if ($provenance.artifact.notarized -ne $false) { throw "Windows provenance unexpectedly claims notarization" }
+
+      - name: Verify Unix provenance
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          provenance="artifact/${{ matrix.provenance }}"
+          grep -F '"commit_sha": "${{ github.sha }}"' "$provenance"
+          grep -F '"build_mode": "onedir"' "$provenance"
+          grep -F '"label": "${{ matrix.artifact }}"' "$provenance"
+          grep -F '"signed": false' "$provenance"
+          grep -F '"notarized": false' "$provenance"
 
       - name: Verify and launch Windows downloaded artifact
         if: runner.os == 'Windows'
