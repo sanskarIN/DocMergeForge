@@ -36,13 +36,16 @@ class PathPicker(QWidget):
         super().__init__()
         self.title = title
         self.directory = directory
+        self.setAccessibleName(title)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         self.edit = QLineEdit()
-        button = QPushButton("Browse…")
-        button.clicked.connect(self._browse)
+        self.edit.setAccessibleName(title)
+        self.browse_button = QPushButton("Browse…")
+        self.browse_button.setAccessibleName(f"Browse for {title.lower()}")
+        self.browse_button.clicked.connect(self._browse)
         layout.addWidget(self.edit, 1)
-        layout.addWidget(button)
+        layout.addWidget(self.browse_button)
 
     def _browse(self) -> None:
         if self.directory:
@@ -63,24 +66,30 @@ class ProjectSetupDialog(QDialog):
     def __init__(self, initial_source: Path | None = None) -> None:
         super().__init__()
         self.setWindowTitle("New Merge Project")
+        self.setAccessibleName("New merge project")
         self.resize(760, 640)
         layout = QVBoxLayout(self)
         form = QFormLayout()
 
         self.name = QLineEdit("DocMergeForge Project")
+        self.name.setAccessibleName("Project name")
         self.sources = SourcePicker()
+        self.sources.setAccessibleName("Source folders and files")
         self.output = PathPicker("Select output folder")
         if initial_source:
             self.sources.add_path(initial_source)
             output_base = initial_source if initial_source.is_dir() else initial_source.parent
             self.output.set_path(output_base / "DocMergeForge-Output")
         self.start_part = QSpinBox()
+        self.start_part.setAccessibleName("First part number")
         self.start_part.setRange(1, 999999)
         self.start_part.setValue(1)
         self.end_part = QSpinBox()
+        self.end_part.setAccessibleName("Last part number")
         self.end_part.setRange(1, 999999)
         self.end_part.setValue(120)
         self.sql_preset = QCheckBox("Use SQL Full Mastery — 120-Part Master Edition preset")
+        self.sql_preset.setAccessibleName("Use SQL Full Mastery 120-part preset")
         self.sql_preset.toggled.connect(self._preset_changed)
 
         form.addRow("Project name", self.name)
@@ -95,15 +104,22 @@ class ProjectSetupDialog(QDialog):
             "Add one or more folders and/or individual files. PDF and DOCX are merged "
             "independently. Companion code is indexed only and never merged."
         )
+        note.setAccessibleName("Project source guidance")
         note.setWordWrap(True)
         layout.addWidget(note)
 
-        buttons = QDialogButtonBox(
+        self.buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Ok
         )
-        buttons.accepted.connect(self._validate_and_accept)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
+        self.buttons.button(QDialogButtonBox.StandardButton.Ok).setAccessibleName(
+            "Create merge project"
+        )
+        self.buttons.button(QDialogButtonBox.StandardButton.Cancel).setAccessibleName(
+            "Cancel new merge project"
+        )
+        self.buttons.accepted.connect(self._validate_and_accept)
+        self.buttons.rejected.connect(self.reject)
+        layout.addWidget(self.buttons)
 
     def _preset_changed(self, checked: bool) -> None:
         if checked:
@@ -176,21 +192,25 @@ class SettingsDialog(QDialog):
         super().__init__()
         self._base = settings
         self.setWindowTitle("DocMergeForge Settings")
+        self.setAccessibleName("DocMergeForge settings")
         self.setMinimumWidth(680)
         layout = QVBoxLayout(self)
         form = QFormLayout()
 
         self.theme = QComboBox()
+        self.theme.setAccessibleName("Theme")
         self.theme.addItems(["system", "light", "dark"])
         self.theme.setCurrentText(settings.theme)
 
         self.profile = QComboBox()
+        self.profile.setAccessibleName("Merge profile")
         self.profile.addItems(
             ["Exact Preservation", "Master eBook", "Print Draft", "Archive", "Custom"]
         )
         self.profile.setCurrentText(settings.merge_profile)
 
         self.filename_template = QLineEdit(settings.filename_template)
+        self.filename_template.setAccessibleName("Filename template")
         self.filename_template.setPlaceholderText(
             "{series}_Complete_{part_count}_Part_Master_Edition"
         )
@@ -203,38 +223,54 @@ class SettingsDialog(QDialog):
             self.temp.set_path(Path(settings.temporary_directory))
 
         self.workers = QSpinBox()
+        self.workers.setAccessibleName("Worker count")
         self.workers.setRange(1, 64)
         self.workers.setValue(settings.worker_count)
 
         self.logging = QComboBox()
+        self.logging.setAccessibleName("Logging level")
         self.logging.addItems(["DEBUG", "INFO", "WARNING", "ERROR"])
         self.logging.setCurrentText(settings.logging_level)
 
         self.checksums = QCheckBox()
+        self.checksums.setAccessibleName("Generate checksums")
         self.checksums.setChecked(settings.checksum_generation)
         self.validation = QCheckBox()
+        self.validation.setAccessibleName("Automatic validation")
         self.validation.setChecked(settings.automatic_validation)
 
         self.pdf_optimization = QComboBox()
+        self.pdf_optimization.setAccessibleName("PDF optimization")
         self.pdf_optimization.addItems(["preserve", "balanced", "archive"])
         self.pdf_optimization.setCurrentText(settings.pdf_optimization)
 
         self.fidelity = QComboBox()
+        self.fidelity.setAccessibleName("DOCX fidelity mode")
+        self.fidelity.setAccessibleDescription(
+            "Portable is production-ready. External high-fidelity adapters require availability "
+            "and production readiness."
+        )
         self.fidelity.addItems(["portable", "libreoffice", "word"])
         self.fidelity.setCurrentText(settings.docx_fidelity_mode)
 
         self.libreoffice = QCheckBox()
+        self.libreoffice.setAccessibleName("Enable LibreOffice integration")
         self.libreoffice.setChecked(settings.libreoffice_integration)
         self.word_fidelity = QCheckBox()
+        self.word_fidelity.setAccessibleName("Enable Word high-fidelity mode")
         self.word_fidelity.setChecked(settings.word_high_fidelity)
         self.recovery = QCheckBox()
+        self.recovery.setAccessibleName("Crash recovery")
         self.recovery.setChecked(settings.crash_recovery)
         self.recent_history = QCheckBox()
+        self.recent_history.setAccessibleName("Recent project history")
         self.recent_history.setChecked(settings.recent_project_history)
         self.reduced_motion = QCheckBox()
+        self.reduced_motion.setAccessibleName("Reduced motion")
         self.reduced_motion.setChecked(settings.reduced_motion)
 
         self.text_scale = QSpinBox()
+        self.text_scale.setAccessibleName("Text scale percent")
         self.text_scale.setRange(80, 200)
         self.text_scale.setSingleStep(10)
         self.text_scale.setSuffix("%")
@@ -263,15 +299,22 @@ class SettingsDialog(QDialog):
             "High-fidelity adapters are used only when explicitly selected and available. "
             "Portable mode remains the default."
         )
+        fidelity_note.setAccessibleName("DOCX fidelity guidance")
         fidelity_note.setWordWrap(True)
         layout.addWidget(fidelity_note)
 
-        buttons = QDialogButtonBox(
+        self.buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Save
         )
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
+        self.buttons.button(QDialogButtonBox.StandardButton.Save).setAccessibleName(
+            "Save settings"
+        )
+        self.buttons.button(QDialogButtonBox.StandardButton.Cancel).setAccessibleName(
+            "Cancel settings changes"
+        )
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+        layout.addWidget(self.buttons)
 
     def settings(self) -> AppSettings:
         return AppSettings(
@@ -300,34 +343,47 @@ class TextReportDialog(QDialog):
     def __init__(self, title: str, text: str) -> None:
         super().__init__()
         self.setWindowTitle(title)
+        self.setAccessibleName(title)
         self.resize(820, 620)
         layout = QVBoxLayout(self)
-        editor = QPlainTextEdit()
-        editor.setReadOnly(True)
-        editor.setPlainText(text)
-        layout.addWidget(editor)
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
+        self.editor = QPlainTextEdit()
+        self.editor.setAccessibleName(f"{title} report content")
+        self.editor.setReadOnly(True)
+        self.editor.setPlainText(text)
+        layout.addWidget(self.editor)
+        self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        self.buttons.button(QDialogButtonBox.StandardButton.Close).setAccessibleName(
+            f"Close {title}"
+        )
+        self.buttons.rejected.connect(self.reject)
+        layout.addWidget(self.buttons)
 
 
 class RecentProjectsDialog(QDialog):
     def __init__(self, projects: list[RecentProject]) -> None:
         super().__init__()
         self.setWindowTitle("Recent Projects")
+        self.setAccessibleName("Recent projects")
         self.resize(700, 430)
         self._projects = projects
         layout = QVBoxLayout(self)
         self.list = QListWidget()
+        self.list.setAccessibleName("Recent project list")
         for project in projects:
             self.list.addItem(f"{project.name}\n{project.project_file}")
         layout.addWidget(self.list)
-        buttons = QDialogButtonBox(
+        self.buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Open
         )
-        buttons.accepted.connect(self._open)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
+        self.buttons.button(QDialogButtonBox.StandardButton.Open).setAccessibleName(
+            "Open selected recent project"
+        )
+        self.buttons.button(QDialogButtonBox.StandardButton.Cancel).setAccessibleName(
+            "Cancel recent project selection"
+        )
+        self.buttons.accepted.connect(self._open)
+        self.buttons.rejected.connect(self.reject)
+        layout.addWidget(self.buttons)
 
     def _open(self) -> None:
         if self.list.currentRow() < 0:
@@ -345,21 +401,29 @@ class MergeProgressDialog(QDialog):
         super().__init__()
         self.worker = worker
         self.setWindowTitle(title)
+        self.setAccessibleName(f"{title} progress")
         self.setModal(True)
         self.setMinimumWidth(560)
         layout = QVBoxLayout(self)
         self.stage = QLabel("Preparing…")
+        self.stage.setAccessibleName("Merge stage")
         self.stage.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.progress = QProgressBar()
+        self.progress.setAccessibleName("Merge progress")
         self.progress.setRange(0, 100)
         self.current_file = QLabel("")
+        self.current_file.setAccessibleName("Current merge file")
         self.current_file.setWordWrap(True)
-        cancel = QPushButton("Cancel safely")
-        cancel.clicked.connect(self._cancel)
+        self.cancel_button = QPushButton("Cancel safely")
+        self.cancel_button.setAccessibleName("Cancel merge safely")
+        self.cancel_button.setAccessibleDescription(
+            "Requests cooperative cancellation without publishing partial output."
+        )
+        self.cancel_button.clicked.connect(self._cancel)
         layout.addWidget(self.stage)
         layout.addWidget(self.progress)
         layout.addWidget(self.current_file)
-        layout.addWidget(cancel)
+        layout.addWidget(self.cancel_button)
 
         worker.progress_changed.connect(self._on_progress)
         worker.completed.connect(self.accept)
