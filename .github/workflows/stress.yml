@@ -24,6 +24,7 @@ on:
     paths:
       - ".github/workflows/stress.yml"
       - "scripts/generate_stress_fixture.py"
+      - "scripts/run_with_resource_evidence.py"
 
 permissions:
   contents: read
@@ -73,8 +74,13 @@ jobs:
       - name: Run project preflight
         run: docmergeforge merge --project stress-project.json --dry-run
 
-      - name: Merge stress project
-        run: docmergeforge merge --project stress-project.json
+      - name: Merge stress project with resource telemetry
+        run: >-
+          python scripts/run_with_resource_evidence.py
+          --output artifacts/stress/Stress_Merge_Resource_Evidence.json
+          --watch-path artifacts/stress
+          --
+          docmergeforge merge --project stress-project.json
 
       - name: Compare merged outputs to source evidence
         run: >-
@@ -96,8 +102,10 @@ jobs:
 
           source_root = Path("fixtures/stress")
           output_root = Path("artifacts/stress")
+          resource_path = output_root / "Stress_Merge_Resource_Evidence.json"
+          resources = json.loads(resource_path.read_text(encoding="utf-8"))
           evidence = {
-              "schema_version": 1,
+              "schema_version": 2,
               "commit_sha": os.environ["GITHUB_SHA"],
               "workflow_run_id": os.environ["GITHUB_RUN_ID"],
               "parts": int(os.environ["STRESS_PARTS"]),
@@ -105,7 +113,8 @@ jobs:
               "docx_paragraphs_per_part": int(os.environ["STRESS_DOCX_PARAGRAPHS"]),
               "paragraph_kib": int(os.environ["STRESS_PARAGRAPH_KIB"]),
               "source_bytes": total_bytes(source_root),
-              "output_bytes_before_evidence": total_bytes(output_root),
+              "output_bytes_before_acceptance_evidence": total_bytes(output_root),
+              "merge_resources": resources,
           }
           json_path = output_root / "Stress_Acceptance_Evidence.json"
           json_path.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -118,7 +127,13 @@ jobs:
               f"- DOCX paragraphs per part: `{evidence['docx_paragraphs_per_part']}`\n"
               f"- Paragraph payload KiB: `{evidence['paragraph_kib']}`\n"
               f"- Measured source bytes: `{evidence['source_bytes']}`\n"
-              f"- Measured output bytes before evidence files: `{evidence['output_bytes_before_evidence']}`\n"
+              f"- Measured output bytes before acceptance evidence: `{evidence['output_bytes_before_acceptance_evidence']}`\n"
+              f"- Merge elapsed seconds: `{resources['elapsed_seconds']:.3f}`\n"
+              f"- Merge user CPU seconds: `{resources['user_cpu_seconds']:.3f}`\n"
+              f"- Merge system CPU seconds: `{resources['system_cpu_seconds']:.3f}`\n"
+              f"- Merge max RSS bytes: `{resources['max_rss_bytes']}`\n"
+              f"- Disk free before merge bytes: `{resources['disk_free_before_bytes']}`\n"
+              f"- Disk free after merge bytes: `{resources['disk_free_after_bytes']}`\n"
           )
           markdown_path = output_root / "Stress_Acceptance_Evidence.md"
           markdown_path.write_text(markdown, encoding="utf-8")
