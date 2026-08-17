@@ -32,22 +32,13 @@ The workflow runs a real child Python process on Windows, macOS, and Ubuntu. The
 2. after the first new output is promoted to its final path;
 3. after the last new output is promoted but before the journal can be marked `committed`.
 
-The parent test then verifies:
-
-- the expected abrupt exit occurred;
-- a pending `promoting` journal remains;
-- public recovery acquires the released OS-level output lock;
-- the previous PDF/report publication is restored coherently;
-- pending transaction evidence is removed after successful rollback;
-- the output-directory lock can be acquired again.
+The parent test then verifies the expected abrupt exit, a pending `promoting` journal, safe recovery under the output-directory lock, restoration of the previous PDF/report publication, cleanup of recoverable transaction evidence, and later lock reacquisition.
 
 Recovery Acceptance run `32022863454` passed all three crash phases on Windows, macOS, and Ubuntu.
 
 This is real controlled process-termination acceptance on local GitHub-hosted filesystems. It does **not** simulate physical power failure, storage-controller/device removal, filesystem corruption, or multi-host network-lock behavior.
 
 ## Real Linux filesystem exhaustion
-
-The project also has real filesystem exhaustion evidence rather than only an injected exception.
 
 Workflow:
 
@@ -61,13 +52,7 @@ Name:
 Disk Full Acceptance
 ```
 
-On Ubuntu, the workflow mounts an isolated 32 MiB `tmpfs` under the runner temporary directory. `scripts/check_disk_full_recovery.py` has a safety guard that refuses intentional filling when the target filesystem has more than 128 MiB free. On the isolated tmpfs it:
-
-1. writes a known previous published target;
-2. enters the real `atomic_output()` path;
-3. writes, flushes, and fsyncs 1 MiB chunks until the kernel returns `errno.ENOSPC`;
-4. verifies the previous published target is unchanged;
-5. verifies no atomic `.part` residue remains.
+On Ubuntu, the workflow mounts an isolated 32 MiB `tmpfs` under the runner temporary directory. `scripts/check_disk_full_recovery.py` has a safety guard that refuses intentional filling when the target filesystem has more than 128 MiB free. On the isolated tmpfs it writes a known previous target, enters the real `atomic_output()` path, writes/flushes/fsyncs 1 MiB chunks until the kernel returns `errno.ENOSPC`, and verifies the previous target is unchanged and no atomic `.part` residue remains.
 
 Corrected Disk Full Acceptance run `32023666826` passed at checkpoint `54389ad98cb0725a78d820ca58d9fe58b331ecd5`.
 
@@ -78,8 +63,6 @@ This proves real Linux tmpfs exhaustion behavior for the atomic-output path. It 
 Unit coverage also injects an `ENOSPC`-style write failure. Deterministic fault injection remains useful because it is fast and can target exact exception paths on every normal test run. The real tmpfs workflow complements rather than replaces those unit tests.
 
 ## Generate a scalable synthetic fixture locally
-
-Use:
 
 ```bash
 python scripts/generate_stress_fixture.py fixtures/stress \
@@ -129,27 +112,33 @@ Name:
 Stress Acceptance
 ```
 
-The workflow supports two execution modes:
+The workflow supports two modes:
 
-1. **automatic default baseline** — runs on `main` when the stress workflow or stress-fixture generator changes, using 120 parts, 5 PDF pages per part, 50 DOCX paragraphs per part, and 1 KiB synthetic paragraph payload;
-2. **manual configurable scale** — `workflow_dispatch` retains explicit `parts`, `pdf_pages`, `docx_paragraphs`, and `paragraph_kib` inputs for intentionally larger acceptance runs.
+1. **automatic default baseline** — runs on `main` when the stress workflow, stress-fixture generator, or resource-evidence runner changes, using 120 parts, 5 PDF pages per part, 50 DOCX paragraphs per part, and 1 KiB synthetic paragraph payload;
+2. **manual configurable scale** — `workflow_dispatch` retains explicit `parts`, `pdf_pages`, `docx_paragraphs`, and `paragraph_kib` inputs for deliberately larger acceptance runs.
 
 Current environment is Ubuntu latest, Python 3.12, maximum 120-minute job timeout, with `.[dev]` installed.
 
-Every run generates the fixture, validates numbered inputs, creates a project, runs preflight/merge/compare, writes machine-readable and Markdown measured evidence, records artifact sizes, and uploads `docmergeforge-stress-<parts>-parts` for short-term inspection.
+Every run generates the fixture, validates numbered inputs, creates a project, runs preflight, executes the real merge through `scripts/run_with_resource_evidence.py`, compares outputs, writes machine-readable/Markdown acceptance evidence, records artifact sizes, and uploads `docmergeforge-stress-<parts>-parts`.
 
 Evidence files:
 
 ```text
 Stress_Acceptance_Evidence.json
 Stress_Acceptance_Evidence.md
+Stress_Merge_Resource_Evidence.json
 ```
 
-They record the exact commit, workflow run, fixture parameters, measured generated source bytes, and measured output bytes before the evidence files themselves are added.
+The acceptance evidence records commit/run identity, fixture parameters, exact generated source bytes, output bytes, and the nested measured merge-resource evidence.
 
 ## Verified default 120-part baseline
 
-Stress Acceptance run `32030895119` at checkpoint `ad5d8e354efefc745a454b799632359fafd29658` passed.
+Initial measured baseline:
+
+```text
+Run:        32030895119
+Checkpoint: ad5d8e354efefc745a454b799632359fafd29658
+```
 
 Profile:
 
@@ -167,7 +156,7 @@ Profile:
 
 The run passed Parts 1–120 validation, project creation, storage/preflight checks, mixed PDF+DOCX merge, and output comparison. PDF comparison reported exactly 600 source and 600 output pages.
 
-Uploaded workflow artifact:
+Artifact evidence:
 
 ```text
 Artifact ID: 9288923591
@@ -176,7 +165,51 @@ GitHub artifact-container digest:
 sha256:f552c3007dc6121f77145e9335f4ca39a7a3809bb4a97eb98c4118f2f2529189
 ```
 
-This is a measured functional/resource baseline for a 120-part mixed publication. The generated source data is approximately 9.9 MB, so this run is explicitly **not** multi-gigabyte acceptance.
+This established the measured functional baseline before formal merge telemetry was added.
+
+## Verified merge resource telemetry
+
+The formatter-clean resource-evidence checkpoint is:
+
+```text
+Run:        32032403859
+Checkpoint: 73a79a763ef7c363964b1808ddb9e3156785e2f9
+Artifact:   9289427729
+```
+
+The full 120-part workflow again passed generation, Parts 1–120 validation, preflight, mixed merge, output comparison, evidence generation, and artifact upload.
+
+Measured merge telemetry on the Ubuntu GitHub-hosted runner:
+
+| Metric | Value |
+|---|---:|
+| Generated source bytes | `9,881,006` |
+| Output bytes before acceptance evidence | `5,422,356` |
+| Merge elapsed seconds | `16.744248664` |
+| User CPU seconds | `16.562235` |
+| System CPU seconds | `0.17077` |
+| Peak RSS | `169,193,472` bytes (~161.4 MiB) |
+| Minor page faults | `39,178` |
+| Major page faults | `1` |
+| Filesystem input blocks | `536` |
+| Filesystem output blocks | `10,704` |
+| Disk free before merge | `91,322,392,576` bytes |
+| Disk free after merge | `91,317,059,584` bytes |
+| Free-space delta during measured merge | `5,332,992` bytes |
+
+Artifact container:
+
+```text
+Uploaded size: 4,786,316 bytes
+GitHub artifact-container digest:
+sha256:3bed43be22932c470e062aaf2b7e38fcfeeb168e4c3ff90aa9f0da0c314454c8
+```
+
+The telemetry helper records only privacy-safe execution metadata: executable basename, argument count, timing/resource counters, platform/architecture, exit code, and watched-filesystem free space. It deliberately does not serialize the full command arguments or environment, avoiding manuscript/project paths and unrelated secrets in the telemetry record.
+
+Peak RSS comes from `resource.getrusage(RUSAGE_CHILDREN)` and is normalized to bytes for Linux/macOS semantics. These numbers describe this exact synthetic profile and GitHub-hosted runner execution; they are not a universal performance guarantee.
+
+Both the initial and telemetry baselines use approximately 9.9 MB of generated source data, so they are explicitly **not** multi-gigabyte acceptance.
 
 See [Release Evidence Ledger](release-evidence.md) for the canonical verification record.
 
@@ -184,7 +217,7 @@ See [Release Evidence Ledger](release-evidence.md) for the canonical verificatio
 
 No measured multi-gigabyte Stress Acceptance result is currently claimed.
 
-The workflow is now capable of running automatically at the default baseline and manually at larger configured profiles. To claim multi-gigabyte acceptance, use parameters whose **reported generated source byte total** actually reaches the intended class and record the successful evidence.
+The workflow can run automatically at the default baseline and manually at larger configured profiles. To claim multi-gigabyte acceptance, use parameters whose **reported generated source byte total** actually reaches the intended class and record the successful evidence.
 
 ## Scaling methodology
 
@@ -239,7 +272,7 @@ After cancellation, verify the previous final publication remains unchanged, no 
 
 ## Remaining physical/environmental recovery tests
 
-Controlled `os._exit()` recovery is now verified, but separate tests remain appropriate where support claims require them:
+Controlled `os._exit()` recovery is verified, but separate tests remain appropriate where support claims require them:
 
 - machine/power loss during storage flush;
 - storage-device disconnect;
@@ -256,13 +289,15 @@ If direct publication to SMB/NAS/removable/cloud-mounted filesystems is intended
 
 A safer operational recommendation remains: merge on local disk and copy verified final artifacts afterward unless direct-network acceptance is documented.
 
-## Memory/resource observations
+## Resource evidence interpretation
 
-The current Stress Acceptance workflow records exact source/output sizes but does not yet publish a formal peak-memory/CPU benchmark report. Performance claims should use measured instrumentation such as peak RSS, elapsed time by stage, CPU utilization, bytes read/written, and temporary peak disk usage, tied to exact runner/hardware context.
+The verified telemetry provides a concrete baseline for one deterministic 120-part synthetic workload. Performance or capacity claims must stay tied to exact workload bytes, runner/hardware context, document complexity, and measured evidence.
+
+Future useful instrumentation includes stage-by-stage elapsed time, platform-specific process-tree peak metrics, explicit temporary-directory peak usage, and repeated-run variance. Those enhancements should complement—not retroactively change—the recorded numbers above.
 
 ## Stress pass criteria
 
-A target scale run passes only when fixture generation, expected numbered validation, preflight, merge transaction, output reopen/validation, compare evidence, publication evidence, and staging cleanup all succeed and the measured bytes actually meet the claimed workload class. Real-world fidelity runs additionally require human review.
+A target-scale run passes only when fixture generation, expected numbered validation, preflight, merge transaction, output reopen/validation, compare evidence, publication evidence, and staging cleanup all succeed and the measured bytes actually meet the claimed workload class. Real-world fidelity runs additionally require human review.
 
 ## Release evidence
 
