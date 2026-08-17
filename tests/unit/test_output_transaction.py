@@ -27,11 +27,10 @@ def test_output_transaction_cancellation_keeps_published_files_untouched(tmp_pat
     published = tmp_path / "master.pdf"
     published.write_bytes(b"existing-result")
 
-    with pytest.raises(MergeCancelled):
-        with OutputTransaction(tmp_path) as transaction:
-            entry = transaction.stage(published, overwrite=True)
-            entry.staging_path.write_bytes(b"unfinished-result")
-            raise MergeCancelled("cancelled")
+    with pytest.raises(MergeCancelled), OutputTransaction(tmp_path) as transaction:
+        entry = transaction.stage(published, overwrite=True)
+        entry.staging_path.write_bytes(b"unfinished-result")
+        raise MergeCancelled("cancelled")
 
     assert published.read_bytes() == b"existing-result"
     assert not list(tmp_path.glob(".docmergeforge-staging-*"))
