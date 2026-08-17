@@ -12,10 +12,21 @@ from docmergeforge.utilities.output_transaction import (
     recover_interrupted_output_transactions,
 )
 
+CRASH_CASES = [
+    ("after-first-backup", 91),
+    ("after-first-promotion", 92),
+    ("after-last-promotion", 93),
+]
+
 
 @pytest.mark.integration
-def test_forced_process_exit_during_promotion_restores_previous_bundle(tmp_path: Path) -> None:
-    output_dir = tmp_path / "output"
+@pytest.mark.parametrize(("crash_point", "exit_code"), CRASH_CASES)
+def test_forced_process_exit_during_promotion_restores_previous_bundle(
+    tmp_path: Path,
+    crash_point: str,
+    exit_code: int,
+) -> None:
+    output_dir = tmp_path / crash_point
     output_dir.mkdir()
     pdf = output_dir / "Book.pdf"
     report = output_dir / "Merge_Report.md"
@@ -24,12 +35,12 @@ def test_forced_process_exit_during_promotion_restores_previous_bundle(tmp_path:
 
     helper = Path(__file__).resolve().parents[1] / "helpers" / "crash_during_promotion.py"
     completed = subprocess.run(
-        [sys.executable, str(helper), str(output_dir)],
+        [sys.executable, str(helper), str(output_dir), crash_point],
         check=False,
         timeout=30,
     )
 
-    assert completed.returncode == 97
+    assert completed.returncode == exit_code
     pending = pending_output_transactions(output_dir)
     assert len(pending) == 1
     assert (pending[0] / "transaction.json").is_file()
