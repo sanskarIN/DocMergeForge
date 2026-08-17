@@ -1,0 +1,49 @@
+name: Recovery Acceptance
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/recovery-acceptance.yml"
+      - "src/docmergeforge/core/exceptions.py"
+      - "src/docmergeforge/utilities/output_lock.py"
+      - "src/docmergeforge/utilities/output_transaction.py"
+      - "tests/helpers/crash_during_promotion.py"
+      - "tests/integration/test_forced_process_recovery.py"
+      - "tests/unit/test_output_lock.py"
+      - "tests/unit/test_output_transaction.py"
+      - "tests/unit/test_output_transaction_locking.py"
+
+permissions:
+  contents: read
+
+jobs:
+  abrupt-recovery:
+    name: abrupt recovery (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+        python-version: ["3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install project and test tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run abrupt process-termination recovery acceptance
+        run: >-
+          pytest -q
+          tests/integration/test_forced_process_recovery.py
+          tests/unit/test_output_lock.py
+          tests/unit/test_output_transaction_locking.py
