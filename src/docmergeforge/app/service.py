@@ -35,6 +35,7 @@ from docmergeforge.reports.generator import (
 )
 from docmergeforge.utilities.hashing import sha256_file, snapshot_hashes, verify_unchanged
 from docmergeforge.utilities.output_naming import render_project_basename
+from docmergeforge.utilities.output_transaction import OutputTransaction, StagedOutput
 from docmergeforge.utilities.storage import StorageEstimate, require_storage
 from docmergeforge.validation.service import validate_part_set
 
@@ -178,60 +179,72 @@ class MergeApplicationService:
         tracked = [item.path for item in pdfs + docxs + companions]
         before = snapshot_hashes(tracked)
         require_storage([item.path for item in pdfs + docxs], project.output_folder)
-        project.output_folder.mkdir(parents=True, exist_ok=True)
         base_name = render_project_basename(project)
         preserve_order = bool(project.selected_files)
+        staged_outputs: list[tuple[StagedOutput, DocumentKind]] = []
 
-        outputs: list[OutputArtifact] = []
-        if pdfs:
-            pdf_path = PdfMergeEngine().merge(
-                pdfs,
-                project.output_folder / f"{base_name}.pdf",
-                project.settings.pdf,
-                overwrite=project.settings.overwrite,
-                preserve_order=preserve_order,
-                progress=(
-                    lambda current, total, path: self._emit(
-                        progress,
-                        "merging-pdf",
-                        current,
-                        total,
-                        path,
-                    )
-                ),
-                cancelled=cancelled,
-                password_provider=pdf_password_provider,
-            )
-            outputs.append(self._artifact(pdf_path, DocumentKind.PDF))
-        self._check_cancelled(cancelled)
-        if docxs:
-            docx_path = DocxMergeEngine().merge(
-                docxs,
-                project.output_folder / f"{base_name}.docx",
-                project.settings.docx,
-                overwrite=project.settings.overwrite,
-                preserve_order=preserve_order,
-                progress=(
-                    lambda current, total, path: self._emit(
-                        progress,
-                        "merging-docx",
-                        current,
-                        total,
-                        path,
-                    )
-                ),
-                cancelled=cancelled,
-            )
-            outputs.append(self._artifact(docx_path, DocumentKind.DOCX))
+        with OutputTransaction(project.output_folder) as transaction:
+            if pdfs:
+                pdf_entry = transaction.stage(
+                    project.output_folder / f"{base_name}.pdf",
+                    overwrite=project.settings.overwrite,
+                )
+                PdfMergeEngine().merge(
+                    pdfs,
+                    pdf_entry.staging_path,
+                    project.settings.pdf,
+                    overwrite=True,
+                    preserve_order=preserve_order,
+                    progress=(
+                        lambda current, total, path: self._emit(
+                            progress,
+                            "merging-pdf",
+                            current,
+                            total,
+                            path,
+                        )
+                    ),
+                    cancelled=cancelled,
+                    password_provider=pdf_password_provider,
+                )
+                staged_outputs.append((pdf_entry, DocumentKind.PDF))
 
-        self._check_cancelled(cancelled)
-        self._emit(progress, "verifying", 0, 1)
-        changed = verify_unchanged(before)
-        if changed:
-            raise RuntimeError(f"Original integrity guarantee failed: {changed}")
-        self._emit(progress, "verifying", 1, 1)
+            self._check_cancelled(cancelled)
+            if docxs:
+                docx_entry = transaction.stage(
+                    project.output_folder / f"{base_name}.docx",
+                    overwrite=project.settings.overwrite,
+                )
+                DocxMergeEngine().merge(
+                    docxs,
+                    docx_entry.staging_path,
+                    project.settings.docx,
+                    overwrite=True,
+                    preserve_order=preserve_order,
+                    progress=(
+                        lambda current, total, path: self._emit(
+                            progress,
+                            "merging-docx",
+                            current,
+                            total,
+                            path,
+                        )
+                    ),
+                    cancelled=cancelled,
+                )
+                staged_outputs.append((docx_entry, DocumentKind.DOCX))
 
-        self._check_cancelled(cancelled)
+            self._check_cancelled(cancelled)
+            self._emit(progress, "verifying", 0, 1)
+            changed = verify_unchanged(before)
+            if changed:
+                raise RuntimeError(f"Original integrity guarantee failed: {changed}")
+            self._emit(progress, "verifying", 1, 1)
+
+            self._check_cancelled(cancelled)
+            transaction.promote()
+
+        outputs = [self._artifact(entry.final_path, kind) for entry, kind in staged_outputs]
         self._emit(progress, "reporting", 0, 1)
         refs = [
             CompanionReference(item.part.number, item.path, item.sha256, item.size)
@@ -311,55 +324,66 @@ class MergeApplicationService:
         tracked = [item.path for item in pdfs + docxs + companions]
         before = snapshot_hashes(tracked)
         require_storage([item.path for item in pdfs + docxs], project.output_folder)
-        project.output_folder.mkdir(parents=True, exist_ok=True)
+        staged_outputs: list[tuple[StagedOutput, DocumentKind]] = []
 
-        pdf_path = PdfMergeEngine().merge(
-            pdfs,
-            project.output_folder / PDF_FILENAME,
-            project.settings.pdf,
-            overwrite=project.settings.overwrite,
-            progress=(
-                lambda current, total, path: self._emit(
-                    progress,
-                    "merging-pdf",
-                    current,
-                    total,
-                    path,
-                )
-            ),
-            cancelled=cancelled,
-            password_provider=pdf_password_provider,
-        )
-        self._check_cancelled(cancelled)
-        docx_path = DocxMergeEngine().merge(
-            docxs,
-            project.output_folder / DOCX_FILENAME,
-            project.settings.docx,
-            overwrite=project.settings.overwrite,
-            progress=(
-                lambda current, total, path: self._emit(
-                    progress,
-                    "merging-docx",
-                    current,
-                    total,
-                    path,
-                )
-            ),
-            cancelled=cancelled,
-        )
+        with OutputTransaction(project.output_folder) as transaction:
+            pdf_entry = transaction.stage(
+                project.output_folder / PDF_FILENAME,
+                overwrite=project.settings.overwrite,
+            )
+            PdfMergeEngine().merge(
+                pdfs,
+                pdf_entry.staging_path,
+                project.settings.pdf,
+                overwrite=True,
+                progress=(
+                    lambda current, total, path: self._emit(
+                        progress,
+                        "merging-pdf",
+                        current,
+                        total,
+                        path,
+                    )
+                ),
+                cancelled=cancelled,
+                password_provider=pdf_password_provider,
+            )
+            staged_outputs.append((pdf_entry, DocumentKind.PDF))
 
-        self._check_cancelled(cancelled)
-        self._emit(progress, "verifying", 0, 1)
-        changed = verify_unchanged(before)
-        if changed:
-            raise RuntimeError(f"Original integrity guarantee failed: {changed}")
-        self._emit(progress, "verifying", 1, 1)
+            self._check_cancelled(cancelled)
+            docx_entry = transaction.stage(
+                project.output_folder / DOCX_FILENAME,
+                overwrite=project.settings.overwrite,
+            )
+            DocxMergeEngine().merge(
+                docxs,
+                docx_entry.staging_path,
+                project.settings.docx,
+                overwrite=True,
+                progress=(
+                    lambda current, total, path: self._emit(
+                        progress,
+                        "merging-docx",
+                        current,
+                        total,
+                        path,
+                    )
+                ),
+                cancelled=cancelled,
+            )
+            staged_outputs.append((docx_entry, DocumentKind.DOCX))
 
-        outputs = [
-            self._artifact(pdf_path, DocumentKind.PDF),
-            self._artifact(docx_path, DocumentKind.DOCX),
-        ]
-        self._check_cancelled(cancelled)
+            self._check_cancelled(cancelled)
+            self._emit(progress, "verifying", 0, 1)
+            changed = verify_unchanged(before)
+            if changed:
+                raise RuntimeError(f"Original integrity guarantee failed: {changed}")
+            self._emit(progress, "verifying", 1, 1)
+
+            self._check_cancelled(cancelled)
+            transaction.promote()
+
+        outputs = [self._artifact(entry.final_path, kind) for entry, kind in staged_outputs]
         self._emit(progress, "reporting", 0, 1)
         refs = [
             CompanionReference(item.part.number, item.path, item.sha256, item.size)
