@@ -306,9 +306,7 @@ class SettingsDialog(QDialog):
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Save
         )
-        self.buttons.button(QDialogButtonBox.StandardButton.Save).setAccessibleName(
-            "Save settings"
-        )
+        self.buttons.button(QDialogButtonBox.StandardButton.Save).setAccessibleName("Save settings")
         self.buttons.button(QDialogButtonBox.StandardButton.Cancel).setAccessibleName(
             "Cancel settings changes"
         )
