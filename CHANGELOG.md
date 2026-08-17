@@ -14,6 +14,8 @@ All notable changes follow semantic versioning.
 - Expanded `CONTRIBUTING.md` with development/test/documentation/accessibility/recovery contribution requirements and linked it to the full developer documentation.
 - Expanded `SECURITY.md` with privacy-safe vulnerability-reporting guidance and links to the security/privacy/diagnostics documentation.
 - Documentation now distinguishes implemented behavior, automatically verified behavior, and production/manual acceptance; unsigned builds, unfinished high-fidelity adapters, multi-gigabyte stress, real forced-process recovery, and human accessibility remain explicit release gates until verified.
+- Expanded publication-recovery documentation with the persistent lock filename, OS-owned lock semantics, concurrent recovery protection, crash-release behavior, and network-filesystem caveat.
+- Expanded CI packaging documentation with packaging-relevant `main` triggers, native packaged launch-smoke behavior, `.app` handling, and per-platform smoke evidence requirements.
 
 ### Added
 - First-run onboarding, project ordering, recent-project history, recovery checkpoints, and guided SQL preset desktop workflow.
@@ -29,6 +31,9 @@ All notable changes follow semantic versioning.
 - Output-destination writeability probing before expensive project merge work.
 - Scalable synthetic stress-fixture generation plus a manually dispatchable stress-acceptance workflow with validation, preflight, merge, output comparison, size evidence, and artifact upload.
 - Explicit accessibility metadata and keyboard controls across project setup, source selection, file ordering, settings, reports, recent projects, and merge progress, with headless automated accessibility smoke coverage.
+- Cross-process output-directory publication locking shared by normal publication and interrupted-output recovery.
+- A PyInstaller-only packaged desktop entry with deterministic `--packaged-smoke` initialization for CI launch acceptance.
+- Unit/integration coverage for output locking, transaction/recovery exclusion, packaging-entry selection, and packaged desktop smoke initialization.
 
 ### Changed
 - Centralized desktop packaging argument generation inside the installable `docmergeforge.packaging` package so builds and tests share the same configuration.
@@ -41,6 +46,10 @@ All notable changes follow semantic versioning.
 - Build Smoke also runs the headless desktop accessibility smoke check on each configured desktop runner.
 - The 120-Part Regression workflow now runs on `main` pushes in addition to pull requests/manual dispatch.
 - Package Desktop installs the declared `build` extra and validates packaging configuration before invoking PyInstaller.
+- Package Desktop now launch-tests the freshly built native application before archiving/uploading it.
+- Package Desktop now runs on packaging/UI changes to `main`, while retaining manual and `v*` tag triggers.
+- Linux package jobs install the required Qt/EGL runtime and macOS archiving handles the native `DocMergeForge.app` layout.
+- The shared PyInstaller entry now uses `src/docmergeforge/ui/packaged_entry.py` while normal `docmergeforge-gui` behavior continues to use the existing desktop main entry point.
 
 ### Fixed
 - CLI lint/type issues found by Ruff and mypy.
@@ -52,6 +61,9 @@ All notable changes follow semantic versioning.
 - Cancellation gaps during PDF page finalization and DOCX post-merge finalization.
 - Recovery-evidence loss risk when an automatic promotion rollback itself fails.
 - Late output-permission failures that could previously occur after expensive validation/merge preparation despite sufficient free-space estimates.
+- Concurrent independent DocMergeForge processes racing publication or recovery in the same output directory.
+- The macOS package workflow assumption that the output always used the Windows/Linux `dist/DocMergeForge` directory instead of a native `.app` bundle.
+- Initial Ruff `SIM117` failures in new lock-exclusion tests were corrected without disabling the lint rule.
 
 ### Validation
 - Commit `8cc96d714c43922b0effcbb16400fb2952f056b1` passed Quality run `31948936694` on Python 3.12 and Python 3.13, including Ruff, Black, strict mypy, and full pytest with coverage.
@@ -61,8 +73,9 @@ All notable changes follow semantic versioning.
 - Recovery checkpoint `3a38ae64d5a96f76f8557f4443e372c9a4e35871` passed Quality run `32012033604`, 120-Part Regression run `32012033657`, and Security run `32012033644`.
 - Hardening checkpoint `82fe37725a2ae4e71678903c4d67fdff40d819e4` passed Quality run `32014319266` on Python 3.12 and Python 3.13, including Ruff, Black, strict mypy, and full pytest with coverage.
 - The same hardening checkpoint passed 120-Part Regression run `32014319264`, cross-platform Build Smoke run `32014319394` on Ubuntu/Windows/macOS including the headless accessibility smoke and packaging preflight, and Security/CodeQL run `32014319291`.
+- Package Desktop run `32022339774` has already built and launch-smoked the Ubuntu and macOS packages successfully at packaging checkpoint `7007a1b77d5e56a8aa1de2e7ba964195195d6949`; Windows status must be recorded only after that matrix job finishes.
 - The scalable manual stress workflow has been added but an actual multi-gigabyte acceptance run is not claimed until such a workflow run succeeds and its measured evidence is recorded.
-- These checks do not claim signed installers, notarization, production package acceptance, full human accessibility acceptance, real forced-process-termination acceptance, or `v1.0.0` readiness.
+- These checks do not claim signed installers, notarization, full clean-machine interactive package acceptance, full human accessibility acceptance, real forced-process-termination acceptance, or `v1.0.0` readiness.
 
 ## [0.1.0] - 2026-08-16
 
