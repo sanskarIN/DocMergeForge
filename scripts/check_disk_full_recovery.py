@@ -27,13 +27,15 @@ def run(output_dir: Path) -> None:
 
     saw_enospc = False
     try:
-        with atomic_output(target, overwrite=True) as temporary:
-            with temporary.open("wb") as handle:
-                chunk = b"x" * CHUNK_SIZE
-                while True:
-                    handle.write(chunk)
-                    handle.flush()
-                    os.fsync(handle.fileno())
+        with (
+            atomic_output(target, overwrite=True) as temporary,
+            temporary.open("wb") as handle,
+        ):
+            chunk = b"x" * CHUNK_SIZE
+            while True:
+                handle.write(chunk)
+                handle.flush()
+                os.fsync(handle.fileno())
     except OSError as exc:
         if exc.errno != errno.ENOSPC:
             raise
