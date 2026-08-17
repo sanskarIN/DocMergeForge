@@ -7,7 +7,9 @@ from docmergeforge.diagnostics.docs_links import find_broken_links
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Check local Markdown links in DocMergeForge docs.")
+    parser = argparse.ArgumentParser(
+        description="Check local Markdown links in DocMergeForge docs."
+    )
     parser.add_argument(
         "--root",
         type=Path,
