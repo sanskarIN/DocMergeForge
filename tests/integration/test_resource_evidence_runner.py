@@ -11,11 +11,7 @@ pytestmark = pytest.mark.integration
 
 
 def _script_path() -> Path:
-    return (
-        Path(__file__).resolve().parents[2]
-        / "scripts"
-        / "run_with_resource_evidence.py"
-    )
+    return Path(__file__).resolve().parents[2] / "scripts" / "run_with_resource_evidence.py"
 
 
 def test_resource_evidence_runner_records_child_metrics(tmp_path: Path) -> None:
