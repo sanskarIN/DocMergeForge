@@ -27,4 +27,5 @@ jobs:
       - run: pip install -e ".[build]"
       - run: python -m compileall -q src
       - run: docmergeforge --help
+      - run: python scripts/check_accessibility.py
       - run: python scripts/build_desktop.py --check
