@@ -26,6 +26,12 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
+      - name: Install Linux Qt runtime libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1
+
       - name: Install project and packaging tools
         run: |
           python -m pip install --upgrade pip
@@ -37,6 +43,40 @@ jobs:
       - name: Build desktop application
         run: python scripts/build_desktop.py
 
+      - name: Launch-test Windows packaged application
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $process = Start-Process \
+            -FilePath "dist/DocMergeForge/DocMergeForge.exe" \
+            -ArgumentList "--packaged-smoke" \
+            -Wait \
+            -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "Packaged smoke failed with exit code $($process.ExitCode)"
+          }
+
+      - name: Launch-test macOS packaged application
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          if [ -x "dist/DocMergeForge.app/Contents/MacOS/DocMergeForge" ]; then
+            executable="dist/DocMergeForge.app/Contents/MacOS/DocMergeForge"
+          elif [ -x "dist/DocMergeForge/DocMergeForge" ]; then
+            executable="dist/DocMergeForge/DocMergeForge"
+          else
+            echo "Could not locate packaged macOS executable" >&2
+            find dist -maxdepth 5 -type f -print
+            exit 1
+          fi
+          QT_QPA_PLATFORM=offscreen "$executable" --packaged-smoke
+
+      - name: Launch-test Linux packaged application
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          QT_QPA_PLATFORM=offscreen dist/DocMergeForge/DocMergeForge --packaged-smoke
+
       - name: Archive Windows artifact
         if: runner.os == 'Windows'
         shell: pwsh
@@ -45,7 +85,13 @@ jobs:
 
       - name: Archive macOS artifact
         if: runner.os == 'macOS'
-        run: tar -czf DocMergeForge-macOS-unsigned.tar.gz -C dist DocMergeForge
+        shell: bash
+        run: |
+          if [ -d "dist/DocMergeForge.app" ]; then
+            tar -czf DocMergeForge-macOS-unsigned.tar.gz -C dist DocMergeForge.app
+          else
+            tar -czf DocMergeForge-macOS-unsigned.tar.gz -C dist DocMergeForge
+          fi
 
       - name: Archive Linux artifact
         if: runner.os == 'Linux'
