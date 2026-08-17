@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 import tempfile
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -39,18 +40,16 @@ def require_output_writable(output_folder: Path) -> None:
             prefix=".docmergeforge-write-probe-",
             dir=output_folder,
         )
-        os.close(descriptor)
         probe_path = Path(raw_path)
+        os.close(descriptor)
     except OSError as exc:
         raise OutputAccessError(
             f"Output folder is not writable: {output_folder}: {exc}"
         ) from exc
     finally:
         if probe_path is not None:
-            try:
+            with suppress(OSError):
                 probe_path.unlink(missing_ok=True)
-            except OSError:
-                pass
 
 
 def estimate_storage(paths: list[Path], output_folder: Path) -> StorageEstimate:
