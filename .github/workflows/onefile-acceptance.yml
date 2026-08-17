@@ -156,23 +156,71 @@ jobs:
           --artifact-label DocMergeForge-Linux-onefile-unsigned
           --artifact DocMergeForge-Linux-onefile-unsigned.tar.gz
 
-      - name: Attest Windows onefile archive
+      - name: Generate Windows onefile CycloneDX SBOM
+        if: runner.os == 'Windows'
+        run: >-
+          cyclonedx-py environment
+          --pyproject pyproject.toml
+          --spec-version 1.6
+          --output-format JSON
+          --output-file DocMergeForge-Windows-onefile-unsigned.cdx.json
+
+      - name: Generate macOS onefile CycloneDX SBOM
+        if: runner.os == 'macOS'
+        run: >-
+          cyclonedx-py environment
+          --pyproject pyproject.toml
+          --spec-version 1.6
+          --output-format JSON
+          --output-file DocMergeForge-macOS-onefile-unsigned.cdx.json
+
+      - name: Generate Linux onefile CycloneDX SBOM
+        if: runner.os == 'Linux'
+        run: >-
+          cyclonedx-py environment
+          --pyproject pyproject.toml
+          --spec-version 1.6
+          --output-format JSON
+          --output-file DocMergeForge-Linux-onefile-unsigned.cdx.json
+
+      - name: Attest Windows onefile archive build provenance
         if: runner.os == 'Windows'
         uses: actions/attest@v4
         with:
           subject-path: DocMergeForge-Windows-onefile-unsigned.zip
 
-      - name: Attest macOS onefile archive
+      - name: Attest macOS onefile archive build provenance
         if: runner.os == 'macOS'
         uses: actions/attest@v4
         with:
           subject-path: DocMergeForge-macOS-onefile-unsigned.tar.gz
 
-      - name: Attest Linux onefile archive
+      - name: Attest Linux onefile archive build provenance
         if: runner.os == 'Linux'
         uses: actions/attest@v4
         with:
           subject-path: DocMergeForge-Linux-onefile-unsigned.tar.gz
+
+      - name: Attest Windows onefile CycloneDX SBOM
+        if: runner.os == 'Windows'
+        uses: actions/attest@v4
+        with:
+          subject-path: DocMergeForge-Windows-onefile-unsigned.zip
+          sbom-path: DocMergeForge-Windows-onefile-unsigned.cdx.json
+
+      - name: Attest macOS onefile CycloneDX SBOM
+        if: runner.os == 'macOS'
+        uses: actions/attest@v4
+        with:
+          subject-path: DocMergeForge-macOS-onefile-unsigned.tar.gz
+          sbom-path: DocMergeForge-macOS-onefile-unsigned.cdx.json
+
+      - name: Attest Linux onefile CycloneDX SBOM
+        if: runner.os == 'Linux'
+        uses: actions/attest@v4
+        with:
+          subject-path: DocMergeForge-Linux-onefile-unsigned.tar.gz
+          sbom-path: DocMergeForge-Linux-onefile-unsigned.cdx.json
 
       - name: Upload Windows onefile artifact
         if: runner.os == 'Windows'
@@ -183,6 +231,7 @@ jobs:
             DocMergeForge-Windows-onefile-unsigned.zip
             DocMergeForge-Windows-onefile-unsigned.zip.sha256
             DocMergeForge-Windows-onefile-unsigned.provenance.json
+            DocMergeForge-Windows-onefile-unsigned.cdx.json
           if-no-files-found: error
 
       - name: Upload macOS onefile artifact
@@ -194,6 +243,7 @@ jobs:
             DocMergeForge-macOS-onefile-unsigned.tar.gz
             DocMergeForge-macOS-onefile-unsigned.tar.gz.sha256
             DocMergeForge-macOS-onefile-unsigned.provenance.json
+            DocMergeForge-macOS-onefile-unsigned.cdx.json
           if-no-files-found: error
 
       - name: Upload Linux onefile artifact
@@ -205,6 +255,7 @@ jobs:
             DocMergeForge-Linux-onefile-unsigned.tar.gz
             DocMergeForge-Linux-onefile-unsigned.tar.gz.sha256
             DocMergeForge-Linux-onefile-unsigned.provenance.json
+            DocMergeForge-Linux-onefile-unsigned.cdx.json
           if-no-files-found: error
 
   fresh-runner-onefile:
@@ -235,10 +286,18 @@ jobs:
           name: ${{ matrix.artifact }}
           path: artifact
 
-      - name: Verify GitHub artifact attestation
+      - name: Verify GitHub onefile build provenance attestation
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh attestation verify "artifact/${{ matrix.archive }}" --repo "${{ github.repository }}"
+
+      - name: Verify GitHub onefile CycloneDX SBOM attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh attestation verify "artifact/${{ matrix.archive }}"
+          --repo "${{ github.repository }}"
+          --predicate-type https://cyclonedx.org/bom
 
       - name: Install Linux runtime prerequisite
         if: runner.os == 'Linux'
