@@ -13,6 +13,7 @@ from typing import Any, Self
 from docmergeforge.core.exceptions import TransactionRecoveryError
 from docmergeforge.utilities.atomic import versioned_path
 from docmergeforge.utilities.hashing import sha256_file
+from docmergeforge.utilities.output_lock import OutputDirectoryLock
 
 STAGING_PREFIX = ".docmergeforge-staging-"
 JOURNAL_FILENAME = "transaction.json"
@@ -188,15 +189,9 @@ def _recover_promoting_transaction(
     )
 
 
-def recover_interrupted_output_transactions(output_folder: Path) -> list[RecoveryResult]:
-    """Recover journaled output transactions after an interrupted process.
-
-    A journal marked ``promoting`` is rolled back to the pre-publication state. Journals
-    marked ``committed`` or ``rolled-back`` are already at a safe boundary, so only stale
-    staging data is removed. Corrupt or conflicting journals are left untouched and fail
-    closed.
-    """
-
+def _recover_interrupted_output_transactions_unlocked(
+    output_folder: Path,
+) -> list[RecoveryResult]:
     results: list[RecoveryResult] = []
     for transaction_folder in pending_output_transactions(output_folder):
         payload = _load_journal(transaction_folder)
@@ -215,6 +210,21 @@ def recover_interrupted_output_transactions(output_folder: Path) -> list[Recover
     return results
 
 
+def recover_interrupted_output_transactions(output_folder: Path) -> list[RecoveryResult]:
+    """Recover journaled output transactions after an interrupted process.
+
+    Recovery takes the same non-blocking output-directory lock used by publication. This
+    prevents a recovery process from racing an active merge in another DocMergeForge process.
+    A journal marked ``promoting`` is rolled back to the pre-publication state. Journals
+    marked ``committed`` or ``rolled-back`` are already at a safe boundary, so only stale
+    staging data is removed. Corrupt or conflicting journals are left untouched and fail
+    closed.
+    """
+
+    with OutputDirectoryLock(output_folder):
+        return _recover_interrupted_output_transactions_unlocked(output_folder)
+
+
 class OutputTransaction:
     """Stage one or more output files and publish them as a single batch."""
 
@@ -223,16 +233,24 @@ class OutputTransaction:
         self._staging_folder: Path | None = None
         self._entries: list[StagedOutput] = []
         self._committed = False
+        self._lock = OutputDirectoryLock(output_folder)
 
     def __enter__(self) -> Self:
-        self.output_folder.mkdir(parents=True, exist_ok=True)
-        pending = pending_output_transactions(self.output_folder)
-        if pending:
-            raise TransactionRecoveryError(
-                "Interrupted publication transaction detected. Recover it before starting "
-                f"another merge: {pending[0]}"
+        self._lock.acquire()
+        try:
+            self.output_folder.mkdir(parents=True, exist_ok=True)
+            pending = pending_output_transactions(self.output_folder)
+            if pending:
+                raise TransactionRecoveryError(
+                    "Interrupted publication transaction detected. Recover it before starting "
+                    f"another merge: {pending[0]}"
+                )
+            self._staging_folder = Path(
+                tempfile.mkdtemp(prefix=STAGING_PREFIX, dir=self.output_folder)
             )
-        self._staging_folder = Path(tempfile.mkdtemp(prefix=STAGING_PREFIX, dir=self.output_folder))
+        except Exception:
+            self._lock.release()
+            raise
         return self
 
     def __exit__(
@@ -242,20 +260,23 @@ class OutputTransaction:
         traceback: TracebackType | None,
     ) -> None:
         del exc_type, exc, traceback
-        if self._staging_folder is None:
-            return
+        try:
+            if self._staging_folder is None:
+                return
 
-        folder = self._staging_folder
-        self._staging_folder = None
-        journal = folder / JOURNAL_FILENAME
-        if journal.exists() and not self._committed:
-            try:
-                payload = _load_journal(folder)
-            except TransactionRecoveryError:
-                return
-            if payload["phase"] == "promoting":
-                return
-        shutil.rmtree(folder, ignore_errors=True)
+            folder = self._staging_folder
+            self._staging_folder = None
+            journal = folder / JOURNAL_FILENAME
+            if journal.exists() and not self._committed:
+                try:
+                    payload = _load_journal(folder)
+                except TransactionRecoveryError:
+                    return
+                if payload["phase"] == "promoting":
+                    return
+            shutil.rmtree(folder, ignore_errors=True)
+        finally:
+            self._lock.release()
 
     def stage(self, requested_path: Path, *, overwrite: bool) -> StagedOutput:
         if self._staging_folder is None:
