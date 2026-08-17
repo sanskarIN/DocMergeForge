@@ -21,9 +21,20 @@ Package Desktop
 The workflow currently runs on:
 
 - manual `workflow_dispatch`;
-- pushes of tags matching `v*`.
+- pushes of tags matching `v*`;
+- `main` pushes when packaging-relevant files change.
 
-It does not currently run on every `main` push.
+The `main` path filter currently covers:
+
+```text
+.github/workflows/package.yml
+pyproject.toml
+scripts/build_desktop.py
+src/docmergeforge/packaging/**
+src/docmergeforge/ui/**
+```
+
+This keeps real package-building coverage tied to packaging/UI changes without rebuilding all three desktop artifacts for unrelated documentation-only commits.
 
 ## Build matrix
 
@@ -54,13 +65,73 @@ For each matrix platform, the workflow currently:
 
 1. checks out the repository with `actions/checkout@v4`;
 2. sets up Python with `actions/setup-python@v5`;
-3. upgrades pip;
-4. installs `pip install -e ".[build]"`;
-5. runs `python scripts/build_desktop.py --check`;
-6. runs `python scripts/build_desktop.py`;
-7. archives the platform output;
-8. uploads the archive with `actions/upload-artifact@v4`;
-9. prints a notice that the artifacts are unsigned development builds.
+3. installs the Linux `libegl1` Qt runtime prerequisite on Ubuntu;
+4. upgrades pip;
+5. installs `pip install -e ".[build]"`;
+6. runs `python scripts/build_desktop.py --check`;
+7. runs `python scripts/build_desktop.py`;
+8. launches the freshly packaged desktop binary with `--packaged-smoke`;
+9. archives the platform output;
+10. uploads the archive with `actions/upload-artifact@v4`;
+11. prints a notice that the artifacts are unsigned development builds.
+
+## Packaged smoke mode
+
+PyInstaller uses:
+
+```text
+src/docmergeforge/ui/packaged_entry.py
+```
+
+as the packaged application entry point.
+
+Normal users still launch the regular desktop behavior. CI supplies:
+
+```text
+--packaged-smoke
+```
+
+which initializes the packaged Qt application, configuration, logging, theme/text scaling, and `MainWindow` in offscreen mode, then exits successfully without opening first-run/recovery dialogs or entering the normal long-running event loop.
+
+This verifies more than a successful PyInstaller build: it verifies the produced binary can actually start far enough to import and initialize the packaged desktop application.
+
+It does **not** replace clean-machine human testing, representative PDF/DOCX merge acceptance, signing, or notarization.
+
+## Platform smoke commands
+
+### Windows
+
+The workflow uses PowerShell `Start-Process -Wait -PassThru` on:
+
+```text
+dist/DocMergeForge/DocMergeForge.exe
+```
+
+and fails if the process exit code is nonzero.
+
+### macOS
+
+The workflow prefers:
+
+```text
+dist/DocMergeForge.app/Contents/MacOS/DocMergeForge
+```
+
+and falls back to an onedir executable path when needed.
+
+It launches with:
+
+```bash
+QT_QPA_PLATFORM=offscreen ... --packaged-smoke
+```
+
+### Linux
+
+The workflow launches:
+
+```bash
+QT_QPA_PLATFORM=offscreen dist/DocMergeForge/DocMergeForge --packaged-smoke
+```
 
 ## Current artifact names
 
@@ -94,17 +165,19 @@ Compress-Archive -Path dist/DocMergeForge/* -DestinationPath DocMergeForge-Windo
 
 ### macOS
 
+The workflow archives the native `.app` bundle when PyInstaller creates it:
+
 ```bash
-tar -czf DocMergeForge-macOS-unsigned.tar.gz -C dist DocMergeForge
+tar -czf DocMergeForge-macOS-unsigned.tar.gz -C dist DocMergeForge.app
 ```
+
+and falls back to the onedir layout when needed.
 
 ### Linux
 
 ```bash
 tar -czf DocMergeForge-Linux-unsigned.tar.gz -C dist DocMergeForge
 ```
-
-These paths should be treated as current workflow assumptions. If a future PyInstaller/macOS layout changes, update the workflow and platform documentation together.
 
 ## How to run manually
 
@@ -115,7 +188,7 @@ From the repository Actions tab:
 3. select the intended branch/ref;
 4. run the workflow;
 5. wait for all intended matrix jobs to finish;
-6. inspect each job before downloading artifacts.
+6. inspect each job and packaged smoke step before downloading artifacts.
 
 A manual run is a development packaging action unless release signing/acceptance is separately completed.
 
@@ -132,12 +205,10 @@ After a successful workflow run:
 1. download each platform artifact;
 2. record workflow run ID and head commit SHA;
 3. extract it into a clean location;
-4. launch it on the matching target OS;
+4. launch it on the matching target OS normally, not only with smoke mode;
 5. perform packaged-app merge acceptance;
 6. generate local SHA-256 values for the downloaded archives;
 7. retain evidence with the release candidate.
-
-Do not assume GitHub Actions success proves clean-machine launch.
 
 ## Relationship to Build Smoke
 
@@ -152,22 +223,23 @@ Build Smoke validates, on Windows/macOS/Linux:
 - accessibility metadata smoke;
 - packaging configuration preflight.
 
-It does **not** invoke the full PyInstaller packaging step.
+It does not invoke PyInstaller.
 
 ### Package Desktop
 
-Package Desktop invokes PyInstaller and uploads executable bundles.
+Package Desktop:
 
-Therefore both are valuable:
+- invokes PyInstaller;
+- launches the packaged executable in deterministic smoke mode;
+- archives and uploads the package.
 
-- Build Smoke catches source/configuration problems quickly;
-- Package Desktop proves the current runner can produce an executable bundle.
+This closes the earlier gap where CI proved packaging configuration but never launched the binary it had just built.
 
-Neither alone proves production distribution acceptance.
+It still does not prove production distribution acceptance.
 
 ## Relationship to Quality, Regression, and Security
 
-Before treating Package Desktop output as a release candidate, verify the same commit has appropriate green results from:
+Before treating Package Desktop output as a release candidate, verify the same implementation checkpoint has appropriate green results from:
 
 - Quality;
 - 120-Part Regression;
@@ -223,7 +295,7 @@ Workflow artifacts are not a permanent release channel by themselves. For long-t
 If one matrix platform fails:
 
 1. inspect that platform job logs;
-2. identify whether failure occurred during install, preflight, PyInstaller build, archive, or upload;
+2. identify whether failure occurred during install, preflight, PyInstaller build, packaged launch, archive, or upload;
 3. reproduce on a native local machine when possible;
 4. fix shared packaging configuration where appropriate;
 5. rerun the complete affected platform build;
@@ -236,9 +308,12 @@ Record at minimum:
 ```text
 Commit/tag:
 Workflow run ID:
-Windows job: pass/fail
-macOS job: pass/fail
-Linux job: pass/fail
+Windows build: pass/fail
+Windows packaged smoke: pass/fail
+macOS build: pass/fail
+macOS packaged smoke: pass/fail
+Linux build: pass/fail
+Linux packaged smoke: pass/fail
 Windows artifact:
 macOS artifact:
 Linux artifact:
@@ -258,7 +333,7 @@ The current workflow does not:
 - create MSI/MSIX/DMG/PKG/AppImage/DEB/RPM;
 - generate/publish a release checksum manifest;
 - create a GitHub Release;
-- prove clean-machine launch;
-- prove real manuscript fidelity from the packaged application.
+- prove clean-machine interactive use;
+- prove representative manuscript fidelity from the packaged application.
 
 Those steps remain documented release gates, not hidden assumptions.
