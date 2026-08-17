@@ -24,6 +24,11 @@ This directory is the canonical documentation set for DocMergeForge. It covers e
 - [Companion Code Policy](companion-code.md)
 - [Audit and Compare](audit-and-compare.md)
 
+## Configuration and diagnostics
+
+- [Application Settings Reference](settings-reference.md)
+- [Diagnostics and Logging](diagnostics.md)
+
 ## Document engines
 
 - [PDF Engine](pdf-engine.md)
