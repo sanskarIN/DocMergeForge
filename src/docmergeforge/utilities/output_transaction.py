@@ -333,9 +333,9 @@ class OutputTransaction:
         try:
             for raw, entry in zip(journal_entries, self._entries, strict=True):
                 entry.final_path.parent.mkdir(parents=True, exist_ok=True)
-                backup_name = raw["backup_name"]
-                if isinstance(backup_name, str):
-                    backup = self._staging_folder / backup_name
+                journal_backup_name = raw["backup_name"]
+                if isinstance(journal_backup_name, str):
+                    backup = self._staging_folder / journal_backup_name
                     os.replace(entry.final_path, backup)
                     backups[entry.final_path] = backup
 
