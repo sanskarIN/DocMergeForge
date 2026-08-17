@@ -1,0 +1,42 @@
+name: Disk Full Acceptance
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/disk-full-acceptance.yml"
+      - "scripts/check_disk_full_recovery.py"
+      - "src/docmergeforge/utilities/atomic.py"
+
+permissions:
+  contents: read
+
+jobs:
+  real-enospc:
+    name: real ENOSPC recovery (ubuntu-latest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Fill isolated tmpfs and validate recovery
+        shell: bash
+        run: |
+          mount_dir="${RUNNER_TEMP}/docmergeforge-diskfull"
+          mkdir -p "$mount_dir"
+          sudo mount -t tmpfs -o size=32m tmpfs "$mount_dir"
+          sudo chown "$(id -u):$(id -g)" "$mount_dir"
+          trap 'sudo umount "$mount_dir"' EXIT
+          python scripts/check_disk_full_recovery.py --output-dir "$mount_dir"
