@@ -10,14 +10,21 @@ import pytest
 pytestmark = pytest.mark.integration
 
 
+def _script_path() -> Path:
+    return (
+        Path(__file__).resolve().parents[2]
+        / "scripts"
+        / "run_with_resource_evidence.py"
+    )
+
+
 def test_resource_evidence_runner_records_child_metrics(tmp_path: Path) -> None:
     evidence = tmp_path / "evidence.json"
-    script = Path(__file__).resolve().parents[2] / "scripts" / "run_with_resource_evidence.py"
 
     completed = subprocess.run(
         [
             sys.executable,
-            str(script),
+            str(_script_path()),
             "--output",
             str(evidence),
             "--watch-path",
@@ -51,12 +58,11 @@ def test_resource_evidence_runner_records_child_metrics(tmp_path: Path) -> None:
 
 def test_resource_evidence_runner_propagates_child_failure(tmp_path: Path) -> None:
     evidence = tmp_path / "failure.json"
-    script = Path(__file__).resolve().parents[2] / "scripts" / "run_with_resource_evidence.py"
 
     completed = subprocess.run(
         [
             sys.executable,
-            str(script),
+            str(_script_path()),
             "--output",
             str(evidence),
             "--watch-path",
