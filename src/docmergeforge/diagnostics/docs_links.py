@@ -6,7 +6,15 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 _LINK_PATTERN = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
-_SKIP_DIRECTORIES = {".git", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".venv", "build", "dist"}
+_SKIP_DIRECTORIES = {
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    "build",
+    "dist",
+}
 
 
 @dataclass(slots=True, frozen=True)
