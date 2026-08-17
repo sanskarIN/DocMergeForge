@@ -42,7 +42,8 @@ The master specification is larger than a single safe implementation step. Work 
 - Settings, Help, Recent Projects, Validate, Audit, Compare, Resume, Support, and About entry points are implemented.
 - First-run onboarding is implemented and persisted.
 - Accessible names, text scaling/theme controls, and keyboard-oriented application behavior are present in the desktop codebase.
-- The order editor has automated accessibility-metadata coverage and a headless smoke check that is included in the cross-platform Build Smoke workflow.
+- Project setup, source selection, ordering, settings, reports, recent projects, and merge progress expose explicit accessibility metadata; the order/source editors include keyboard shortcuts for their major controls.
+- Headless accessibility smoke coverage is included in the cross-platform Build Smoke workflow.
 - Light/dark/system theme infrastructure is implemented.
 - Remaining gate: human keyboard-only, screen-reader, high-contrast, reduced-motion, scaling, and localization-readiness acceptance testing across supported platforms. Automated metadata checks are supporting evidence, not a substitute for those tests.
 
@@ -51,10 +52,11 @@ The master specification is larger than a single safe implementation step. Work 
 - Unsigned cross-platform GitHub Actions packaging workflow foundation is implemented.
 - Build/package argument tests are present.
 - Mixed-format document outputs and publication evidence are staged and batch-promoted transactionally, including rollback of earlier replacements when a later promotion fails.
+- Promotion is journaled before final-path mutation. Interrupted `promoting` journals have a fail-closed recovery implementation and an explicit `docmergeforge recover-output` CLI path; new transactions refuse to start while a journaled recovery is pending.
 - Graceful cancellation has additional engine/finalization checkpoints and repeated cancellation recovery regression coverage.
-- Fault-injected `ENOSPC` coverage verifies atomic temporary-file cleanup and preservation of the previously published target.
+- Destination writeability is probed before expensive project merge work, and fault-injected `ENOSPC` coverage verifies atomic temporary-file cleanup and preservation of the previously published target.
 - A scalable synthetic stress-fixture generator and manually dispatchable stress workflow are implemented for measured large-run acceptance.
-- Remaining gate: real filled-filesystem testing, abrupt process-termination/crash recovery, an actually executed multi-gigabyte stress run, large real-world manuscript fidelity runs, accessibility acceptance, platform-specific installer/bundle polish, artifact verification, and release checksum/signing automation.
+- Remaining gate: real filled-filesystem testing, real forced-process-termination testing at multiple promotion points/filesystems, an actually executed multi-gigabyte stress run, large real-world manuscript fidelity runs, accessibility acceptance, platform-specific installer/bundle polish, artifact verification, and release checksum/signing automation.
 - Signed or notarized binaries are not claimed.
 
 ## v1.0.0 quality gate — not yet reached
