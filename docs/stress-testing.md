@@ -115,7 +115,7 @@ docmergeforge compare \
 
 Record output sizes plus elapsed/resource observations when they matter to the acceptance target.
 
-## Manual GitHub Actions stress workflow
+## GitHub Actions Stress Acceptance workflow
 
 Workflow:
 
@@ -126,29 +126,65 @@ Workflow:
 Name:
 
 ```text
-Manual Stress Acceptance
+Stress Acceptance
 ```
 
-It is intentionally manual so large generated files do not make every PR/push expensive.
+The workflow supports two execution modes:
 
-Inputs:
-
-- `parts` — numbered PDF/DOCX part count, default `120`;
-- `pdf_pages` — pages per PDF part, default `5`;
-- `docx_paragraphs` — paragraphs per DOCX part, default `50`;
-- `paragraph_kib` — approximate deterministic payload KiB per paragraph, default `1`.
+1. **automatic default baseline** — runs on `main` when the stress workflow or stress-fixture generator changes, using 120 parts, 5 PDF pages per part, 50 DOCX paragraphs per part, and 1 KiB synthetic paragraph payload;
+2. **manual configurable scale** — `workflow_dispatch` retains explicit `parts`, `pdf_pages`, `docx_paragraphs`, and `paragraph_kib` inputs for intentionally larger acceptance runs.
 
 Current environment is Ubuntu latest, Python 3.12, maximum 120-minute job timeout, with `.[dev]` installed.
 
-The workflow generates the fixture, validates numbered inputs, creates a project, runs preflight/merge/compare, records artifact sizes, and uploads `docmergeforge-stress-<parts>-parts` for short-term inspection.
+Every run generates the fixture, validates numbered inputs, creates a project, runs preflight/merge/compare, writes machine-readable and Markdown measured evidence, records artifact sizes, and uploads `docmergeforge-stress-<parts>-parts` for short-term inspection.
+
+Evidence files:
+
+```text
+Stress_Acceptance_Evidence.json
+Stress_Acceptance_Evidence.md
+```
+
+They record the exact commit, workflow run, fixture parameters, measured generated source bytes, and measured output bytes before the evidence files themselves are added.
+
+## Verified default 120-part baseline
+
+Stress Acceptance run `32030895119` at checkpoint `ad5d8e354efefc745a454b799632359fafd29658` passed.
+
+Profile:
+
+| Metric | Value |
+|---|---:|
+| PDF parts | 120 |
+| DOCX parts | 120 |
+| Companion ZIPs | 120 |
+| PDF pages per part | 5 |
+| Total source PDF pages | 600 |
+| DOCX paragraphs per part | 50 |
+| Synthetic paragraph payload | 1 KiB |
+| Measured generated source bytes | `9,881,006` |
+| Measured output bytes before evidence files | `5,421,739` |
+
+The run passed Parts 1–120 validation, project creation, storage/preflight checks, mixed PDF+DOCX merge, and output comparison. PDF comparison reported exactly 600 source and 600 output pages.
+
+Uploaded workflow artifact:
+
+```text
+Artifact ID: 9288923591
+Uploaded size: 4,785,305 bytes
+GitHub artifact-container digest:
+sha256:f552c3007dc6121f77145e9335f4ca39a7a3809bb4a97eb98c4118f2f2529189
+```
+
+This is a measured functional/resource baseline for a 120-part mixed publication. The generated source data is approximately 9.9 MB, so this run is explicitly **not** multi-gigabyte acceptance.
+
+See [Release Evidence Ledger](release-evidence.md) for the canonical verification record.
 
 ## Current multi-gigabyte status
 
 No measured multi-gigabyte Stress Acceptance result is currently claimed.
 
-The workflow exists, but the connected GitHub tooling available in the current development session does not expose workflow dispatch. Therefore the project record deliberately does not invent a stress run ID or size result.
-
-To claim multi-gigabyte acceptance, run the manual workflow at parameters whose **reported generated source byte total** meets the intended class and record the successful evidence.
+The workflow is now capable of running automatically at the default baseline and manually at larger configured profiles. To claim multi-gigabyte acceptance, use parameters whose **reported generated source byte total** actually reaches the intended class and record the successful evidence.
 
 ## Scaling methodology
 
@@ -222,7 +258,7 @@ A safer operational recommendation remains: merge on local disk and copy verifie
 
 ## Memory/resource observations
 
-The current manual stress workflow records file sizes but does not yet publish a formal peak-memory/CPU benchmark report. Performance claims should use measured instrumentation such as peak RSS, elapsed time by stage, CPU utilization, bytes read/written, and temporary peak disk usage, tied to exact runner/hardware context.
+The current Stress Acceptance workflow records exact source/output sizes but does not yet publish a formal peak-memory/CPU benchmark report. Performance claims should use measured instrumentation such as peak RSS, elapsed time by stage, CPU utilization, bytes read/written, and temporary peak disk usage, tied to exact runner/hardware context.
 
 ## Stress pass criteria
 
@@ -230,7 +266,7 @@ A target scale run passes only when fixture generation, expected numbered valida
 
 ## Release evidence
 
-Record significant successful/failed acceptance results in `what_changed.md` without overstating what each run proves.
+Record significant successful/failed acceptance results in `what_changed.md` and [Release Evidence Ledger](release-evidence.md) without overstating what each run proves.
 
 Good:
 
