@@ -14,5 +14,9 @@ class InsufficientStorageError(DocMergeForgeError):
     """Raised when free space is below the required safe estimate."""
 
 
+class OutputAccessError(DocMergeForgeError):
+    """Raised when the destination cannot be created or written safely."""
+
+
 class UnsupportedDocumentError(DocMergeForgeError):
     """Raised when a document cannot be handled safely."""
