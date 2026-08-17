@@ -2,45 +2,30 @@
 
 This document defines the evidence required to move DocMergeForge from a development checkpoint to a release candidate and, eventually, a stable `v1.0.0` release.
 
-A release is not complete merely because the source tests pass or a PyInstaller archive exists.
+A release is not complete merely because source tests pass or PyInstaller creates an archive.
 
-## Release philosophy
+## Release evidence levels
 
-Keep three states separate:
+Keep these states separate:
 
-1. **Implemented** — code exists.
-2. **Automatically verified** — CI/test evidence exists for the exact release head.
-3. **Production accepted** — real packaged-app, platform, fidelity, accessibility, stress, and signing acceptance has been completed where required.
+1. **Implemented** — code exists in the repository.
+2. **Automatically verified** — source/integration/acceptance CI is green for the exact behavior being claimed.
+3. **Downloaded-artifact verified** — an uploaded executable archive is consumed on a separate native runner without repository checkout or DocMergeForge/Python project installation; checksum/provenance are verified, the archive is extracted, and the packaged application executes successfully.
+4. **Human/production accepted** — representative end-user machines, interactive UX, real manuscript fidelity, accessibility, signing/notarization, installer/distribution behavior, and support expectations meet the intended release claim.
 
-Documentation, changelogs, and GitHub releases must not collapse those states into one claim.
+Documentation, changelogs, and releases must not collapse these levels into a single “done” statement.
 
 ## Versioning
 
-The project follows semantic versioning intent.
-
-Current package version is pre-stable (`0.x`). Before `1.0.0`, behavior/configuration can still change as release gates are completed.
-
-Typical meaning:
-
-- patch (`0.1.1`) — focused compatible fixes;
-- minor (`0.2.0`) — meaningful new capabilities/behavior while pre-stable;
-- `1.0.0` — first stable public contract after acceptance matrix is satisfied.
+The project follows semantic-versioning intent. The package remains pre-stable (`0.x`) while the release matrix is being completed. `1.0.0` is reserved for the first intentionally accepted stable public contract.
 
 ## 1. Freeze release scope
 
-Before creating a release candidate:
-
-- identify target version;
-- list intended features/fixes;
-- stop unrelated feature additions;
-- document known limitations;
-- ensure unresolved release blockers are visible;
-- decide target operating systems and Python/source support claims;
-- decide which package formats will actually be distributed.
+Before creating a release candidate, define the target version, intended changes, supported OS/architectures, supported PyInstaller modes, actual distribution formats, workload/fidelity claims, and known limitations. Stop unrelated feature work during the candidate cycle.
 
 ## 2. Update version and documentation
 
-Update as appropriate:
+Review/update as appropriate:
 
 ```text
 pyproject.toml
@@ -50,11 +35,11 @@ docs/
 what_changed.md
 ```
 
-Check that documentation matches implemented behavior and does not claim unfinished fidelity/signing/accessibility/stress work.
+Every documented command and support claim must match the candidate implementation.
 
 ## 3. Source quality gate
 
-For the exact candidate commit:
+For the exact candidate commit require:
 
 ```bash
 ruff check .
@@ -63,268 +48,169 @@ mypy src/docmergeforge
 pytest --cov=docmergeforge --cov-report=term-missing
 ```
 
-Required CI evidence:
-
-- Quality workflow green on Python 3.12;
-- Quality workflow green on Python 3.13 (while supported by the project CI matrix).
-
-Any code change made after this evidence invalidates it for the new head and requires new runs.
+Quality must be green on the supported Python matrix. Any source change after that evidence requires a new candidate run.
 
 ## 4. 120-part regression gate
 
-The exact release head should pass:
+Require generated SQL Parts 1–120 fixture creation, regression/integration tests, and CLI Parts 1–120 validation.
 
-- generated SQL 120-part fixture creation;
-- integration/regression tests;
-- CLI Parts 1–120 validation.
-
-A green synthetic 120-part regression proves the configured workflow remains functional at that fixture scale. It does not prove multi-gigabyte real-world fidelity/performance.
+This proves the configured numbered-part regression scenario. It does not by itself prove multi-gigabyte performance or advanced real-world fidelity.
 
 ## 5. Cross-platform Build Smoke gate
 
-The exact release head should pass Build Smoke on:
-
-- Ubuntu;
-- Windows;
-- macOS.
-
-Required checks include:
-
-- source compile;
-- CLI help/entry point;
-- accessibility smoke;
-- packaging preflight.
+Require Build Smoke on Ubuntu, Windows, and macOS for source compilation, CLI entry point, accessibility metadata smoke, and packaging preflight.
 
 ## 6. Security gate
 
-For the release head:
+Require CodeQL/security checks appropriate to the candidate. Review dependency changes/advisories and ensure no credentials/private manuscripts enter repository fixtures, logs, provenance, or release artifacts.
 
-- CodeQL should complete successfully;
-- dependency changes should receive dependency-review evidence in PR context where applicable;
-- security-sensitive code changes should have focused regression tests;
-- no secrets/private manuscripts are present in the repository or fixtures.
+## 7. Recovery and locking gate
 
-Review open security advisories for direct dependencies before stable distribution.
+Require transactional publication, rollback, cancellation, recovery, fingerprint fail-closed behavior, and cross-process output-lock tests.
 
-## 7. Recovery acceptance gate
+When recovery semantics change, require the dedicated Recovery Acceptance workflow. Current controlled evidence includes real `os._exit()` interruption after the first rollback backup, after the first final promotion, and after the last final promotion before journal commit on Windows/macOS/Ubuntu.
 
-Automated tests should be green for:
+Controlled process termination does not replace power-loss, device-removal, filesystem-corruption, or multi-host network-lock testing when those environments are claimed.
 
-- transactional mixed PDF/DOCX publication;
-- report-generation failure before promotion;
-- cancellation paths;
-- output writeability failure;
-- disk-exhaustion simulation;
-- rollback behavior;
-- journal recovery;
-- fingerprint mismatch fail-closed behavior.
+## 8. Disk/storage gate
 
-For stable production acceptance, also perform controlled real process termination during promotion on disposable test data and verify `recover-output` restores a coherent pre-publication state.
+Require storage/writeability tests and disk-exhaustion evidence appropriate to the support statement.
 
-Perform this on each target filesystem/OS class where publication is claimed.
+Current real filesystem-exhaustion evidence is Linux tmpfs `ENOSPC`; NTFS/APFS/removable/network filesystems require their own acceptance if specifically claimed.
 
-## 8. Stress gate
+## 9. Stress/resource gate
 
-Run the manual stress workflow at a scale appropriate to release claims.
+Run the manual Stress Acceptance workflow at parameters whose **measured generated source byte total** reaches the workload class being claimed.
 
-Record:
+Record fixture parameters, measured source/output sizes, validation/compare results, workflow run ID, and resource observations. Never describe a run as multi-gigabyte unless the generated source data actually reaches that class.
 
-- fixture parameters;
-- source byte size;
-- final PDF/DOCX sizes;
-- elapsed behavior/resource observations where measured;
-- validation result;
-- compare result;
-- cancellation/recovery behavior if tested;
-- workflow run ID/artifact hashes.
+## 10. Real-world fidelity gate
 
-Do not claim “multi-gigabyte tested” unless an actual measured multi-gigabyte run completed successfully.
+Use a privacy-safe representative corpus and human review in the intended PDF/office applications.
 
-## 9. Real-world fidelity gate
+PDF acceptance should cover relevant page geometry, bookmarks, metadata, encrypted input, images/transparency, and generated publication overlays/front matter.
 
-Synthetic fixtures are insufficient for advanced DOCX/PDF fidelity.
+DOCX acceptance should cover relevant styles, numbering, tables, images, sections, headers/footers, page numbering, fields/TOC, links, equations/content controls/custom XML/relationships, and other constructs in the release claim.
 
-Maintain a privacy-safe acceptance corpus covering, where applicable:
+Portable DOCX mode remains the production path until external Word/LibreOffice adapters have independent implementation and acceptance evidence.
 
-### PDF
+## 11. Accessibility gate
 
-- bookmarks/outlines;
-- metadata;
-- encrypted inputs;
-- rotated/cropped pages;
-- mixed page sizes;
-- images/transparency;
-- generated title/TOC/numbering/header/footer/watermark.
+Automated accessibility smoke is supporting evidence. Human acceptance should cover keyboard-only operation, intended screen readers, high contrast/theme behavior, text/display scaling, reduced motion, large lists/error states, and representative platform workflows.
 
-### DOCX
+## 12. Default onedir package gate
 
-- headings/styles;
-- tables;
-- images;
-- sections/page setup;
-- headers/footers;
-- page numbering;
-- numbered/bulleted lists;
-- footnotes/endnotes where relevant;
-- fields/TOC;
-- equations/content controls/custom XML/relationships where relevant;
-- track-changes/OLE/macro-adjacent risk documents where policy requires review.
+For distributed onedir builds, require `Package Desktop` on Windows/macOS/Ubuntu.
 
-Open final DOCX in the actual target office applications and record human acceptance.
+The workflow must complete:
 
-Portable mode must remain the stated production path until high-fidelity external-suite adapters have their own verified implementation/acceptance.
+- native PyInstaller build;
+- build-host packaged mixed PDF+DOCX smoke;
+- archive creation;
+- archive SHA-256 sidecar generation;
+- privacy-safe provenance generation;
+- artifact upload;
+- separate fresh-runner download;
+- provenance validation;
+- checksum validation;
+- extraction;
+- packaged mixed PDF+DOCX smoke again.
 
-## 10. Accessibility gate
+The fresh-runner jobs intentionally do not check out the repository or install DocMergeForge/Python project dependencies. Linux installs only the required system `libegl1` runtime.
 
-Automated cross-platform metadata smoke must pass.
+Earlier design checkpoint `a325c12e89e0bc6dc9798f80fb866f469165647f`, run `32024177298`, passed the full build-host plus fresh-runner archive/checksum/execution sequence on Windows, macOS, and Ubuntu. Provenance-integrated runs must be recorded separately after they pass.
 
-Before a stable release, complete human acceptance for representative workflows:
+## 13. Optional onefile gate
 
-- keyboard-only operation;
-- Windows screen reader(s);
-- macOS VoiceOver;
-- supported Linux assistive technology if Linux GUI accessibility is claimed;
-- high contrast/theme modes;
-- increased text/display scaling;
-- reduced-motion preference;
-- long paths/large lists/errors/progress dialogs.
+If `--one-file` is supported or distributed, test it independently from onedir.
 
-Record defects and rerun after fixes.
+`Onefile Acceptance` must complete the same native build, real packaged publication smoke, archive/hash/provenance upload, and separate fresh-runner verification sequence on Windows/macOS/Ubuntu.
 
-## 11. Package build gate
+Earlier design checkpoint `6720e7a8a8cbbcad79c7e0c9c853c2382ae4a277`, run `32024284609`, passed build-host and fresh-runner onefile acceptance on all three platforms. Provenance-integrated onefile evidence must be recorded after the updated workflow passes.
 
-Trigger `Package Desktop` for the exact release commit/tag.
+## 14. Build provenance gate
 
-Verify that Windows/macOS/Linux PyInstaller builds are created.
+Use `scripts/write_build_provenance.py` / `docmergeforge.packaging.provenance` to retain privacy-safe artifact identity.
 
-Current CI archives are explicitly named as unsigned development artifacts. They are not the final production authenticity gate.
+The current schema records application/version, artifact label/build mode, explicit unsigned/not-notarized state, source commit/repository/ref, OS/architecture, Python/PyInstaller versions, allowlisted CI identity, and installed distribution versions. It deliberately excludes arbitrary environment variables, secrets, manuscript paths, and document contents.
 
-## 12. Packaged-app acceptance
+For CI artifacts, the fresh runner should validate at minimum:
 
-On clean machines/VMs (not developer environments), test the packaged app:
+- source commit equals the workflow head SHA;
+- build mode matches the artifact family;
+- artifact label matches the downloaded artifact;
+- `signed` is `false` for current unsigned builds;
+- `notarized` is `false` for current unsigned builds.
 
-1. launch desktop UI;
-2. create/open project;
-3. run validation/preflight;
-4. merge representative PDF;
-5. merge representative DOCX;
-6. run mixed project publication;
-7. test encrypted PDF;
-8. test cancellation;
-9. test interrupted-output recovery where possible;
-10. inspect generated reports;
-11. run audit/compare;
-12. verify branding/resources;
-13. verify Unicode/long/space-containing paths.
+See [Build Provenance](build/provenance.md).
 
-A packaging preflight alone is not sufficient.
+## 15. Human interactive clean-machine gate
 
-## 13. Platform signing/distribution gate
+Downloaded-artifact fresh-runner CI is a strong automated distribution check, but it is headless/offscreen and deterministic.
+
+Before a production support claim, use representative clean end-user machines/VMs to test normal UI launch, file dialogs/source selection, ordering, encrypted-PDF entry, cancellation/recovery UX, Unicode/long paths, accessibility, platform trust prompts, representative PDF/DOCX/mixed projects, and normal exit/relaunch.
+
+Record platform, architecture, build mode, artifact hash, result, and tester/evidence.
+
+## 16. Platform signing/notarization gate
+
+Current artifacts are explicitly unsigned development builds.
 
 ### Windows
 
-Production distribution should verify:
-
-- code-signing certificate/identity;
-- executable/installer signature;
-- timestamping;
-- clean-machine trust behavior;
-- installer upgrade/uninstall behavior if an installer is used.
+When production signing is claimed, sign the intended executable/installer with protected credentials and timestamp it. Verify the resulting Authenticode signature independently and review SmartScreen/trust behavior on a clean machine.
 
 ### macOS
 
-Verify:
-
-- Developer ID signing;
-- hardened runtime/entitlements as required;
-- notarization;
-- stapling;
-- Gatekeeper verification on a clean machine.
+When production distribution is claimed, complete Developer ID signing, hardened-runtime/entitlements review where required, notarization, stapling, and Gatekeeper verification on a clean Mac.
 
 ### Linux
 
-Define and verify the actual distribution mechanism and compatibility baseline. If distro-native packages/repositories are used, sign/publish them according to that ecosystem.
+Define the actual distribution/package trust mechanism and compatibility baseline for the formats/distributions being claimed.
 
-Never store production signing credentials in the repository.
+Never commit production signing credentials.
 
-## 14. Generate release hashes
+## 17. Final artifact hashes
 
-For every distributed artifact, generate SHA-256 and preserve it in release records.
+Current CI sidecars describe the exact **unsigned** archives generated by those workflows.
 
-Record at minimum:
+For a production release, generate SHA-256 after the last byte-changing signing/notarization/repackaging operation. Do not reuse an unsigned archive hash for a changed signed artifact.
 
-- artifact filename;
-- byte size;
-- SHA-256;
-- build workflow run;
-- commit/tag;
-- signing/notarization status.
+## 18. Installer/distribution acceptance
 
-## 15. Final documentation review
+If distributing MSI/MSIX/Inno/NSIS/DMG/PKG/AppImage/DEB/RPM/etc., test the actual installer/container separately: installation/extraction, launch, upgrade, uninstall, user-data preservation, permissions, shortcuts/associations where relevant, trust/signature behavior, and cleanup.
 
-Review:
+A PyInstaller executable does not automatically prove a separate installer format.
 
-- installation;
-- getting started;
-- CLI reference;
-- desktop guide;
-- recovery;
-- executable building;
-- known limitations;
-- privacy/security;
-- release notes/changelog;
-- support/contact information.
+## 19. Final documentation/release-note review
 
-Every command shown in docs should match the shipped version.
+Review installation, getting started, CLI/desktop guides, recovery, executable building/verification/provenance, known limitations, privacy/security, accessibility, changelog, support/contact information, and release notes.
 
-## 16. Tag and GitHub release
+Release notes should state supported platforms/architectures/build modes, workload/fidelity/accessibility limitations, signing/notarization status, artifact hashes, and recovery/upgrade guidance accurately.
 
-Create the semantic version tag only for the chosen release commit.
+## 20. Tag and publish only after acceptance
 
-The existing Package Desktop workflow triggers on `v*` tags, so ensure the tag points to the intended code before pushing.
+A `v*` tag can trigger packaging, but the tag itself is not acceptance and does not make current artifacts signed.
 
-Release notes should include:
+Tag only the chosen reviewed commit after required gates for the release claim are green/accepted.
 
-- version/date;
-- major changes;
-- compatibility notes;
-- known limitations;
-- verification summary;
-- artifact hashes;
-- signing status;
-- upgrade/recovery notes where relevant;
-- links to documentation.
+## 21. Post-release verification
 
-## 17. Post-release verification
+After publishing through the real user-facing channel:
 
-After publishing:
-
-- download artifacts as an end user would;
-- verify hashes/signatures;
-- launch/install on clean machines;
-- confirm release notes/docs links;
-- confirm no debug/private artifacts were uploaded;
-- monitor issue/security reports;
-- preserve workflow/acceptance evidence.
+1. download the released artifacts as users would;
+2. verify final hashes/signatures/notarization;
+3. install/extract and launch on representative targets;
+4. perform a small publication smoke;
+5. verify release notes/docs/support links;
+6. confirm no private/debug files were uploaded;
+7. retain run IDs, provenance, checksums, and human acceptance evidence.
 
 ## Stable `v1.0.0` gate
 
-Do not claim stable `v1.0.0` until at least these areas are intentionally accepted:
-
-- core PDF/DOCX merge correctness;
-- project/CLI/desktop workflows;
-- source-integrity and transactional publication;
-- journal recovery and forced-interruption acceptance;
-- representative large/stress workloads;
-- real-world PDF/DOCX fidelity corpus;
-- accessibility human acceptance;
-- cross-platform packaged-app acceptance;
-- Windows/macOS production signing/notarization where those platforms are distributed;
-- documentation/support/security processes.
+Do not claim `v1.0.0` until required areas for the intended support statement are intentionally accepted, including core merge correctness, transaction/recovery safety, representative large/stress workloads, real-world fidelity, human accessibility, downloaded-artifact and human clean-machine package acceptance, production signing/notarization where distributed, and complete documentation/support/security processes.
 
 ## Release evidence template
-
-Record a release checkpoint in a form similar to:
 
 ```text
 Version/tag:
@@ -334,19 +220,24 @@ Quality run:
 120-Part Regression run:
 Build Smoke run:
 Security run:
+Recovery Acceptance run:
+Disk Full Acceptance run:
 Stress run(s):
 Package Desktop run:
-Windows packaged acceptance:
-Windows signature verification:
-macOS packaged acceptance:
-macOS notarization verification:
-Linux packaged acceptance:
-Accessibility acceptance record:
+Onefile Acceptance run (if distributed):
+Windows fresh-runner artifact verification:
+macOS fresh-runner artifact verification:
+Linux fresh-runner artifact verification:
+Build provenance files:
+Human clean-machine acceptance records:
 Fidelity corpus result:
-Recovery interruption result:
-Artifact SHA-256 values:
+Accessibility acceptance record:
+Windows signature verification:
+macOS notarization verification:
+Linux distribution verification:
+Final artifact SHA-256 values:
 Known limitations:
 Release approver/notes:
 ```
 
-This evidence makes future debugging and release comparison substantially easier.
+See also [Executable Verification](build/verification.md), [Build Provenance](build/provenance.md), [Release Build Checklist](build/release-checklist.md), [Known Limitations](known-limitations.md), [Testing and CI](testing-and-ci.md), and [Stress Testing](stress-testing.md).
