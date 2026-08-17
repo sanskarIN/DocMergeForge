@@ -13,12 +13,18 @@ def main() -> int:
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--mode", required=True, choices=("onedir", "onefile"))
     parser.add_argument("--artifact-label", required=True)
+    parser.add_argument(
+        "--artifact",
+        type=Path,
+        help="Optional packaged archive to bind by filename, size, and SHA-256.",
+    )
     args = parser.parse_args()
 
     path = write_provenance(
         args.output,
         build_mode=args.mode,
         artifact_label=args.artifact_label,
+        artifact_path=args.artifact,
     )
     print(path)
     return 0
