@@ -16,6 +16,7 @@ from docmergeforge.utilities.hashing import sha256_file
 STAGING_PREFIX = ".docmergeforge-staging-"
 JOURNAL_FILENAME = "transaction.json"
 JOURNAL_VERSION = 1
+JOURNAL_PHASES = {"promoting", "committed", "rolled-back"}
 
 
 @dataclass(slots=True, frozen=True)
@@ -86,7 +87,7 @@ def _load_journal(transaction_folder: Path) -> dict[str, Any]:
         raise TransactionRecoveryError(
             f"Unsupported transaction recovery journal: {journal_path}"
         )
-    if payload.get("phase") not in {"promoting", "committed"}:
+    if payload.get("phase") not in JOURNAL_PHASES:
         raise TransactionRecoveryError(
             f"Invalid transaction recovery phase in: {journal_path}"
         )
@@ -195,17 +196,19 @@ def _recover_promoting_transaction(
 def recover_interrupted_output_transactions(output_folder: Path) -> list[RecoveryResult]:
     """Recover journaled output transactions after an interrupted process.
 
-    A journal marked ``promoting`` is rolled back to the pre-publication state. A journal
-    marked ``committed`` is already past the publication boundary, so only stale staging
-    data is removed. Corrupt or conflicting journals are left untouched and fail closed.
+    A journal marked ``promoting`` is rolled back to the pre-publication state. Journals
+    marked ``committed`` or ``rolled-back`` are already at a safe boundary, so only stale
+    staging data is removed. Corrupt or conflicting journals are left untouched and fail
+    closed.
     """
 
     results: list[RecoveryResult] = []
     for transaction_folder in pending_output_transactions(output_folder):
         payload = _load_journal(transaction_folder)
-        if payload["phase"] == "committed":
+        if payload["phase"] in {"committed", "rolled-back"}:
+            phase = str(payload["phase"])
             shutil.rmtree(transaction_folder)
-            results.append(RecoveryResult(transaction_folder, "cleaned-committed"))
+            results.append(RecoveryResult(transaction_folder, f"cleaned-{phase}"))
             continue
         results.append(
             _recover_promoting_transaction(
@@ -246,9 +249,20 @@ class OutputTransaction:
         traceback: TracebackType | None,
     ) -> None:
         del exc_type, exc, traceback
-        if self._staging_folder is not None:
-            shutil.rmtree(self._staging_folder, ignore_errors=True)
-            self._staging_folder = None
+        if self._staging_folder is None:
+            return
+
+        folder = self._staging_folder
+        self._staging_folder = None
+        journal = folder / JOURNAL_FILENAME
+        if journal.exists() and not self._committed:
+            try:
+                payload = _load_journal(folder)
+            except TransactionRecoveryError:
+                return
+            if payload["phase"] == "promoting":
+                return
+        shutil.rmtree(folder, ignore_errors=True)
 
     def stage(self, requested_path: Path, *, overwrite: bool) -> StagedOutput:
         if self._staging_folder is None:
@@ -338,11 +352,18 @@ class OutputTransaction:
 
             self._write_journal("committed", journal_entries)
         except Exception:
-            for path in reversed(promoted):
-                path.unlink(missing_ok=True)
-            for final_path, backup in backups.items():
-                if backup.exists():
-                    os.replace(backup, final_path)
+            try:
+                for path in reversed(promoted):
+                    path.unlink(missing_ok=True)
+                for final_path, backup in backups.items():
+                    if backup.exists():
+                        os.replace(backup, final_path)
+                self._write_journal("rolled-back", journal_entries)
+            except Exception as rollback_error:
+                raise TransactionRecoveryError(
+                    "Publication failed and automatic rollback was incomplete. Recovery "
+                    f"evidence was preserved in {self._staging_folder}."
+                ) from rollback_error
             raise
 
         for backup in backups.values():
