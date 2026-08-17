@@ -2,7 +2,7 @@
 
 DocMergeForge uses journaled output transactions so a multi-file publication bundle can be rolled back after a normal failure and recovered safely after an abrupt process interruption during final promotion.
 
-This guide covers the transaction model, operator actions, the `recover-output` command, conflict handling, and what **not** to delete.
+This guide covers the transaction model, operator actions, the `recover-output` command, cross-process output locking, conflict handling, and what **not** to delete.
 
 ## Why recovery is needed
 
@@ -17,6 +17,31 @@ A publication can include multiple final files:
 - publishing checklist.
 
 Publishing each file independently creates a dangerous state: the first file could be replaced before a later file fails. DocMergeForge instead stages the complete bundle and promotes it as one transaction.
+
+## Single-writer output lock
+
+Each output directory now has an OS-level non-blocking lock file:
+
+```text
+.docmergeforge-output.lock
+```
+
+The file itself can remain on disk between runs. Ownership is determined by the operating-system file lock, not by the presence of the filename.
+
+The same exclusive lock is held while:
+
+- a publication transaction creates/stages outputs;
+- final outputs are promoted;
+- rollback is attempted;
+- `recover-output` examines or repairs journaled recovery state.
+
+If another DocMergeForge process already owns the output-directory lock, the second process fails immediately with `OutputLockError` instead of racing the first process.
+
+The OS releases the lock automatically if the owning process exits or crashes. This means a stale `.docmergeforge-output.lock` filename after a crash is not itself evidence that a process is still active.
+
+Do **not** delete the lock file as a way to bypass an active lock. Removing a pathname does not safely coordinate with a process that already has the underlying file open.
+
+The lock is local filesystem coordination. Network filesystems can implement advisory locking differently; real shared-filesystem acceptance remains necessary before claiming robust multi-host locking semantics.
 
 ## Transaction folder
 
@@ -71,7 +96,7 @@ Examples:
 - storage/device disconnects during promotion;
 - interpreter crashes during final-path replacement.
 
-In these cases Python cleanup code may never run. A `promoting` journal can remain.
+In these cases Python cleanup code may never run. The operating-system output lock is released automatically, while a `promoting` journal can remain.
 
 The next project publication should detect that pending transaction and fail closed until recovery is completed.
 
@@ -88,6 +113,8 @@ Example:
 ```bash
 docmergeforge recover-output --output-dir "./Master"
 ```
+
+Recovery first acquires the same exclusive output-directory lock used by publication. If an active DocMergeForge process is still publishing to the directory, recovery refuses to run concurrently.
 
 Successful JSON shape:
 
@@ -231,7 +258,7 @@ The application checks cancellation during project/document processing and befor
 
 ### Abrupt termination during promotion
 
-May leave a `promoting` journal and backups. Use `recover-output`.
+The operating-system lock releases when the process dies, but the journal/backups can remain. Use `recover-output`.
 
 ## Disk-full behavior
 
@@ -241,9 +268,11 @@ The transaction/recovery layer is designed to keep failed staging from becoming 
 
 Never assume “disk full” means all temporary files are safe to delete; check for a transaction journal first.
 
-## Testing recovery
+## Testing recovery and locking
 
-The repository contains automated recovery/cancellation tests and simulated interrupted-promotion coverage. These are valuable regression checks but do not replace real forced-process-termination acceptance on each release platform.
+The repository contains automated recovery/cancellation tests, simulated interrupted-promotion coverage, and output-lock tests that verify a second transaction/recovery attempt is rejected while the first lock is active.
+
+These are valuable regression checks but do not replace real forced-process-termination acceptance on each release platform or multi-host/network-filesystem locking acceptance.
 
 Release acceptance should include controlled interruption testing on non-production fixtures.
 
@@ -251,6 +280,7 @@ Release acceptance should include controlled interruption testing on non-product
 
 Before declaring an interrupted output folder safe:
 
+- no active process owns the output-directory publication lock;
 - no unresolved `promoting` journal remains;
 - previous outputs are either restored or intentionally replaced;
 - no unknown file was deleted due to a fingerprint mismatch;
