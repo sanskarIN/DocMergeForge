@@ -32,7 +32,7 @@ Verified runs:
 | Build Smoke | `32014319394` | PASS on Windows/macOS/Ubuntu |
 | Security / CodeQL | `32014319291` | PASS |
 
-This checkpoint predates later publication-locking, packaged-artifact, provenance, and documentation-link hardening. Use the more specific evidence below for those behaviors.
+This checkpoint predates later publication-locking, packaged-artifact, provenance, documentation-link, accessibility-preference, and SBOM hardening. Use the more specific evidence below for those behaviors.
 
 ### Documentation-link integrity
 
@@ -44,7 +44,21 @@ Quality run:
 
 Result: PASS on Python 3.12 and 3.13 through Ruff, Black, strict mypy, repository-local Markdown link validation, and full pytest/coverage.
 
-This is the first recorded run that proves the repository documentation-link checker itself executes successfully against the current Markdown set rather than merely existing in source.
+### Current source/accessibility checkpoint
+
+The source line containing the CycloneDX packaging mirror also includes the expanded accessibility-preference smoke and telemetry test code.
+
+```text
+Quality run:     32033541420
+Build Smoke run: 32033541402
+Head checkpoint: dc624e23d07e0ce94ef345245630d153ee60091a
+```
+
+Quality passed pre-commit configuration validation, Ruff, Black, strict mypy, documentation-link integrity, and full pytest on Python 3.12 and 3.13.
+
+Build Smoke passed on Windows, macOS, and Ubuntu, including `scripts/check_accessibility.py`. The accessibility smoke verifies representative accessible metadata/shortcuts plus deterministic theme application, text-scale bounds/round-trip, and reduced-motion preference round-trip.
+
+This is automated offscreen preference/metadata evidence. It is **not** human screen-reader, keyboard-only end-to-end, high-contrast, localization, or full accessibility acceptance.
 
 ## Publication locking and recovery evidence
 
@@ -73,13 +87,9 @@ Recovery Acceptance run:
 32022863454
 ```
 
-Result: PASS on Windows, macOS, and Ubuntu for controlled `os._exit()` interruption at all three accepted promotion phases:
+Result: PASS on Windows, macOS, and Ubuntu for controlled `os._exit()` interruption after the first rollback backup, after the first new final promotion, and after the last new final promotion before journal commit.
 
-1. after the first rollback backup;
-2. after the first new final file is promoted;
-3. after the last new final file is promoted but before the journal is marked committed.
-
-The acceptance verifies restoration of the previous publication, staging/journal cleanup where safe, and reacquisition of the OS-level output lock.
+The acceptance verifies restoration of the previous publication, safe staging/journal cleanup, and reacquisition of the OS-level output lock.
 
 This does **not** prove physical power-loss behavior, storage-device removal, filesystem corruption, or multi-host network-filesystem locking semantics.
 
@@ -91,9 +101,7 @@ Disk Full Acceptance corrected run:
 32023666826
 ```
 
-Result: PASS on Ubuntu using an isolated 32 MiB tmpfs filled until the kernel returned real `ENOSPC` through the production `atomic_output()` path.
-
-Verified properties include preservation of the previous published target and cleanup of atomic `.part` residue.
+Result: PASS on Ubuntu using an isolated 32 MiB tmpfs filled until the kernel returned real `ENOSPC` through the production `atomic_output()` path. The previous published target remained unchanged and atomic `.part` residue was removed.
 
 This is Linux/tmpfs evidence. It is not automatically NTFS, APFS, removable-storage, or network-filesystem acceptance.
 
@@ -118,7 +126,7 @@ GitHub Actions artifact-container evidence:
 | macOS | `9286908194` | `sha256:f8431c63a1630eb180f5cf671fa600e66620d8f86c84f7d8c8aeb6d257023976` |
 | Linux | `9286879514` | `sha256:db38d4f879de226c0cc66aecdf49e408756c017ddc19e20734dda253b8e3360a` |
 
-The GitHub artifact-container digest identifies the workflow artifact container. The actual platform archive also carries its own `.sha256` sidecar and its archive filename/size/SHA-256 inside the provenance JSON. Do not substitute the container digest for the inner archive digest in a production release record.
+The GitHub artifact-container digest identifies the workflow artifact container. The actual platform archive carries its own `.sha256` sidecar and archive filename/size/SHA-256 inside the DocMergeForge provenance JSON.
 
 ## Optional onefile executable evidence
 
@@ -161,9 +169,7 @@ Onefile Acceptance run:        32030487166
 Checkpoint:                    24674b776216e6da73c257b30149f46605eb1b77
 ```
 
-Result: both workflows passed all Windows/macOS/Ubuntu build-host and fresh-runner jobs. This verifies checkout/setup v7, artifact upload v7, artifact download v8, archive-bound provenance validation, checksum validation, extraction, and packaged mixed-document execution across both supported PyInstaller distribution modes.
-
-Quality, Regression, Build Smoke, Recovery Acceptance, Disk Full Acceptance, Stress Acceptance, and Security workflow definitions were also migrated to their corresponding current action majors. Their individual behavior should continue to be recorded at the run level when materially relevant.
+Both workflows passed all Windows/macOS/Ubuntu build-host and fresh-runner jobs. Security migration run `32030403035` also passed CodeQL v4; dependency review correctly skipped on a push event.
 
 Weekly Dependabot configuration is present for GitHub Actions and pip updates. It opens reviewable update pull requests and does not auto-merge them.
 
@@ -178,25 +184,15 @@ Checkpoint: b0e112b0fecf9b6c70fcaeffd0551222dd2ed7aa
 
 Result: PASS for all Windows/macOS/Ubuntu build-host and fresh-runner jobs.
 
-Each native archive is attested with `actions/attest@v4` using job-scoped `id-token`, `attestations`, and `artifact-metadata` write permissions. The generated GitHub Artifact Attestation is signed through GitHub/Sigstore provenance infrastructure and is bound to the exact archive bytes.
+Each archive is attested with `actions/attest@v4` using job-scoped `id-token`, `attestations`, and `artifact-metadata` write permissions. Each fresh runner verifies the downloaded archive with `gh attestation verify` before JSON provenance, checksum, extraction, and packaged smoke.
 
-Attestation-era artifact-container evidence:
+Attestation-era artifact containers:
 
 | Platform | Artifact ID | GitHub artifact-container digest |
 |---|---:|---|
 | Windows | `9288984074` | `sha256:a169001b7c76777acc6c30f246498b50c8a735c0fafca9657f7738d50f330ed1` |
 | macOS | `9288934609` | `sha256:e5aff9fc17eec544e395947afe553d5732b8e2af7de9fbfa78ff095a5d92d7f2` |
 | Linux | `9289011135` | `sha256:2e560f8fb8e3869320c998d3967890b8b22d51c98b7cd308e1063af124662008` |
-
-Every separate fresh runner downloads the named workflow artifact and runs:
-
-```text
-gh attestation verify <downloaded-archive> --repo sanskarIN/DocMergeForge
-```
-
-before the existing archive-bound JSON provenance validation, `.sha256` verification, extraction, and packaged mixed PDF+DOCX smoke. All three platforms passed every step.
-
-This is cryptographic build-provenance evidence for the current **unsigned development archive**. It does not mean the Windows executable is Authenticode-signed or the macOS application is Developer ID signed/notarized; platform distribution trust remains a separate production gate.
 
 ### Optional onefile
 
@@ -205,11 +201,9 @@ Run:        32031798935
 Checkpoint: c42c3cab4083e51255d78730b613af735235494f
 ```
 
-Result: PASS for all Windows/macOS/Ubuntu build-host and fresh-runner jobs.
+Result: PASS for all Windows/macOS/Ubuntu build-host and fresh-runner jobs using the same least-privilege attestation and fresh-runner verification model.
 
-Onefile uses the same least-privilege `actions/attest@v4` permissions and separate fresh-runner `gh attestation verify` model as onedir. Each downloaded onefile archive passed cryptographic attestation verification before archive-bound JSON provenance, checksum validation, extraction, and the packaged mixed PDF+DOCX smoke.
-
-Attestation-era onefile artifact-container evidence:
+Attestation-era onefile artifact containers:
 
 | Platform | Artifact ID | GitHub artifact-container digest |
 |---|---:|---|
@@ -217,7 +211,57 @@ Attestation-era onefile artifact-container evidence:
 | macOS | `9289251930` | `sha256:ac3e41a5e85891d095053e7d0be5c75a519502c8d0100ea61bfa7614b836cab1` |
 | Linux | `9289257661` | `sha256:d698e261487e756adf5eabbb4e169e99467d16842753a1a0f56341fdd02c1b3b` |
 
-Both repository-supported PyInstaller distribution modes therefore have independent archive checksums, archive-bound privacy-safe JSON provenance, signed GitHub/Sigstore build provenance, and separate native-runner verification of the downloaded bytes.
+A GitHub/Sigstore build-provenance attestation does **not** make the Windows executable Authenticode-signed or the macOS application Developer ID signed/notarized. Platform distribution trust remains a separate production gate.
+
+## CycloneDX SBOM attestation evidence
+
+CycloneDX generator version is pinned in the build extra as `cyclonedx-bom==7.3.1`. Packaging uses `cyclonedx-py environment` to produce validated CycloneDX 1.6 JSON from the exact Python build environment used for PyInstaller.
+
+This is a **build-environment dependency SBOM**. It can include packaging/build dependencies and should not be represented as a byte-perfect inventory of every component embedded in the final PyInstaller executable.
+
+Each archive receives a second `actions/attest@v4` predicate using its generated SBOM. Fresh runners require the specific CycloneDX predicate independently:
+
+```text
+gh attestation verify <downloaded-archive> \
+  --repo sanskarIN/DocMergeForge \
+  --predicate-type https://cyclonedx.org/bom
+```
+
+### Onedir SBOM acceptance
+
+```text
+Run:        32033135355
+Checkpoint: 59dc14bbf1d4301177e475ac350694bdd9d90ada
+```
+
+Result: PASS for all three build-host and all three fresh-runner jobs. Every platform generated the CycloneDX JSON, created both default build-provenance and CycloneDX SBOM attestations, uploaded archive/checksum/provenance/SBOM, then independently verified both predicates before normal provenance/checksum/extract/smoke.
+
+SBOM-era artifact containers:
+
+| Platform | Artifact ID | GitHub artifact-container digest |
+|---|---:|---|
+| Windows | `9289721065` | `sha256:f00410bd8016ca05243a0be114dbe3ab336529f7a2b2251968b42922cc67e37d` |
+| macOS | `9289679866` | `sha256:c9ffec38d0c70b50e24bbd54e74c29d69b52206540b1402c9a76cbf535e54539` |
+| Linux | `9289686689` | `sha256:30b851a609ae3394174015f4f80fce52b356069131395978039c5ad82122a143` |
+
+### Onefile SBOM acceptance
+
+```text
+Run:        32033541414
+Checkpoint: dc624e23d07e0ce94ef345245630d153ee60091a
+```
+
+Result: PASS for all three build-host and all three fresh-runner jobs with the same two-predicate verification model.
+
+SBOM-era onefile artifact containers:
+
+| Platform | Artifact ID | GitHub artifact-container digest |
+|---|---:|---|
+| Windows | `9289869031` | `sha256:23082e8dce64e5225aa8234d0054f1c7c731dacd9810816a7d7a499759b5ebb6` |
+| macOS | `9289825286` | `sha256:474cc73883e67fd0bbc074ef3fdbccd9de709a8a5f1a220582c53a25c662c35c` |
+| Linux | `9289846554` | `sha256:44aba02321c0c09103987b1dc18eea5553ba16b00162ca9fed3af4420835bbda` |
+
+Both supported PyInstaller modes therefore have archive checksums, privacy-safe archive-bound JSON provenance, signed SLSA-style GitHub/Sigstore build provenance, CycloneDX build-environment dependency SBOMs, signed SBOM predicates, and independent fresh-runner verification of the downloaded bytes before packaged mixed-document execution.
 
 ## Stress evidence
 
@@ -229,45 +273,43 @@ Checkpoint: ad5d8e354efefc745a454b799632359fafd29658
 Artifact:   9288923591
 ```
 
-Result: PASS on Ubuntu for the automated default stress profile.
+Result: PASS on Ubuntu for the automated default stress profile with 120 PDF + 120 DOCX parts, 600 total source PDF pages, 50 DOCX paragraphs per part, 1 KiB paragraph payload, `9,881,006` generated source bytes, and `5,421,739` output bytes before evidence files.
 
-Measured profile and evidence:
+Artifact container digest: `sha256:f552c3007dc6121f77145e9335f4ca39a7a3809bb4a97eb98c4118f2f2529189`.
+
+### Formatter-clean merge resource telemetry
+
+```text
+Run:        32032403859
+Checkpoint: 73a79a763ef7c363964b1808ddb9e3156785e2f9
+Artifact:   9289427729
+```
+
+Result: PASS through generation, Parts 1–120 validation, preflight, measured mixed merge, comparison, evidence generation, and upload.
+
+Measured merge telemetry:
 
 | Metric | Value |
 |---|---:|
-| Numbered PDF parts | 120 |
-| Numbered DOCX parts | 120 |
-| Companion archives | 120 |
-| PDF pages per part | 5 |
-| Total source PDF pages | 600 |
-| DOCX paragraphs per part | 50 |
-| Synthetic paragraph payload | 1 KiB |
-| Measured generated source bytes | `9,881,006` |
-| Measured output bytes before evidence files | `5,421,739` |
-| Uploaded workflow-artifact bytes | `4,785,305` |
-| GitHub artifact-container digest | `sha256:f552c3007dc6121f77145e9335f4ca39a7a3809bb4a97eb98c4118f2f2529189` |
+| Generated source bytes | `9,881,006` |
+| Output bytes before acceptance evidence | `5,422,356` |
+| Elapsed seconds | `16.744248664` |
+| User CPU seconds | `16.562235` |
+| System CPU seconds | `0.17077` |
+| Peak RSS | `169,193,472` bytes (~161.4 MiB) |
+| Minor page faults | `39,178` |
+| Major page faults | `1` |
+| Filesystem input blocks | `536` |
+| Filesystem output blocks | `10,704` |
+| Disk free before merge | `91,322,392,576` bytes |
+| Disk free after merge | `91,317,059,584` bytes |
+| Free-space delta | `5,332,992` bytes |
 
-The run successfully completed fixture generation, Parts 1–120 PDF/DOCX validation, project creation, preflight/dry-run, mixed PDF+DOCX merge, output comparison, evidence generation, artifact-size recording, and artifact upload. PDF comparison reported 600 source pages and 600 output pages with matching page count.
+Workflow-artifact size was `4,786,316` bytes with container digest `sha256:3bed43be22932c470e062aaf2b7e38fcfeeb168e4c3ff90aa9f0da0c314454c8`.
 
-The generated evidence is stored in `Stress_Acceptance_Evidence.json` and `Stress_Acceptance_Evidence.md` inside the workflow artifact.
+The telemetry runner records privacy-safe counters and does not serialize the full command arguments or environment. These measurements describe this exact synthetic profile and runner execution and are not universal performance guarantees.
 
-This baseline is approximately 9.9 MB of generated source data. It is useful 120-part functional/resource evidence but is explicitly **not multi-gigabyte acceptance**.
-
-The workflow retains configurable manual inputs for deliberately larger runs. A future scale claim must record at minimum:
-
-```text
-checkpoint
-workflow run ID
-fixture parameters
-measured generated source bytes
-measured output bytes
-validation result
-merge result
-comparison result
-resource observations
-```
-
-Do not label a run “multi-gigabyte” unless measured source bytes actually reach that class.
+The verified stress source is approximately 9.9 MB, so this evidence remains explicitly **not multi-gigabyte acceptance**.
 
 ## Production gates still open
 
@@ -276,6 +318,7 @@ The following are intentionally **not** marked complete by the evidence above:
 - human interactive clean-machine acceptance on representative Windows/macOS/Linux systems;
 - representative real-world PDF/DOCX fidelity review in intended viewers/editors;
 - human keyboard-only and real screen-reader accessibility acceptance;
+- real OS high-contrast/display-scaling/localization acceptance;
 - measured multi-gigabyte stress/resource acceptance;
 - Windows production signing and SmartScreen/trust review when distributed;
 - macOS Developer ID signing, hardened-runtime review where required, notarization, stapling, and Gatekeeper verification when distributed;
@@ -284,10 +327,11 @@ The following are intentionally **not** marked complete by the evidence above:
 - physical power-loss/storage-disconnect recovery acceptance;
 - network/shared-filesystem multi-host lock semantics;
 - production-ready Microsoft Word or LibreOffice high-fidelity adapters;
+- exact post-PyInstaller binary-component SBOM/content inventory if that stronger claim is required;
 - stable `v1.0.0` acceptance.
 
 ## Evidence maintenance rules
 
 When a behavior materially changes, do not reuse an older run as proof for the changed behavior. Add a new checkpoint and run ID.
 
-Keep source-level CI evidence, downloaded-artifact evidence, and human/production acceptance separate. For executable releases, retain the exact final archive hash, provenance/attestation, signing/notarization evidence where applicable, release download identity, and human acceptance record together.
+Keep source-level CI evidence, downloaded-artifact evidence, and human/production acceptance separate. For executable releases, retain the exact final archive hash, provenance/attestation/SBOM evidence, signing/notarization evidence where applicable, release download identity, and human acceptance record together.
