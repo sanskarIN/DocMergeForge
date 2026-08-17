@@ -156,23 +156,71 @@ jobs:
           --artifact-label DocMergeForge-Linux-unsigned
           --artifact DocMergeForge-Linux-unsigned.tar.gz
 
-      - name: Attest Windows archive
+      - name: Generate Windows CycloneDX SBOM
+        if: runner.os == 'Windows'
+        run: >-
+          cyclonedx-py environment
+          --pyproject pyproject.toml
+          --spec-version 1.6
+          --output-format JSON
+          --output-file DocMergeForge-Windows-unsigned.cdx.json
+
+      - name: Generate macOS CycloneDX SBOM
+        if: runner.os == 'macOS'
+        run: >-
+          cyclonedx-py environment
+          --pyproject pyproject.toml
+          --spec-version 1.6
+          --output-format JSON
+          --output-file DocMergeForge-macOS-unsigned.cdx.json
+
+      - name: Generate Linux CycloneDX SBOM
+        if: runner.os == 'Linux'
+        run: >-
+          cyclonedx-py environment
+          --pyproject pyproject.toml
+          --spec-version 1.6
+          --output-format JSON
+          --output-file DocMergeForge-Linux-unsigned.cdx.json
+
+      - name: Attest Windows archive build provenance
         if: runner.os == 'Windows'
         uses: actions/attest@v4
         with:
           subject-path: DocMergeForge-Windows-unsigned.zip
 
-      - name: Attest macOS archive
+      - name: Attest macOS archive build provenance
         if: runner.os == 'macOS'
         uses: actions/attest@v4
         with:
           subject-path: DocMergeForge-macOS-unsigned.tar.gz
 
-      - name: Attest Linux archive
+      - name: Attest Linux archive build provenance
         if: runner.os == 'Linux'
         uses: actions/attest@v4
         with:
           subject-path: DocMergeForge-Linux-unsigned.tar.gz
+
+      - name: Attest Windows CycloneDX SBOM
+        if: runner.os == 'Windows'
+        uses: actions/attest@v4
+        with:
+          subject-path: DocMergeForge-Windows-unsigned.zip
+          sbom-path: DocMergeForge-Windows-unsigned.cdx.json
+
+      - name: Attest macOS CycloneDX SBOM
+        if: runner.os == 'macOS'
+        uses: actions/attest@v4
+        with:
+          subject-path: DocMergeForge-macOS-unsigned.tar.gz
+          sbom-path: DocMergeForge-macOS-unsigned.cdx.json
+
+      - name: Attest Linux CycloneDX SBOM
+        if: runner.os == 'Linux'
+        uses: actions/attest@v4
+        with:
+          subject-path: DocMergeForge-Linux-unsigned.tar.gz
+          sbom-path: DocMergeForge-Linux-unsigned.cdx.json
 
       - name: Upload Windows artifact
         if: runner.os == 'Windows'
@@ -183,6 +231,7 @@ jobs:
             DocMergeForge-Windows-unsigned.zip
             DocMergeForge-Windows-unsigned.zip.sha256
             DocMergeForge-Windows-unsigned.provenance.json
+            DocMergeForge-Windows-unsigned.cdx.json
           if-no-files-found: error
 
       - name: Upload macOS artifact
@@ -194,6 +243,7 @@ jobs:
             DocMergeForge-macOS-unsigned.tar.gz
             DocMergeForge-macOS-unsigned.tar.gz.sha256
             DocMergeForge-macOS-unsigned.provenance.json
+            DocMergeForge-macOS-unsigned.cdx.json
           if-no-files-found: error
 
       - name: Upload Linux artifact
@@ -205,6 +255,7 @@ jobs:
             DocMergeForge-Linux-unsigned.tar.gz
             DocMergeForge-Linux-unsigned.tar.gz.sha256
             DocMergeForge-Linux-unsigned.provenance.json
+            DocMergeForge-Linux-unsigned.cdx.json
           if-no-files-found: error
 
       - name: Packaging notice
@@ -240,10 +291,18 @@ jobs:
           name: ${{ matrix.artifact }}
           path: artifact
 
-      - name: Verify GitHub artifact attestation
+      - name: Verify GitHub build provenance attestation
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh attestation verify "artifact/${{ matrix.archive }}" --repo "${{ github.repository }}"
+
+      - name: Verify GitHub CycloneDX SBOM attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh attestation verify "artifact/${{ matrix.archive }}"
+          --repo "${{ github.repository }}"
+          --predicate-type https://cyclonedx.org/bom
 
       - name: Install Linux runtime prerequisite
         if: runner.os == 'Linux'
