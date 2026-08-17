@@ -43,9 +43,7 @@ def require_output_writable(output_folder: Path) -> None:
         probe_path = Path(raw_path)
         os.close(descriptor)
     except OSError as exc:
-        raise OutputAccessError(
-            f"Output folder is not writable: {output_folder}: {exc}"
-        ) from exc
+        raise OutputAccessError(f"Output folder is not writable: {output_folder}: {exc}") from exc
     finally:
         if probe_path is not None:
             with suppress(OSError):
