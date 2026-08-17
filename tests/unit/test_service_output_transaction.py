@@ -141,3 +141,38 @@ def test_late_cancellation_before_promotion_keeps_previous_outputs(
     assert pdf_output.read_bytes() == b"old-pdf"
     assert docx_output.read_bytes() == b"old-docx"
     assert not list(project.output_folder.glob(".docmergeforge-staging-*"))
+
+
+def test_report_failure_keeps_previous_published_bundle(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    service, project, pdf_output, docx_output = _prepare_service(tmp_path, monkeypatch)
+    pdf_output.write_bytes(b"old-pdf")
+    docx_output.write_bytes(b"old-docx")
+    report = project.output_folder / "master_Merge_Report.md"
+    report.write_text("old-report", encoding="utf-8")
+
+    def fake_merge(
+        _self: object,
+        _documents: object,
+        output: Path,
+        _settings: object,
+        **_kwargs: object,
+    ) -> Path:
+        output.write_bytes(b"new-output")
+        return output
+
+    def fail_report(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError("simulated report failure")
+
+    monkeypatch.setattr(service_module.PdfMergeEngine, "merge", fake_merge)
+    monkeypatch.setattr(service_module.DocxMergeEngine, "merge", fake_merge)
+    monkeypatch.setattr(service_module, "write_project_report", fail_report)
+
+    with pytest.raises(RuntimeError, match="simulated report failure"):
+        service.run_project(project)
+
+    assert pdf_output.read_bytes() == b"old-pdf"
+    assert docx_output.read_bytes() == b"old-docx"
+    assert report.read_text(encoding="utf-8") == "old-report"
+    assert not list(project.output_folder.glob(".docmergeforge-staging-*"))
