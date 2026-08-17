@@ -14,9 +14,9 @@ def test_second_output_transaction_is_blocked_while_first_is_active(tmp_path: Pa
     with (
         OutputTransaction(tmp_path),
         pytest.raises(OutputLockError, match="already using this output directory"),
+        OutputTransaction(tmp_path),
     ):
-        with OutputTransaction(tmp_path):
-            pass
+        pass
 
 
 def test_recovery_is_blocked_while_publication_lock_is_active(tmp_path: Path) -> None:
