@@ -1,8 +1,14 @@
 # Build Provenance
 
-DocMergeForge includes a privacy-safe build provenance generator for executable artifacts. It is designed to make release/debug evidence reproducible without copying arbitrary environment variables, secrets, manuscript paths, or document contents into build metadata.
+DocMergeForge uses three complementary integrity/provenance layers for current unsigned executable archives:
 
-## Implementation
+1. an archive `.sha256` sidecar;
+2. a privacy-safe DocMergeForge JSON provenance record bound to archive filename, byte size, and SHA-256;
+3. a signed GitHub Artifact Attestation generated with `actions/attest@v4` and independently verified on a fresh native runner.
+
+These layers improve traceability of the unsigned build stage. They do **not** substitute for Windows Authenticode signing, macOS Developer ID signing/notarization, or human production acceptance.
+
+## DocMergeForge provenance implementation
 
 Library:
 
@@ -23,9 +29,9 @@ tests/unit/test_build_provenance.py
 tests/integration/test_build_provenance_cli.py
 ```
 
-## Command
+## Local provenance command
 
-Onedir archive-bound provenance:
+Onedir example:
 
 ```bash
 python scripts/write_build_provenance.py \
@@ -35,7 +41,7 @@ python scripts/write_build_provenance.py \
   --artifact DocMergeForge-Linux-unsigned.tar.gz
 ```
 
-Onefile archive-bound provenance:
+Onefile example:
 
 ```bash
 python scripts/write_build_provenance.py \
@@ -45,49 +51,17 @@ python scripts/write_build_provenance.py \
   --artifact DocMergeForge-Windows-onefile-unsigned.zip
 ```
 
-`--artifact` is optional for reusable/local metadata generation, but CI package workflows provide it so the provenance is bound to the exact uploaded archive.
+`--artifact` is optional for reusable/local metadata generation, but the CI packaging workflows provide it so provenance is bound to the exact archive bytes.
 
-## Recorded fields
+## JSON provenance fields
 
-Schema version `1` records:
+Schema version `1` records application/version, artifact label, build mode, explicit unsigned/not-notarized state, archive filename/size/SHA-256, source commit/repository/ref, OS/architecture, Python/PyInstaller versions, allowlisted CI identity, installed Python distribution versions, UTC generation time, and the privacy boundary.
 
-- application name and DocMergeForge version;
-- artifact label;
-- build mode (`onedir` or `onefile`);
-- explicit `signed: false` and `notarized: false` for the current unsigned build stage;
-- archive filename, byte size, and SHA-256 when `--artifact` is supplied;
-- GitHub source commit/repository/ref when available;
-- operating system/release;
-- machine architecture;
-- Python version/implementation;
-- Python executable filename, not its full local path;
-- PyInstaller version when installed;
-- allowlisted CI run identity;
-- installed Python distribution names/versions;
-- UTC generation timestamp;
-- a privacy note describing the metadata boundary.
+The generator refuses a missing artifact path when `--artifact` is requested instead of pretending that archive bytes were inspected.
 
-## Archive binding
+## CI allowlist and privacy boundary
 
-When `--artifact PATH` is supplied, provenance records:
-
-```json
-{
-  "artifact": {
-    "archive_filename": "DocMergeForge-Linux-unsigned.tar.gz",
-    "archive_size": 123456789,
-    "archive_sha256": "..."
-  }
-}
-```
-
-The generator refuses a missing artifact path rather than producing a provenance record that pretends the archive was inspected.
-
-The fresh-runner packaging workflows recompute the downloaded archive byte size and SHA-256 and require them to match provenance. The normal `.sha256` sidecar is also verified separately. Archive identity is therefore checked through both the provenance document and checksum sidecar.
-
-## CI allowlist
-
-Only these CI environment variables are intentionally copied when present:
+Only these CI variables are intentionally copied when present:
 
 ```text
 GITHUB_SHA
@@ -100,27 +74,23 @@ RUNNER_OS
 RUNNER_ARCH
 ```
 
-The generator does **not** enumerate and serialize the full environment. Signing passwords, tokens, arbitrary secrets, user environment variables, and unrelated credentials are excluded by design.
+The generator does **not** dump the complete environment. It must never serialize manuscripts, PDF passwords, signing credentials, API tokens, arbitrary secrets, avoidable user home paths, or unrelated diagnostics.
+
+Unit tests inject secret-like values and confirm they are not serialized. The CLI integration test executes the real wrapper and checks archive/source identity fields.
 
 ## Dependency snapshot
 
-The provenance JSON records installed Python distributions as sorted name/version pairs. This is stronger evidence than dependency ranges in `pyproject.toml`, because PyInstaller packages the environment that was actually installed at build time.
+The JSON provenance records installed Python distributions as sorted name/version pairs. This is stronger evidence than dependency ranges alone because it describes the environment actually presented to PyInstaller.
 
-It is still not a standards-compliant cryptographic SBOM. A future SPDX/CycloneDX or attestation pipeline can add package hashes/licenses/builder attestations when required.
+It is **not** a standards-compliant SBOM. SPDX/CycloneDX remains a separate future supply-chain improvement.
 
-## Atomic write
+## Atomic provenance write
 
-`write_provenance()` writes a temporary JSON file and replaces the requested path after serialization completes. This avoids leaving a partially written provenance file after an ordinary write failure.
+`write_provenance()` writes a temporary JSON file and replaces the requested destination after successful serialization, preventing an ordinary interrupted write from leaving a partially written provenance document.
 
-## Privacy boundary
+## Unsigned versus signed state
 
-Provenance must never include manuscript paths/contents, PDF passwords, signing private keys/passwords, API tokens, arbitrary environment dumps, avoidable user home-directory paths, or unrelated diagnostic exports.
-
-Unit tests inject secret-like environment values and verify they are not serialized. The CLI integration test executes the real command wrapper and verifies archive/source identity fields.
-
-## Unsigned versus signed provenance
-
-The current generator describes the **unsigned build stage** and deliberately sets:
+The current local provenance intentionally records:
 
 ```json
 {
@@ -129,79 +99,104 @@ The current generator describes the **unsigned build stage** and deliberately se
 }
 ```
 
-Do not edit these values to `true` because signing is planned. A future production signing/notarization pipeline should create or extend a post-signing attestation only after signatures/notarization are actually applied and independently verified.
+These fields describe platform-distribution trust, not whether a GitHub build-provenance attestation exists. A GitHub/Sigstore attestation does **not** make a Windows executable Authenticode-signed or a macOS application Developer ID signed/notarized.
 
-## Provenance versus checksum sidecar
+Never change these booleans because signing is merely planned. They can change only after the corresponding final platform artifact is actually signed/notarized and independently verified.
 
-The two evidence files have related but distinct roles:
+## GitHub Artifact Attestations
 
-- `.sha256` sidecar — compact checksum consumers can verify easily;
-- `.provenance.json` — source/build/dependency identity plus archive filename/size/digest.
-
-For release evidence, retain both. If signing/notarization/repacking changes artifact bytes, regenerate final artifact hashes/provenance appropriate to the final distribution stage.
-
-## Local build use
-
-Outside GitHub Actions, unavailable CI fields are recorded as `unknown` where applicable. Runtime/build fields, dependency snapshot, and optional archive binding remain useful.
-
-For high-value local release builds, also record the source commit externally and build from a clean reviewed checkout.
-
-## Verified onedir integration
-
-Package Desktop run `32025126032` at checkpoint `59107192d494d76a4112cdeaa9a55f01cfe37972` passed the complete Windows/macOS/Ubuntu build and fresh-runner sequence.
-
-Every platform:
-
-1. built the native onedir PyInstaller application;
-2. ran packaged mixed PDF+DOCX publication smoke;
-3. created the archive and SHA-256 sidecar;
-4. generated archive-bound provenance;
-5. uploaded archive/checksum/provenance together;
-6. downloaded the artifact on a separate native runner without repository checkout/project installation;
-7. verified provenance source SHA, build mode, artifact label, unsigned/notarized state, archive filename, byte size, and archive SHA-256;
-8. verified the checksum sidecar independently;
-9. extracted and executed packaged publication smoke again.
-
-Artifacts:
+Both Package Desktop and Onefile Acceptance now attest each native archive with:
 
 ```text
-Windows artifact ID: 9286905238
-GitHub artifact digest: sha256:28d3303fd6a49e46b765bc2114696f152095c3edd83ddb354e36e8b6b1909b8a
-
-macOS artifact ID: 9286908194
-GitHub artifact digest: sha256:f8431c63a1630eb180f5cf671fa600e66620d8f86c84f7d8c8aeb6d257023976
-
-Linux artifact ID: 9286879514
-GitHub artifact digest: sha256:db38d4f879de226c0cc66aecdf49e408756c017ddc19e20734dda253b8e3360a
+actions/attest@v4
 ```
 
-These GitHub artifact-container digests are additional workflow evidence; users should still verify the archive-level `.sha256` sidecar/provenance digest for the actual packaged archive inside the workflow artifact.
+The build job grants only the required additional permissions:
 
-## Verified onefile integration
+```yaml
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+```
 
-Onefile Acceptance run `32025167433` at checkpoint `b8a181b7138a1bc617766dd3e86c9ab32aade75e` passed the same archive-bound provenance and fresh-runner model for onefile on Windows/macOS/Ubuntu.
+Each separate fresh runner verifies the downloaded archive before ordinary checksum/provenance/execution checks:
 
-Artifacts:
+```bash
+gh attestation verify <downloaded-archive> --repo sanskarIN/DocMergeForge
+```
+
+This adds signed GitHub/Sigstore build provenance bound to the exact archive bytes and independently checks that provenance after the upload/download boundary.
+
+## Verified onedir attestation
 
 ```text
-Windows onefile artifact ID: 9286898078
-GitHub artifact digest: sha256:d29a4bff3f00e264a057bdf150f50d3100145620c8f35ee4674480bb3b883147
-
-macOS onefile artifact ID: 9286838805
-GitHub artifact digest: sha256:a005aea008217a4451d7edc653b54a019c29e3f6bbf81924e8889d7804707e84
-
-Linux onefile artifact ID: 9286861365
-GitHub artifact digest: sha256:e6231c235afc11e9e51420b87ef3a59fe00d37368950f881bb0dd79beac5cc08
+Run:        32030972195
+Checkpoint: b0e112b0fecf9b6c70fcaeffd0551222dd2ed7aa
 ```
 
-## What this evidence proves
+All Windows/macOS/Ubuntu build jobs and all three fresh-runner jobs passed. Each platform completed native build, packaged mixed PDF+DOCX smoke, archive/hash/local-provenance generation, GitHub Artifact Attestation creation, artifact upload, fresh-runner download, `gh attestation verify`, archive-bound JSON provenance validation, sidecar checksum verification, extraction, and packaged smoke again.
 
-It proves the current unsigned onedir and onefile CI artifacts are traceable to their source/build environment, bound to exact archive bytes, independently checksum/provenance verified after upload/download, extractable, and executable through the packaged mixed-document smoke on fresh native runners.
+Attestation-era workflow artifact containers:
 
-It does **not** prove production code signing, macOS notarization, human interactive clean-machine UX, representative real-world fidelity, or stable-release readiness.
+```text
+Windows artifact ID: 9288984074
+Container digest: sha256:a169001b7c76777acc6c30f246498b50c8a735c0fafca9657f7738d50f330ed1
 
-## Future production improvements
+macOS artifact ID: 9288934609
+Container digest: sha256:e5aff9fc17eec544e395947afe553d5732b8e2af7de9fbfa78ff095a5d92d7f2
 
-Potential additions include a standards-compliant SPDX/CycloneDX SBOM, package hashes/licenses, builder identity/artifact attestations, signing certificate identity/status, macOS notarization evidence, final download URL/hash, and reproducible-build comparison evidence.
+Linux artifact ID: 9289011135
+Container digest: sha256:2e560f8fb8e3869320c998d3967890b8b22d51c98b7cd308e1063af124662008
+```
 
-Each addition should preserve the privacy boundary and be backed by verification rather than metadata generation alone.
+## Verified onefile attestation
+
+```text
+Run:        32031798935
+Checkpoint: c42c3cab4083e51255d78730b613af735235494f
+```
+
+All Windows/macOS/Ubuntu build and fresh-runner jobs passed the same attestation-first verification sequence for onefile archives.
+
+Attestation-era workflow artifact containers:
+
+```text
+Windows artifact ID: 9289300227
+Container digest: sha256:58c0b60c67599181463c33f6efb5e77c86fdd29dbf8f98f3c4af3f91ee28867e
+
+macOS artifact ID: 9289251930
+Container digest: sha256:ac3e41a5e85891d095053e7d0be5c75a519502c8d0100ea61bfa7614b836cab1
+
+Linux artifact ID: 9289257661
+Container digest: sha256:d698e261487e756adf5eabbb4e169e99467d16842753a1a0f56341fdd02c1b3b
+```
+
+The GitHub artifact-container digest identifies the Actions artifact container. It is additional workflow evidence and must not be confused with the inner platform archive digest. The actual archive retains its own `.sha256`, archive SHA-256/size in DocMergeForge provenance, and GitHub attestation.
+
+## What the combined evidence proves
+
+For current unsigned onedir and onefile CI archives, the repository now has evidence that:
+
+- the package is traceable to source/build context;
+- local JSON provenance is privacy-filtered and archive-bound;
+- a compact independent SHA-256 sidecar matches the archive;
+- signed GitHub/Sigstore build provenance exists for the archive;
+- a separate native runner verifies that attestation after download;
+- the fresh runner also recomputes archive identity and validates local provenance/checksum;
+- the downloaded package extracts and executes a real packaged mixed PDF+DOCX publication smoke.
+
+This does **not** prove production code signing, notarization, interactive clean-machine UX, representative real-world fidelity, accessibility acceptance, installer behavior, multi-gigabyte scale, or stable-release readiness.
+
+## Final-byte rule
+
+Checksums, local provenance, and build attestations describe the exact bytes they were created for. If signing, notarization, stapling, installer wrapping, or repackaging changes artifact bytes, generate and verify new evidence for the final distribution artifact. Do not reuse an unsigned-build digest for changed signed bytes.
+
+## Future supply-chain improvements
+
+Remaining useful improvements include a standards-compliant SPDX/CycloneDX SBOM, package hashes/licenses, final signing certificate identity/status, macOS notarization evidence, release-channel download identity, and reproducible-build comparison evidence.
+
+Each addition must preserve the privacy boundary and be backed by independent verification rather than metadata generation alone.
+
+See [Release Evidence Ledger](../release-evidence.md), [Executable Verification](verification.md), and [Release Process](../release-process.md).
