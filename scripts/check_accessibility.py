@@ -19,6 +19,7 @@ from docmergeforge.ui.dialogs import (  # noqa: E402
     TextReportDialog,
 )
 from docmergeforge.ui.order_dialog import OrderEditorDialog  # noqa: E402
+from docmergeforge.ui.theme import apply_text_scale, apply_theme  # noqa: E402
 from docmergeforge.ui.workers import MergeWorker  # noqa: E402
 
 
@@ -155,6 +156,45 @@ def _check_settings(issues: list[str]) -> SettingsDialog:
     return dialog
 
 
+def _check_visual_preferences(app: QApplication, issues: list[str]) -> None:
+    apply_text_scale(app, 100)
+    base_value = app.property("docmergeforgeBasePointSize")
+    if not isinstance(base_value, float) or base_value <= 0:
+        issues.append("text scale: missing positive base font size")
+        return
+
+    for requested, expected_factor in ((50, 0.8), (100, 1.0), (250, 2.0)):
+        apply_text_scale(app, requested)
+        expected = base_value * expected_factor
+        if abs(app.font().pointSizeF() - expected) > 0.01:
+            issues.append(f"text scale: {requested}% did not clamp/apply to {expected_factor:.1f}x")
+
+    apply_theme(app, "dark")
+    if "#111827" not in app.styleSheet():
+        issues.append("theme: dark stylesheet was not applied")
+    apply_theme(app, "light")
+    if "#ffffff" not in app.styleSheet():
+        issues.append("theme: light stylesheet was not applied")
+    apply_theme(app, "system")
+    if app.styleSheet():
+        issues.append("theme: system mode did not restore the native stylesheet")
+
+    preference_dialog = SettingsDialog(
+        AppSettings(theme="dark", reduced_motion=True, text_scale_percent=170)
+    )
+    round_trip = preference_dialog.settings()
+    if round_trip.theme != "dark":
+        issues.append("settings: theme preference did not round-trip")
+    if not round_trip.reduced_motion:
+        issues.append("settings: reduced-motion preference did not round-trip")
+    if round_trip.text_scale_percent != 170:
+        issues.append("settings: text-scale preference did not round-trip")
+    preference_dialog.close()
+
+    apply_text_scale(app, 100)
+    apply_theme(app, "system")
+
+
 def _check_secondary_dialogs(issues: list[str]) -> list[QWidget]:
     report = TextReportDialog("Accessibility Report", "Example")
     _require_name(issues, report, "report dialog")
@@ -197,6 +237,7 @@ def main() -> int:
         app = QApplication([])
 
     issues: list[str] = []
+    _check_visual_preferences(app, issues)
     widgets: list[QWidget] = [
         _check_order_editor(issues),
         _check_project_setup(issues),
@@ -216,8 +257,8 @@ def main() -> int:
 
     print(
         "Desktop accessibility smoke passed: project setup, source picking, ordering, "
-        "settings, reports, recent projects, and merge progress expose required labels "
-        "and keyboard metadata."
+        "settings, reports, recent projects, merge progress, theme application, text scaling, "
+        "and reduced-motion preference metadata are verified offscreen."
     )
     return 0
 
