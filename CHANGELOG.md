@@ -48,7 +48,8 @@ All notable changes follow semantic versioning.
 - The same commit passed cross-platform Build Smoke run `31948936667` on the configured Ubuntu, Windows, and macOS matrix.
 - The same commit passed Security run `31948936651`.
 - Recovery checkpoint `3a38ae64d5a96f76f8557f4443e372c9a4e35871` passed Quality run `32012033604`, 120-Part Regression run `32012033657`, and Security run `32012033644`.
-- The newer journal-recovery/accessibility/writeability changes remain subject to their own final-head CI verification before being recorded as validated.
+- Hardening checkpoint `82fe37725a2ae4e71678903c4d67fdff40d819e4` passed Quality run `32014319266` on Python 3.12 and Python 3.13, including Ruff, Black, strict mypy, and full pytest with coverage.
+- The same hardening checkpoint passed 120-Part Regression run `32014319264`, cross-platform Build Smoke run `32014319394` on Ubuntu/Windows/macOS including the headless accessibility smoke and packaging preflight, and Security/CodeQL run `32014319291`.
 - The scalable manual stress workflow has been added but an actual multi-gigabyte acceptance run is not claimed until such a workflow run succeeds and its measured evidence is recorded.
 - These checks do not claim signed installers, notarization, production package acceptance, full human accessibility acceptance, real forced-process-termination acceptance, or `v1.0.0` readiness.
 
