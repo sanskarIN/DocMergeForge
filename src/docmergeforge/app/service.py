@@ -250,9 +250,7 @@ class MergeApplicationService:
             changed = verify_unchanged(before)
             if changed:
                 raise RuntimeError(f"Original integrity guarantee failed: {changed}")
-            outputs = [
-                self._staged_artifact(entry, kind) for entry, kind in staged_outputs
-            ]
+            outputs = [self._staged_artifact(entry, kind) for entry, kind in staged_outputs]
             self._emit(progress, "verifying", 1, 1)
 
             self._check_cancelled(cancelled)
