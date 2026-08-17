@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from scripts.check_docs_links import find_broken_links
+from docmergeforge.diagnostics.docs_links import find_broken_links
 
 
 def test_find_broken_links_accepts_existing_external_and_anchor_links(tmp_path: Path) -> None:
