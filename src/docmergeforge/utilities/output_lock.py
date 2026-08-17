@@ -1,13 +1,25 @@
 from __future__ import annotations
 
+import importlib
 import os
 from pathlib import Path
 from types import TracebackType
-from typing import BinaryIO, Self
+from typing import BinaryIO, Protocol, Self, cast
 
 from docmergeforge.core.exceptions import OutputLockError
 
 LOCK_FILENAME = ".docmergeforge-output.lock"
+
+
+class _MsvcrtModule(Protocol):
+    LK_NBLCK: int
+    LK_UNLCK: int
+
+    def locking(self, fd: int, mode: int, nbytes: int, /) -> None: ...
+
+
+def _windows_locking_module() -> _MsvcrtModule:
+    return cast(_MsvcrtModule, importlib.import_module("msvcrt"))
 
 
 class OutputDirectoryLock:
@@ -66,8 +78,7 @@ class OutputDirectoryLock:
     def _lock_handle(self, handle: BinaryIO) -> None:
         try:
             if os.name == "nt":
-                import msvcrt
-
+                msvcrt = _windows_locking_module()
                 msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
             else:
                 import fcntl
@@ -82,8 +93,7 @@ class OutputDirectoryLock:
     @staticmethod
     def _unlock_handle(handle: BinaryIO) -> None:
         if os.name == "nt":
-            import msvcrt
-
+            msvcrt = _windows_locking_module()
             handle.seek(0)
             msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
         else:
