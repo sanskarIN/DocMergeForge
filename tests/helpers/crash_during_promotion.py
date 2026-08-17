@@ -7,12 +7,20 @@ from pathlib import Path
 import docmergeforge.utilities.output_transaction as output_transaction
 from docmergeforge.utilities.output_transaction import OutputTransaction
 
+CRASH_EXIT_CODES = {
+    "after-first-backup": 91,
+    "after-first-promotion": 92,
+    "after-last-promotion": 93,
+}
+
 
 def main() -> int:
-    if len(sys.argv) != 2:
-        raise SystemExit("usage: crash_during_promotion.py OUTPUT_DIR")
+    if len(sys.argv) != 3 or sys.argv[2] not in CRASH_EXIT_CODES:
+        options = ", ".join(CRASH_EXIT_CODES)
+        raise SystemExit(f"usage: crash_during_promotion.py OUTPUT_DIR {{{options}}}")
 
     output_dir = Path(sys.argv[1]).resolve()
+    crash_point = sys.argv[2]
     first_final = output_dir / "Book.pdf"
     second_final = output_dir / "Merge_Report.md"
 
@@ -28,8 +36,25 @@ def main() -> int:
             original_replace(source, destination)
             source_path = Path(source)
             destination_path = Path(destination)
-            if destination_path == first_final and source_path == first.staging_path:
-                os._exit(97)
+
+            if (
+                crash_point == "after-first-backup"
+                and source_path == first_final
+                and destination_path.name.startswith("backup-000-")
+            ):
+                os._exit(CRASH_EXIT_CODES[crash_point])
+            if (
+                crash_point == "after-first-promotion"
+                and source_path == first.staging_path
+                and destination_path == first_final
+            ):
+                os._exit(CRASH_EXIT_CODES[crash_point])
+            if (
+                crash_point == "after-last-promotion"
+                and source_path == second.staging_path
+                and destination_path == second_final
+            ):
+                os._exit(CRASH_EXIT_CODES[crash_point])
 
         output_transaction.os.replace = replace_then_crash
         transaction.promote()
