@@ -2,6 +2,54 @@
 
 This file records meaningful DocMergeForge development changes, validation evidence, and known limitations. An item is not treated as finished merely because code was pushed; CI, packaging, and acceptance evidence remain part of the completion gate.
 
+## 2026-08-17 — Complete documentation suite
+
+### Added
+- A canonical `docs/README.md` documentation portal that organizes end-user, operator, contributor, architecture, engine, configuration, safety, testing, packaging, and release references.
+- `docs/installation.md` with Windows/macOS/Linux source installation, virtual environments, developer/build extras, Linux Qt prerequisites, storage/permissions guidance, updates, and uninstallation.
+- `docs/getting-started.md` with a complete first publication from source organization and numbered validation through project dry-run, merge, evidence review, comparison, audit, and interrupted-output recovery.
+- `docs/cli-reference.md` documenting every current command (`validate`, `pdf`, `docx`, `sql-preset`, `project-create`, `merge`, `recover-output`, `audit`, `compare`), exact part-range/pattern/natural-sort behavior, encrypted-PDF interaction, exit behavior, JSON evidence, and automation guidance.
+- `docs/desktop-guide.md` covering first-run onboarding, project/source setup, ordering, preflight, PDF/DOCX settings, encrypted PDFs, progress/cancellation, transactional publication, reports, audit/compare, recent projects, recovery, settings, accessibility, and SQL preset operation.
+- `docs/project-files.md` documenting the saved JSON schema, merge/PDF/DOCX defaults, lifecycle states/checkpoints, atomic saving, portability, compatibility, manual-edit risks, and privacy/version-control guidance.
+- `docs/discovery-and-ordering.md` documenting recursive scanning, exact document/archive classification, `.doc` safeguard behavior, supported part-number naming patterns, natural ordering, filtering, selected-file order, PDF inspection, and source hashing.
+- `docs/validation-and-preflight.md` documenting numbered-set validation, project dry-run evidence, expected output calculation, DOCX conflict analysis, the current storage estimate formula, output writeability probe, encrypted-PDF readiness, source-integrity validation, and post-output validation distinctions.
+- `docs/output-artifacts.md` documenting generic and SQL-preset manuscript/evidence filenames, manifest/checksum/report/index/checklist roles, transaction staging, overwrite/versioned behavior, and release archiving.
+- `docs/recovery.md` as a full publication-recovery runbook covering transaction folders/journal phases, automatic/incomplete rollback, abrupt termination, `recover-output`, fingerprint checks, backup restoration, fail-closed conflicts, corrupt/unsafe journals, cancellation vs crash behavior, and operator procedures.
+- `docs/companion-code.md` documenting companion archive classification, non-extraction/non-merge policy, companion indexes/hashes, recommended layouts, release handling, and unsupported build/refactor behavior.
+- `docs/audit-and-compare.md` documenting the current targeted audit patterns, encrypted-PDF audit limitation, PDF page evidence comparison, DOCX structural count comparison, interpretation limits, and post-publication QA sequence.
+- `docs/security.md` documenting trust boundaries, local-first security model, password/source-integrity handling, companion archive safety, transaction path/fingerprint safety, diagnostics, parser/external-suite risks, CodeQL, and package-authenticity requirements.
+- `docs/accessibility.md` documenting the exact automated accessibility-smoke coverage plus the human keyboard/screen-reader/high-contrast/scaling/reduced-motion acceptance matrix that remains before a stable claim.
+- `docs/development.md` documenting development principles, repository/package structure, quality/type/style rules, fixtures, UI/document-engine/transaction/storage/diagnostics development requirements, packaging, commit style, and definition of done.
+- `docs/testing-and-ci.md` documenting unit/integration/regression testing, Quality, 120-Part Regression, Build Smoke, Security, Package Desktop, Stress Acceptance, accessibility/packaging/recovery/fidelity tests, and release CI evidence requirements.
+- `docs/building-executables.md` with a complete native Windows/macOS/Linux PyInstaller build guide, build-root preflight, onedir/one-file variants, platform acceptance checklists, CI package workflow, debugging, reproducibility notes, and production signing/notarization gates.
+- `docs/release-process.md` defining implementation/automatic-verification/production-acceptance as separate states and providing the full stable-release sequence through source CI, regression, security, recovery, stress, fidelity, accessibility, packaging, signing, hashing, tagging, and post-release verification.
+- `docs/operator-runbook.md` providing a production merge procedure plus incident playbooks for cancellation, crash recovery, recovery conflicts, storage/access failures, missing/duplicate parts, encryption, legacy `.doc`, and SQL Full Mastery publication.
+- `docs/faq.md`, `docs/glossary.md`, and `docs/support.md` covering common user questions, terminology, support contacts, privacy-safe bug reports, diagnostics, accessibility/fidelity reporting, and recovery-related support.
+- `docs/known-limitations.md` explicitly documenting the current pre-stable limitations and open release gates rather than allowing the documentation to imply universal DOCX fidelity, unlimited scale, full accessibility certification, or signed production packages.
+- `docs/settings-reference.md` documenting every current `AppSettings` field/default, persistence/loading behavior, privacy implications, and the distinction between application defaults and saved project settings.
+- `docs/diagnostics.md` documenting rotating-log size/backups/format, sensitive-text/Bearer redaction, diagnostic JSON export contents/atomic write, privacy limitations, and safe support procedures.
+
+### Expanded / Corrected
+- Expanded `docs/architecture.md` from a short layer sketch into the full package map, core data flow, domain states, discovery/validation/engine boundaries, source-integrity/companion/transaction/storage/reporting/UI/CLI/packaging/testing architecture, and extension rules.
+- Expanded `docs/pdf-engine.md` to match implemented ordering, atomic output, front matter, encrypted-password provider, bookmarks, overlays, optimization, metadata, cancellation, page validation, source integrity, direct/project behavior, compare/audit, and fidelity acceptance.
+- Expanded `docs/docx-engine.md` to match production-fidelity gating, package validation/conflict policies, master-document composition, headings/TOC/page breaks/sections/page numbering/headers/footers, cancellation, output validation, project transactions, comparison, and known OOXML fidelity risks.
+- Expanded `docs/privacy.md` with local-first boundaries, project/source metadata, passwords, hashes, generated evidence, diagnostics/audit output, staging/recovery privacy, telemetry policy, backups, and public-sharing checklist.
+- Expanded `docs/release-packaging.md` with shared PyInstaller configuration, native platform build status, current unsigned artifact names, signing credential policy, artifact hashing, packaged-app testing, onedir/one-file differences, and production definition of done.
+- Expanded `docs/sql-full-mastery-preset.md` with exact preset identity, Parts 1–120 readiness, fixed filenames, exact PDF/DOCX defaults, dry-run evidence, companion behavior, transactional publication, encrypted PDFs, regression fixture, post-publication checks, and human QA checklist.
+- Expanded `docs/troubleshooting.md` into a detailed diagnostic reference spanning installation/GUI, part detection/order/filtering, encrypted PDFs, PDF/DOCX validation/fidelity, storage/writeability, transaction recovery, source integrity, reports/compare/audit, accessibility, packaging, OS trust behavior, and CI failures.
+- Expanded `docs/stress-testing.md` with scalable workload methodology, measured-source-size requirements, manual workflow environment/inputs, cancellation/disk-full/real-process-termination/network-filesystem plans, resource evidence, pass criteria, and explicit distinctions between synthetic regression, synthetic stress, real fidelity, and real recovery acceptance.
+- Expanded the root `README.md` with a prominent documentation portal, current project guarantees, safe interrupted-output recovery, CLI/GUI/build guidance, corrected high-fidelity wording, privacy/security/accessibility/release-status guidance, and links to all major manuals.
+- Expanded `CONTRIBUTING.md` with development/test/documentation/accessibility/fidelity/recovery contribution requirements and linked it to the full developer documentation.
+- Expanded `SECURITY.md` with privacy-safe vulnerability-reporting procedures, recovery/diagnostic considerations, coordinated disclosure guidance, and links to the security/privacy/diagnostics documentation.
+- Added a `Documentation` section to `CHANGELOG.md` recording the completed documentation system and its conservative release-claim policy.
+
+### Documentation Integrity / Status
+- The complete documentation directory was verified on `main` after creation/expansion, including the central index and all newly linked reference files.
+- Documentation implementation checkpoint before this development-record commit: `79df8741269e4011dd17c7249e896db74c83a76b`.
+- The documentation changes are intentionally documentation-only and do not replace the previously verified source hardening checkpoint `82fe37725a2ae4e71678903c4d67fdff40d819e4`.
+- The source hardening checkpoint remains verified by Quality run `32014319266` (Python 3.12/3.13), 120-Part Regression run `32014319264`, Build Smoke run `32014319394` (Ubuntu/Windows/macOS including accessibility smoke and packaging preflight), and Security/CodeQL run `32014319291`.
+- The documentation explicitly keeps unresolved production gates open: actual measured multi-gigabyte stress, real filesystem exhaustion, real forced-process interruption, representative real-world fidelity, human accessibility, clean-machine packaged-app acceptance, Windows signing, macOS signing/notarization, and other platform distribution verification required for a stable release claim.
+
 ## 2026-08-17 — Transaction recovery, stress tooling, accessibility, and output hardening
 
 ### Added
