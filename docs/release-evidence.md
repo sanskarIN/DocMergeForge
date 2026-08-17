@@ -175,11 +175,39 @@ This attestation layer is **implemented but not recorded as verified here yet**.
 
 ## Stress evidence
 
-The Stress Acceptance workflow now runs the default 120-part profile automatically when stress infrastructure changes on `main`, while retaining configurable manual dispatch. It writes exact fixture parameters, commit/run identity, measured generated source bytes, and measured output bytes into JSON/Markdown acceptance evidence.
+### Measured default 120-part baseline
 
-The first measured default run is in progress at the time of this ledger checkpoint. Do **not** describe it as passed or multi-gigabyte until the workflow completes and its measured evidence is retrieved.
+```text
+Run:        32030895119
+Checkpoint: ad5d8e354efefc745a454b799632359fafd29658
+Artifact:   9288923591
+```
 
-A future scale claim must record at minimum:
+Result: PASS on Ubuntu for the automated default stress profile.
+
+Measured profile and evidence:
+
+| Metric | Value |
+|---|---:|
+| Numbered PDF parts | 120 |
+| Numbered DOCX parts | 120 |
+| Companion archives | 120 |
+| PDF pages per part | 5 |
+| Total source PDF pages | 600 |
+| DOCX paragraphs per part | 50 |
+| Synthetic paragraph payload | 1 KiB |
+| Measured generated source bytes | `9,881,006` |
+| Measured output bytes before evidence files | `5,421,739` |
+| Uploaded workflow-artifact bytes | `4,785,305` |
+| GitHub artifact-container digest | `sha256:f552c3007dc6121f77145e9335f4ca39a7a3809bb4a97eb98c4118f2f2529189` |
+
+The run successfully completed fixture generation, Parts 1–120 PDF/DOCX validation, project creation, preflight/dry-run, mixed PDF+DOCX merge, output comparison, evidence generation, artifact-size recording, and artifact upload. PDF comparison reported 600 source pages and 600 output pages with matching page count.
+
+The generated evidence is stored in `Stress_Acceptance_Evidence.json` and `Stress_Acceptance_Evidence.md` inside the workflow artifact.
+
+This baseline is approximately 9.9 MB of generated source data. It is useful 120-part functional/resource evidence but is explicitly **not multi-gigabyte acceptance**.
+
+The workflow retains configurable manual inputs for deliberately larger runs. A future scale claim must record at minimum:
 
 ```text
 checkpoint
