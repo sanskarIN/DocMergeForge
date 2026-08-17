@@ -71,9 +71,11 @@ For each matrix platform, the workflow currently:
 6. runs `python scripts/build_desktop.py --check`;
 7. runs `python scripts/build_desktop.py`;
 8. launches the freshly packaged desktop binary with `--packaged-smoke`;
-9. archives the platform output;
-10. uploads the archive with `actions/upload-artifact@v4`;
-11. prints a notice that the artifacts are unsigned development builds.
+9. runs a tiny mixed PDF+DOCX publication inside that packaged process;
+10. archives the platform output;
+11. generates a SHA-256 sidecar for the archive and verifies it where the platform tool supports direct check mode;
+12. uploads the archive and checksum sidecar with `actions/upload-artifact@v4`;
+13. prints a notice that the artifacts are unsigned development builds.
 
 ## Packaged smoke mode
 
@@ -91,11 +93,23 @@ Normal users still launch the regular desktop behavior. CI supplies:
 --packaged-smoke
 ```
 
-which initializes the packaged Qt application, configuration, logging, theme/text scaling, and `MainWindow` in offscreen mode, then exits successfully without opening first-run/recovery dialogs or entering the normal long-running event loop.
+The smoke mode:
 
-This verifies more than a successful PyInstaller build: it verifies the produced binary can actually start far enough to import and initialize the packaged desktop application.
+1. initializes the packaged Qt application in offscreen mode;
+2. loads application settings and configures logging/theme/text scale;
+3. constructs and closes `MainWindow` without entering the normal interactive event loop;
+4. creates a temporary `Part 1.pdf` with `pypdf`;
+5. creates a temporary `Part 1.docx` with `python-docx`;
+6. runs a one-part mixed project through `MergeApplicationService`;
+7. exercises PDF front matter/page numbering so ReportLab packaging is covered;
+8. exercises DOCX composition through the normal DOCX engine;
+9. exercises output locking, transaction staging/promotion, reports, manifest, and checksums;
+10. verifies two validated manuscript artifacts plus generated manifest/checksum evidence exist;
+11. deletes the temporary smoke fixture when the process exits normally.
 
-It does **not** replace clean-machine human testing, representative PDF/DOCX merge acceptance, signing, or notarization.
+This is substantially stronger than checking that PyInstaller merely produced a file: the generated binary must initialize the desktop stack and execute the core PDF/DOCX publication path.
+
+It still does **not** replace clean-machine interactive acceptance, large real-world manuscript fidelity testing, signing, or notarization.
 
 ## Platform smoke commands
 
@@ -139,45 +153,44 @@ Windows:
 
 ```text
 DocMergeForge-Windows-unsigned.zip
+DocMergeForge-Windows-unsigned.zip.sha256
 ```
 
 macOS:
 
 ```text
 DocMergeForge-macOS-unsigned.tar.gz
+DocMergeForge-macOS-unsigned.tar.gz.sha256
 ```
 
 Linux:
 
 ```text
 DocMergeForge-Linux-unsigned.tar.gz
+DocMergeForge-Linux-unsigned.tar.gz.sha256
 ```
 
 The uploaded artifact container names also include `unsigned`.
 
-## Current archive commands
+## Archive and checksum generation
 
-### Windows
+Windows archives with PowerShell `Compress-Archive`, then records `Get-FileHash -Algorithm SHA256` in the `.sha256` sidecar.
 
-```powershell
-Compress-Archive -Path dist/DocMergeForge/* -DestinationPath DocMergeForge-Windows-unsigned.zip
-```
-
-### macOS
-
-The workflow archives the native `.app` bundle when PyInstaller creates it:
+macOS archives the native `.app` bundle when PyInstaller creates it (falling back to onedir when needed), then uses:
 
 ```bash
-tar -czf DocMergeForge-macOS-unsigned.tar.gz -C dist DocMergeForge.app
+shasum -a 256 DocMergeForge-macOS-unsigned.tar.gz > DocMergeForge-macOS-unsigned.tar.gz.sha256
+shasum -a 256 -c DocMergeForge-macOS-unsigned.tar.gz.sha256
 ```
 
-and falls back to the onedir layout when needed.
-
-### Linux
+Linux archives the onedir bundle and uses:
 
 ```bash
-tar -czf DocMergeForge-Linux-unsigned.tar.gz -C dist DocMergeForge
+sha256sum DocMergeForge-Linux-unsigned.tar.gz > DocMergeForge-Linux-unsigned.tar.gz.sha256
+sha256sum -c DocMergeForge-Linux-unsigned.tar.gz.sha256
 ```
+
+These are development-artifact integrity hashes. If a production artifact is signed, notarized, repackaged, or otherwise changed later, generate and publish a new checksum for the exact final bytes users download.
 
 ## How to run manually
 
@@ -188,7 +201,7 @@ From the repository Actions tab:
 3. select the intended branch/ref;
 4. run the workflow;
 5. wait for all intended matrix jobs to finish;
-6. inspect each job and packaged smoke step before downloading artifacts.
+6. inspect each build, packaged smoke, hash, and upload step before downloading artifacts.
 
 A manual run is a development packaging action unless release signing/acceptance is separately completed.
 
@@ -204,11 +217,12 @@ After a successful workflow run:
 
 1. download each platform artifact;
 2. record workflow run ID and head commit SHA;
-3. extract it into a clean location;
-4. launch it on the matching target OS normally, not only with smoke mode;
-5. perform packaged-app merge acceptance;
-6. generate local SHA-256 values for the downloaded archives;
-7. retain evidence with the release candidate.
+3. extract the workflow artifact ZIP/container;
+4. verify the included `.sha256` sidecar against the packaged archive;
+5. extract the platform archive into a clean location;
+6. launch it on the matching target OS normally, not only with smoke mode;
+7. perform representative packaged-app merge acceptance;
+8. retain the final hash/evidence with the release candidate.
 
 ## Relationship to Build Smoke
 
@@ -230,20 +244,24 @@ It does not invoke PyInstaller.
 Package Desktop:
 
 - invokes PyInstaller;
-- launches the packaged executable in deterministic smoke mode;
-- archives and uploads the package.
+- launches the packaged executable;
+- performs a tiny packaged PDF+DOCX publication;
+- archives the application;
+- generates a SHA-256 sidecar;
+- uploads the archive plus checksum.
 
-This closes the earlier gap where CI proved packaging configuration but never launched the binary it had just built.
+This closes the earlier gaps where CI proved packaging configuration without launching the binary or exercising its bundled document pipeline.
 
 It still does not prove production distribution acceptance.
 
-## Relationship to Quality, Regression, and Security
+## Relationship to Quality, Regression, Recovery, and Security
 
-Before treating Package Desktop output as a release candidate, verify the same implementation checkpoint has appropriate green results from:
+Before treating Package Desktop output as a release candidate, verify the same implementation line has appropriate green results from:
 
 - Quality;
 - 120-Part Regression;
 - Build Smoke;
+- Recovery Acceptance when transaction/recovery code changed;
 - Security/CodeQL.
 
 Package Desktop should not be used to bypass a failed quality gate.
@@ -260,19 +278,6 @@ Do not remove `unsigned` from artifact naming until:
 - signatures are verified in CI or acceptance;
 - macOS notarization is performed/verified when claimed.
 
-## Signing secrets in GitHub Actions
-
-If production signing is later implemented:
-
-- use GitHub Actions secrets/environments or an external managed signing service;
-- use least-privilege credentials;
-- protect release environments with approvals when appropriate;
-- never echo secrets;
-- never store private keys/passwords directly in workflow YAML;
-- ensure pull-request code from untrusted forks cannot access signing secrets;
-- verify signatures after signing;
-- separate unsigned build artifacts from final signed artifacts.
-
 ## Suggested future release workflow separation
 
 A robust future structure can separate:
@@ -284,22 +289,7 @@ A robust future structure can separate:
 5. **Re-verify** — verify final signed/notarized artifacts.
 6. **Publish** — attach final hashes/artifacts to a release.
 
-This is a recommended architecture, not a claim that these stages already exist.
-
-## Artifact retention
-
-Workflow artifacts are not a permanent release channel by themselves. For long-term release distribution, publish validated final artifacts through an intentional release mechanism and retain hashes/evidence.
-
-## Failure triage
-
-If one matrix platform fails:
-
-1. inspect that platform job logs;
-2. identify whether failure occurred during install, preflight, PyInstaller build, packaged launch, archive, or upload;
-3. reproduce on a native local machine when possible;
-4. fix shared packaging configuration where appropriate;
-5. rerun the complete affected platform build;
-6. do not publish a partial multi-platform release while claiming all platforms passed.
+This is a recommended production architecture, not a claim that signing/notarization/publishing already exists.
 
 ## CI packaging acceptance record
 
@@ -308,17 +298,13 @@ Record at minimum:
 ```text
 Commit/tag:
 Workflow run ID:
-Windows build: pass/fail
-Windows packaged smoke: pass/fail
-macOS build: pass/fail
-macOS packaged smoke: pass/fail
-Linux build: pass/fail
-Linux packaged smoke: pass/fail
-Windows artifact:
-macOS artifact:
-Linux artifact:
-Artifact hashes:
-Clean-machine verification:
+Windows build/publication smoke: pass/fail
+macOS build/publication smoke: pass/fail
+Linux build/publication smoke: pass/fail
+Windows artifact + SHA-256:
+macOS artifact + SHA-256:
+Linux artifact + SHA-256:
+Clean-machine interactive verification:
 Signing status:
 Notarization status:
 Known deviations:
@@ -331,9 +317,9 @@ The current workflow does not:
 - sign Windows executables;
 - notarize macOS artifacts;
 - create MSI/MSIX/DMG/PKG/AppImage/DEB/RPM;
-- generate/publish a release checksum manifest;
+- publish signed/final release checksums to a GitHub Release;
 - create a GitHub Release;
 - prove clean-machine interactive use;
-- prove representative manuscript fidelity from the packaged application.
+- prove large/representative real-world manuscript fidelity from the packaged application.
 
 Those steps remain documented release gates, not hidden assumptions.
