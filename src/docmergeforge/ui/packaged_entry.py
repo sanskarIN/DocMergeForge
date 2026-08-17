@@ -36,7 +36,7 @@ def _run_publication_smoke() -> None:
         document = Document()
         document.add_heading("Packaged Smoke Part 1", level=1)
         document.add_paragraph("DocMergeForge packaged publication smoke test.")
-        document.save(docx_path)
+        document.save(str(docx_path))
 
         project = MergeProject(
             name="Packaged Smoke",
