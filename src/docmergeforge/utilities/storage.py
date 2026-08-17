@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import os
 import shutil
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from docmergeforge.core.exceptions import InsufficientStorageError
+from docmergeforge.core.exceptions import InsufficientStorageError, OutputAccessError
 
 
 @dataclass(slots=True, frozen=True)
@@ -27,6 +29,30 @@ def _existing_anchor(path: Path) -> Path:
     return candidate
 
 
+def require_output_writable(output_folder: Path) -> None:
+    """Verify that the destination can host transaction staging before merge work starts."""
+
+    probe_path: Path | None = None
+    try:
+        output_folder.mkdir(parents=True, exist_ok=True)
+        descriptor, raw_path = tempfile.mkstemp(
+            prefix=".docmergeforge-write-probe-",
+            dir=output_folder,
+        )
+        os.close(descriptor)
+        probe_path = Path(raw_path)
+    except OSError as exc:
+        raise OutputAccessError(
+            f"Output folder is not writable: {output_folder}: {exc}"
+        ) from exc
+    finally:
+        if probe_path is not None:
+            try:
+                probe_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+
 def estimate_storage(paths: list[Path], output_folder: Path) -> StorageEstimate:
     source = sum(path.stat().st_size for path in paths if path.exists())
     projected = max(source, 1)
@@ -37,6 +63,7 @@ def estimate_storage(paths: list[Path], output_folder: Path) -> StorageEstimate:
 
 
 def require_storage(paths: list[Path], output_folder: Path) -> StorageEstimate:
+    require_output_writable(output_folder)
     estimate = estimate_storage(paths, output_folder)
     if not estimate.sufficient:
         raise InsufficientStorageError(
