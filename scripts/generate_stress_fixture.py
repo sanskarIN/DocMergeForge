@@ -35,9 +35,7 @@ def _write_pdf(path: Path, part: int, pages: int, lines_per_page: int) -> None:
         document.setFont("Helvetica", 7)
         document.drawString(36, height - 32, f"Stress Part {part} — Page {page_number}")
         for line_number in range(lines_per_page):
-            marker = hashlib.sha256(
-                f"pdf:{part}:{page_number}:{line_number}".encode()
-            ).hexdigest()
+            marker = hashlib.sha256(f"pdf:{part}:{page_number}:{line_number}".encode()).hexdigest()
             y = height - 50 - line_number * 12
             document.drawString(36, y, marker)
         document.drawRightString(width - 36, 24, f"Part {part} / Page {page_number}")
