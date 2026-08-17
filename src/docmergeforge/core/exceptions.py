@@ -18,6 +18,10 @@ class OutputAccessError(DocMergeForgeError):
     """Raised when the destination cannot be created or written safely."""
 
 
+class OutputLockError(DocMergeForgeError):
+    """Raised when another process owns the output-directory publication lock."""
+
+
 class TransactionRecoveryError(DocMergeForgeError):
     """Raised when an interrupted publication transaction needs safe recovery."""
 
