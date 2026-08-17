@@ -15,16 +15,7 @@ pytest --cov=docmergeforge --cov-report=term-missing
 
 ### Unit tests
 
-Focused examples include:
-
-- part detection/natural sorting;
-- output naming;
-- settings/project serialization;
-- storage/writeability handling;
-- transaction journal validation/recovery;
-- cross-process output locking;
-- PDF/DOCX helper behavior;
-- packaging argument generation.
+Focused examples include part detection/natural sorting, output naming, settings/project serialization, storage/writeability, transaction journal recovery, cross-process locking, PDF/DOCX helpers, and packaging arguments.
 
 ### Integration tests
 
@@ -45,18 +36,7 @@ pytest -m "regression or integration" tests/regression tests/integration
 
 ## Quality workflow
 
-`.github/workflows/quality.yml` runs on pushes to `main` and pull requests using Python 3.12 and 3.13 on Ubuntu.
-
-It runs:
-
-1. checkout;
-2. Python/pip cache setup;
-3. Linux `libegl1` installation;
-4. developer dependency install;
-5. Ruff;
-6. Black check;
-7. strict mypy;
-8. full pytest with coverage.
+`.github/workflows/quality.yml` runs on pushes to `main` and pull requests using Python 3.12 and 3.13 on Ubuntu. It installs the Linux Qt runtime, installs developer dependencies, and runs Ruff, Black, strict mypy, and full pytest with coverage.
 
 ## 120-Part Regression
 
@@ -66,22 +46,13 @@ This is strong numbered-part regression evidence, but a normal generated fixture
 
 ## Build Smoke
 
-`.github/workflows/build-smoke.yml` runs on Ubuntu, Windows, and macOS with Python 3.12. It checks:
-
-- source compilation;
-- CLI availability;
-- desktop accessibility metadata smoke;
-- desktop packaging preflight.
-
-Build Smoke does not invoke the complete PyInstaller package build.
+`.github/workflows/build-smoke.yml` runs on Ubuntu, Windows, and macOS with Python 3.12. It checks source compilation, CLI availability, desktop accessibility metadata, and packaging preflight. It does not invoke the complete PyInstaller package build.
 
 ## Recovery Acceptance
 
-`.github/workflows/recovery-acceptance.yml` is a dedicated cross-platform filesystem/recovery gate.
+`.github/workflows/recovery-acceptance.yml` is a dedicated cross-platform filesystem/recovery gate. It runs on Windows, macOS, and Ubuntu when transaction/recovery/lock acceptance files change, plus manual dispatch.
 
-It runs on Windows, macOS, and Ubuntu when transaction/recovery/lock acceptance files change, plus manual dispatch.
-
-The acceptance test starts a real child Python process that owns an `OutputTransaction`, writes a durable `promoting` journal, mutates real final paths, and then terminates abruptly with `os._exit()` so ordinary Python context-manager cleanup cannot run.
+The acceptance test starts a real child Python process that owns an `OutputTransaction`, writes a durable `promoting` journal, mutates real final paths, and then terminates abruptly with `os._exit()` so ordinary Python cleanup cannot run.
 
 Current crash phases are:
 
@@ -89,18 +60,34 @@ Current crash phases are:
 2. **after first promotion** — one new output is visible at its final path while another output is not yet promoted;
 3. **after last promotion** — every new final file is visible, but the journal has not yet been changed to `committed`.
 
-For every crash case, the parent test verifies:
-
-- the child exited at the intended abrupt boundary;
-- one pending transaction journal remains;
-- the public recovery API acquires the output-directory lock after the crashed process releases it;
-- the previous PDF/report bundle is restored;
-- pending transaction evidence is cleaned after successful recovery;
-- the output lock can be acquired again.
+For every case the parent verifies the pending journal, safe recovery, restoration of the previous PDF/report bundle, staging cleanup, and lock reacquisition.
 
 Recovery Acceptance run `32022863454` passed all three crash phases on Windows, macOS, and Ubuntu.
 
 This is real controlled process-termination acceptance on GitHub-hosted local filesystems. It does not simulate physical power loss, storage-device removal, or multi-host network-filesystem lock semantics.
+
+## Disk Full Acceptance
+
+`.github/workflows/disk-full-acceptance.yml` provides real filesystem-exhaustion evidence on Ubuntu.
+
+The workflow mounts an isolated **32 MiB tmpfs** under the GitHub runner temporary directory, then runs:
+
+```bash
+python scripts/check_disk_full_recovery.py --output-dir <mounted-tmpfs>
+```
+
+The helper has a safety guard and refuses to intentionally fill a filesystem with more than 128 MiB free. Inside the intentionally small filesystem it:
+
+1. creates a previously published target;
+2. enters the real `atomic_output()` path;
+3. writes/fsyncs 1 MiB chunks until the kernel returns `ENOSPC`;
+4. confirms the exception was a real `errno.ENOSPC`;
+5. confirms the previous published target is byte-for-byte unchanged;
+6. confirms no atomic `.part` residue remains.
+
+Disk Full Acceptance run `32023429920` passed on Ubuntu with a real tmpfs `ENOSPC`.
+
+This upgrades the earlier injected-`ENOSPC` unit evidence. It does not by itself prove identical behavior on every Windows/macOS filesystem or removable/network storage target.
 
 ## Security workflow
 
@@ -108,22 +95,11 @@ This is real controlled process-termination acceptance on GitHub-hosted local fi
 
 ## Package Desktop
 
-`.github/workflows/package.yml` is the real PyInstaller packaging workflow.
+`.github/workflows/package.yml` is the real PyInstaller packaging workflow. It runs on manual dispatch, `v*` tags, and packaging/UI-related changes on `main`.
 
-It runs on:
+Matrix: Windows, macOS, Ubuntu, Python 3.12.
 
-- manual dispatch;
-- `v*` tags;
-- packaging/UI-related changes on `main`.
-
-Matrix:
-
-- Windows;
-- macOS;
-- Ubuntu;
-- Python 3.12.
-
-Each platform now:
+Each platform:
 
 1. installs build dependencies;
 2. validates packaging configuration;
@@ -155,24 +131,11 @@ python scripts/check_accessibility.py
 
 This checks representative accessible names/descriptions, label buddies, and keyboard metadata offscreen. Human assistive-technology acceptance remains separate.
 
-## Recovery testing strategy
+## Recovery and storage testing strategy
 
-Recovery coverage now includes:
+Coverage now includes successful multi-output promotion; second-format/report failures; cancellation; rollback and rollback-failure preservation; simulated journal states; fingerprint/path fail-closed behavior; cross-process lock exclusion; injected `ENOSPC`; real abrupt process exit at multiple promotion phases on Windows/macOS/Linux; and a real Linux tmpfs `ENOSPC`.
 
-- successful multi-output promotion;
-- second-format failure before promotion;
-- report-generation failure;
-- cancellation before promotion;
-- failure during promotion with successful rollback;
-- rollback failure preserving evidence;
-- simulated journal states;
-- fingerprint conflict fail-closed behavior;
-- unsafe journal paths;
-- concurrent transaction/recovery lock exclusion;
-- injected `ENOSPC` cleanup;
-- real abrupt process exit at multiple promotion phases on Windows/macOS/Linux.
-
-Remaining environmental acceptance includes real filled-filesystem behavior, power/storage-disconnect scenarios where practical, and network/shared-filesystem locking semantics if those environments are claimed.
+Remaining environmental acceptance includes physical power/storage-disconnect scenarios where practical, additional filesystem/platform exhaustion if claimed, and network/shared-filesystem locking semantics if those environments are claimed.
 
 ## Document-fidelity testing
 
@@ -186,23 +149,17 @@ Use synthetic fixtures whenever possible. Never commit private manuscripts, pass
 
 ## CI debugging workflow
 
-When a gate fails:
-
-1. read the exact failed step/log;
-2. distinguish environment failure from application failure;
-3. fix the root cause in a focused commit;
-4. do not disable the gate merely to make CI green;
-5. rerun because later steps may have been skipped;
-6. record evidence only after the relevant checkpoint actually passes.
+When a gate fails: read the exact step/log, distinguish environment from application failure, fix the root cause in a focused commit, do not disable the gate merely to make CI green, rerun because later steps may have been skipped, and record evidence only after the relevant checkpoint actually passes.
 
 ## Release CI acceptance matrix
 
-Before a stable release candidate, obtain current/relevant evidence for:
+Before a stable release candidate, obtain relevant evidence for:
 
 - Quality green on supported Python matrix;
 - 120-Part Regression green;
 - Build Smoke green on Windows/macOS/Linux;
 - Recovery Acceptance green when publication/recovery semantics changed;
+- Disk Full Acceptance and any additional filesystem/platform exhaustion relevant to the support claim;
 - Security/CodeQL green;
 - appropriate measured Stress acceptance;
 - Package Desktop native build + packaged publication smoke + archive checksum on all target platforms;
@@ -215,11 +172,4 @@ Do not reuse old run IDs as proof for materially changed behavior.
 
 ## Documentation evidence
 
-Record significant verified checkpoints in:
-
-```text
-CHANGELOG.md
-what_changed.md
-```
-
-Keep implemented, automatically verified, and human/production accepted states distinct.
+Record significant verified checkpoints in `CHANGELOG.md` and `what_changed.md`, keeping implemented, automatically verified, and human/production accepted states distinct.
