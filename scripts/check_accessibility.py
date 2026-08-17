@@ -3,12 +3,23 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from docmergeforge.core.models import DocumentKind, InputDocument, PartIdentity
+from docmergeforge.settings.config import AppSettings
+from docmergeforge.ui.recent import RecentProject
+
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtWidgets import QApplication, QDialogButtonBox, QWidget
+from PySide6.QtWidgets import QApplication, QDialogButtonBox, QWidget  # noqa: E402
 
-from docmergeforge.core.models import DocumentKind, InputDocument, PartIdentity
-from docmergeforge.ui.order_dialog import OrderEditorDialog
+from docmergeforge.ui.dialogs import (  # noqa: E402
+    MergeProgressDialog,
+    ProjectSetupDialog,
+    RecentProjectsDialog,
+    SettingsDialog,
+    TextReportDialog,
+)
+from docmergeforge.ui.order_dialog import OrderEditorDialog  # noqa: E402
+from docmergeforge.ui.workers import MergeWorker  # noqa: E402
 
 
 def _sample_document(part: int) -> InputDocument:
@@ -27,18 +38,12 @@ def _require_name(issues: list[str], widget: QWidget, label: str) -> None:
         issues.append(f"{label}: missing accessible name")
 
 
-def main() -> int:
-    app = QApplication.instance()
-    if not isinstance(app, QApplication):
-        app = QApplication([])
-
+def _check_order_editor(issues: list[str]) -> OrderEditorDialog:
     dialog = OrderEditorDialog(
         [_sample_document(1), _sample_document(2)],
         1,
         2,
     )
-    issues: list[str] = []
-
     _require_name(issues, dialog, "order dialog")
     _require_name(issues, dialog.search_label, "search label")
     _require_name(issues, dialog.search, "search field")
@@ -68,8 +73,139 @@ def main() -> int:
     cancel = dialog.buttons.button(QDialogButtonBox.StandardButton.Cancel)
     _require_name(issues, confirm, "confirm order")
     _require_name(issues, cancel, "cancel order")
+    return dialog
 
-    dialog.close()
+
+def _check_project_setup(issues: list[str]) -> ProjectSetupDialog:
+    dialog = ProjectSetupDialog()
+    _require_name(issues, dialog, "project setup dialog")
+    for label, widget in (
+        ("project name", dialog.name),
+        ("project sources", dialog.sources),
+        ("output path picker", dialog.output),
+        ("first part", dialog.start_part),
+        ("last part", dialog.end_part),
+        ("SQL preset", dialog.sql_preset),
+        ("source list", dialog.sources.list),
+        ("add source folder", dialog.sources.add_folder_button),
+        ("add source files", dialog.sources.add_files_button),
+        ("remove sources", dialog.sources.remove_button),
+        ("clear sources", dialog.sources.clear_button),
+    ):
+        _require_name(issues, widget, label)
+
+    for label, button in (
+        ("add source folder", dialog.sources.add_folder_button),
+        ("add source files", dialog.sources.add_files_button),
+        ("remove sources", dialog.sources.remove_button),
+        ("clear sources", dialog.sources.clear_button),
+    ):
+        if button.shortcut().isEmpty():
+            issues.append(f"{label}: missing keyboard shortcut")
+
+    _require_name(
+        issues,
+        dialog.buttons.button(QDialogButtonBox.StandardButton.Ok),
+        "create project",
+    )
+    _require_name(
+        issues,
+        dialog.buttons.button(QDialogButtonBox.StandardButton.Cancel),
+        "cancel project",
+    )
+    return dialog
+
+
+def _check_settings(issues: list[str]) -> SettingsDialog:
+    dialog = SettingsDialog(AppSettings())
+    _require_name(issues, dialog, "settings dialog")
+    for label, widget in (
+        ("theme", dialog.theme),
+        ("merge profile", dialog.profile),
+        ("filename template", dialog.filename_template),
+        ("default output", dialog.output),
+        ("temporary directory", dialog.temp),
+        ("worker count", dialog.workers),
+        ("logging level", dialog.logging),
+        ("checksums", dialog.checksums),
+        ("automatic validation", dialog.validation),
+        ("PDF optimization", dialog.pdf_optimization),
+        ("DOCX fidelity", dialog.fidelity),
+        ("LibreOffice integration", dialog.libreoffice),
+        ("Word fidelity", dialog.word_fidelity),
+        ("crash recovery", dialog.recovery),
+        ("recent history", dialog.recent_history),
+        ("reduced motion", dialog.reduced_motion),
+        ("text scale", dialog.text_scale),
+    ):
+        _require_name(issues, widget, label)
+
+    if not dialog.fidelity.accessibleDescription().strip():
+        issues.append("DOCX fidelity: missing safety description")
+    _require_name(
+        issues,
+        dialog.buttons.button(QDialogButtonBox.StandardButton.Save),
+        "save settings",
+    )
+    _require_name(
+        issues,
+        dialog.buttons.button(QDialogButtonBox.StandardButton.Cancel),
+        "cancel settings",
+    )
+    return dialog
+
+
+def _check_secondary_dialogs(issues: list[str]) -> list[QWidget]:
+    report = TextReportDialog("Accessibility Report", "Example")
+    _require_name(issues, report, "report dialog")
+    _require_name(issues, report.editor, "report content")
+
+    recent = RecentProjectsDialog(
+        [
+            RecentProject(
+                "Example",
+                Path("example.json"),
+                Path("source"),
+                Path("output"),
+            )
+        ]
+    )
+    _require_name(issues, recent, "recent projects dialog")
+    _require_name(issues, recent.list, "recent projects list")
+    _require_name(
+        issues,
+        recent.buttons.button(QDialogButtonBox.StandardButton.Open),
+        "open recent project",
+    )
+
+    worker = MergeWorker(lambda _progress, _cancelled: None)
+    progress = MergeProgressDialog(worker)
+    _require_name(issues, progress, "merge progress dialog")
+    _require_name(issues, progress.stage, "merge stage")
+    _require_name(issues, progress.progress, "merge progress bar")
+    _require_name(issues, progress.current_file, "current merge file")
+    _require_name(issues, progress.cancel_button, "safe cancel")
+    if not progress.cancel_button.accessibleDescription().strip():
+        issues.append("safe cancel: missing cancellation behavior description")
+
+    return [report, recent, progress]
+
+
+def main() -> int:
+    app = QApplication.instance()
+    if not isinstance(app, QApplication):
+        app = QApplication([])
+
+    issues: list[str] = []
+    widgets: list[QWidget] = [
+        _check_order_editor(issues),
+        _check_project_setup(issues),
+        _check_settings(issues),
+        *_check_secondary_dialogs(issues),
+    ]
+
+    for widget in widgets:
+        widget.close()
     app.processEvents()
 
     if issues:
@@ -79,8 +215,9 @@ def main() -> int:
         return 1
 
     print(
-        "Desktop accessibility smoke passed: order editor labels, descriptions, "
-        "buddy navigation, and keyboard shortcuts are present."
+        "Desktop accessibility smoke passed: project setup, source picking, ordering, "
+        "settings, reports, recent projects, and merge progress expose required labels "
+        "and keyboard metadata."
     )
     return 0
 
