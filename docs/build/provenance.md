@@ -83,7 +83,7 @@ When `--artifact PATH` is supplied, provenance records:
 
 The generator refuses a missing artifact path rather than producing a provenance record that pretends the archive was inspected.
 
-The fresh-runner packaging workflows recompute the downloaded archive byte size and SHA-256 and require them to match the provenance values. The normal `.sha256` sidecar is also verified separately. This means the archive identity is checked through both provenance metadata and the checksum sidecar.
+The fresh-runner packaging workflows recompute the downloaded archive byte size and SHA-256 and require them to match provenance. The normal `.sha256` sidecar is also verified separately. Archive identity is therefore checked through both the provenance document and checksum sidecar.
 
 ## CI allowlist
 
@@ -116,7 +116,7 @@ It is still not a standards-compliant cryptographic SBOM. A future SPDX/CycloneD
 
 Provenance must never include manuscript paths/contents, PDF passwords, signing private keys/passwords, API tokens, arbitrary environment dumps, avoidable user home-directory paths, or unrelated diagnostic exports.
 
-Unit tests inject secret-like environment values and verify they are not serialized. The CLI integration test also executes the real command wrapper and verifies archive/source identity fields.
+Unit tests inject secret-like environment values and verify they are not serialized. The CLI integration test executes the real command wrapper and verifies archive/source identity fields.
 
 ## Unsigned versus signed provenance
 
@@ -136,7 +136,7 @@ Do not edit these values to `true` because signing is planned. A future producti
 The two evidence files have related but distinct roles:
 
 - `.sha256` sidecar — compact checksum consumers can verify easily;
-- `.provenance.json` — source/build/dependency identity plus the archive digest/size.
+- `.provenance.json` — source/build/dependency identity plus archive filename/size/digest.
 
 For release evidence, retain both. If signing/notarization/repacking changes artifact bytes, regenerate final artifact hashes/provenance appropriate to the final distribution stage.
 
@@ -146,13 +146,59 @@ Outside GitHub Actions, unavailable CI fields are recorded as `unknown` where ap
 
 For high-value local release builds, also record the source commit externally and build from a clean reviewed checkout.
 
-## Current integration status
+## Verified onedir integration
 
-The generator, unit tests, command-wrapper integration test, Package Desktop integration, and Onefile Acceptance integration are implemented.
+Package Desktop run `32025126032` at checkpoint `59107192d494d76a4112cdeaa9a55f01cfe37972` passed the complete Windows/macOS/Ubuntu build and fresh-runner sequence.
 
-Both workflows now generate provenance beside each archive/checksum and fresh runners validate source SHA, build mode, artifact label, unsigned/notarized state, archive filename, archive byte size, and archive SHA-256 before executing the downloaded package.
+Every platform:
 
-The archive-bound workflow definitions are implemented; final successful run IDs should be recorded in `CHANGELOG.md` and `what_changed.md` only after all Windows/macOS/Ubuntu build and fresh-runner jobs complete successfully.
+1. built the native onedir PyInstaller application;
+2. ran packaged mixed PDF+DOCX publication smoke;
+3. created the archive and SHA-256 sidecar;
+4. generated archive-bound provenance;
+5. uploaded archive/checksum/provenance together;
+6. downloaded the artifact on a separate native runner without repository checkout/project installation;
+7. verified provenance source SHA, build mode, artifact label, unsigned/notarized state, archive filename, byte size, and archive SHA-256;
+8. verified the checksum sidecar independently;
+9. extracted and executed packaged publication smoke again.
+
+Artifacts:
+
+```text
+Windows artifact ID: 9286905238
+GitHub artifact digest: sha256:28d3303fd6a49e46b765bc2114696f152095c3edd83ddb354e36e8b6b1909b8a
+
+macOS artifact ID: 9286908194
+GitHub artifact digest: sha256:f8431c63a1630eb180f5cf671fa600e66620d8f86c84f7d8c8aeb6d257023976
+
+Linux artifact ID: 9286879514
+GitHub artifact digest: sha256:db38d4f879de226c0cc66aecdf49e408756c017ddc19e20734dda253b8e3360a
+```
+
+These GitHub artifact-container digests are additional workflow evidence; users should still verify the archive-level `.sha256` sidecar/provenance digest for the actual packaged archive inside the workflow artifact.
+
+## Verified onefile integration
+
+Onefile Acceptance run `32025167433` at checkpoint `b8a181b7138a1bc617766dd3e86c9ab32aade75e` passed the same archive-bound provenance and fresh-runner model for onefile on Windows/macOS/Ubuntu.
+
+Artifacts:
+
+```text
+Windows onefile artifact ID: 9286898078
+GitHub artifact digest: sha256:d29a4bff3f00e264a057bdf150f50d3100145620c8f35ee4674480bb3b883147
+
+macOS onefile artifact ID: 9286838805
+GitHub artifact digest: sha256:a005aea008217a4451d7edc653b54a019c29e3f6bbf81924e8889d7804707e84
+
+Linux onefile artifact ID: 9286861365
+GitHub artifact digest: sha256:e6231c235afc11e9e51420b87ef3a59fe00d37368950f881bb0dd79beac5cc08
+```
+
+## What this evidence proves
+
+It proves the current unsigned onedir and onefile CI artifacts are traceable to their source/build environment, bound to exact archive bytes, independently checksum/provenance verified after upload/download, extractable, and executable through the packaged mixed-document smoke on fresh native runners.
+
+It does **not** prove production code signing, macOS notarization, human interactive clean-machine UX, representative real-world fidelity, or stable-release readiness.
 
 ## Future production improvements
 
