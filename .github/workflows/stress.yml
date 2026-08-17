@@ -1,4 +1,4 @@
-name: Manual Stress Acceptance
+name: Stress Acceptance
 
 on:
   workflow_dispatch:
@@ -19,6 +19,11 @@ on:
         description: Approximate synthetic payload KiB per DOCX paragraph
         required: true
         default: "1"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/stress.yml"
+      - "scripts/generate_stress_fixture.py"
 
 permissions:
   contents: read
@@ -28,6 +33,11 @@ jobs:
     name: synthetic stress acceptance
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    env:
+      STRESS_PARTS: ${{ inputs.parts || '120' }}
+      STRESS_PDF_PAGES: ${{ inputs.pdf_pages || '5' }}
+      STRESS_DOCX_PARAGRAPHS: ${{ inputs.docx_paragraphs || '50' }}
+      STRESS_PARAGRAPH_KIB: ${{ inputs.paragraph_kib || '1' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -40,16 +50,16 @@ jobs:
       - name: Generate scalable fixture
         run: >-
           python scripts/generate_stress_fixture.py fixtures/stress
-          --parts "${{ inputs.parts }}"
-          --pdf-pages "${{ inputs.pdf_pages }}"
-          --docx-paragraphs "${{ inputs.docx_paragraphs }}"
-          --paragraph-kib "${{ inputs.paragraph_kib }}"
+          --parts "$STRESS_PARTS"
+          --pdf-pages "$STRESS_PDF_PAGES"
+          --docx-paragraphs "$STRESS_DOCX_PARAGRAPHS"
+          --paragraph-kib "$STRESS_PARAGRAPH_KIB"
 
       - name: Validate all numbered inputs
         run: >-
           docmergeforge validate
           --input fixtures/stress
-          --parts "1-${{ inputs.parts }}"
+          --parts "1-$STRESS_PARTS"
 
       - name: Create stress project
         run: >-
@@ -58,7 +68,7 @@ jobs:
           --output-dir artifacts/stress
           --project-file stress-project.json
           --name "Stress Fixture"
-          --parts "1-${{ inputs.parts }}"
+          --parts "1-$STRESS_PARTS"
 
       - name: Run project preflight
         run: docmergeforge merge --project stress-project.json --dry-run
@@ -73,13 +83,56 @@ jobs:
           --pdf-output artifacts/stress/Stress_Fixture_Master.pdf
           --docx-output artifacts/stress/Stress_Fixture_Master.docx
 
+      - name: Write measured stress evidence
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          def total_bytes(root: Path) -> int:
+              return sum(path.stat().st_size for path in root.rglob("*") if path.is_file())
+
+          source_root = Path("fixtures/stress")
+          output_root = Path("artifacts/stress")
+          evidence = {
+              "schema_version": 1,
+              "commit_sha": os.environ["GITHUB_SHA"],
+              "workflow_run_id": os.environ["GITHUB_RUN_ID"],
+              "parts": int(os.environ["STRESS_PARTS"]),
+              "pdf_pages_per_part": int(os.environ["STRESS_PDF_PAGES"]),
+              "docx_paragraphs_per_part": int(os.environ["STRESS_DOCX_PARAGRAPHS"]),
+              "paragraph_kib": int(os.environ["STRESS_PARAGRAPH_KIB"]),
+              "source_bytes": total_bytes(source_root),
+              "output_bytes_before_evidence": total_bytes(output_root),
+          }
+          json_path = output_root / "Stress_Acceptance_Evidence.json"
+          json_path.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          markdown = (
+              "# Stress Acceptance Evidence\n\n"
+              f"- Commit: `{evidence['commit_sha']}`\n"
+              f"- Workflow run: `{evidence['workflow_run_id']}`\n"
+              f"- Parts: `{evidence['parts']}`\n"
+              f"- PDF pages per part: `{evidence['pdf_pages_per_part']}`\n"
+              f"- DOCX paragraphs per part: `{evidence['docx_paragraphs_per_part']}`\n"
+              f"- Paragraph payload KiB: `{evidence['paragraph_kib']}`\n"
+              f"- Measured source bytes: `{evidence['source_bytes']}`\n"
+              f"- Measured output bytes before evidence files: `{evidence['output_bytes_before_evidence']}`\n"
+          )
+          markdown_path = output_root / "Stress_Acceptance_Evidence.md"
+          markdown_path.write_text(markdown, encoding="utf-8")
+          with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as summary:
+              summary.write(markdown)
+          PY
+
       - name: Record artifact sizes
         run: du -ah artifacts/stress | sort -h
 
       - name: Upload acceptance outputs
         uses: actions/upload-artifact@v7
         with:
-          name: docmergeforge-stress-${{ inputs.parts }}-parts
+          name: docmergeforge-stress-${{ env.STRESS_PARTS }}-parts
           path: artifacts/stress
           if-no-files-found: error
           retention-days: 7
