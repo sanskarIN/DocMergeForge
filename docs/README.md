@@ -51,6 +51,7 @@ This directory is the canonical documentation set for DocMergeForge. It covers e
 - [macOS Executable Build Guide](build/macos.md)
 - [Linux Executable Build Guide](build/linux.md)
 - [CI Packaging Guide](build/ci-packaging.md)
+- [Build Provenance](build/provenance.md)
 - [Signing and Notarization](build/signing-and-notarization.md)
 - [Executable Verification](build/verification.md)
 - [Executable Build Troubleshooting](build/troubleshooting.md)
@@ -63,6 +64,7 @@ This directory is the canonical documentation set for DocMergeForge. It covers e
 - [Stress Testing](stress-testing.md)
 - [Release Packaging](release-packaging.md)
 - [Release Process](release-process.md)
+- [Release Evidence Ledger](release-evidence.md)
 - [Operator Runbook](operator-runbook.md)
 - [Development Phases](development-phases.md)
 
@@ -102,12 +104,13 @@ DocMergeForge currently exposes:
 - reusable JSON project files;
 - the SQL Full Mastery 120-part guided preset;
 - PyInstaller-based desktop packaging helpers;
-- automated Quality, Regression, Build Smoke, Security, and manual Stress workflows.
+- automated Quality, Regression, Build Smoke, Security, Recovery Acceptance, Disk Full Acceptance, Package Desktop, and Onefile Acceptance workflows;
+- a manually dispatchable Stress Acceptance workflow.
 
 ## Documentation accuracy policy
 
 Documentation should describe implemented behavior, not aspirational behavior. Features that are capability-detected but not production-ready—such as high-fidelity LibreOffice or Microsoft Word automation—must remain clearly marked as incomplete until their adapters and acceptance tests are finished.
 
-Executable documentation follows the same rule: current PyInstaller and unsigned CI packaging are documented as implemented, while code signing, notarization, and native installer formats remain explicit production steps until corresponding automation and acceptance exist.
+Executable documentation follows the same rule: current PyInstaller and unsigned CI packaging are documented as implemented and independently smoke-tested, while code signing, notarization, native installer formats, human clean-machine QA, and production distribution remain explicit gates until corresponding acceptance exists.
 
-When code changes behavior, update the relevant guide and `what_changed.md` in the same development cycle.
+When code changes behavior, update the relevant guide and `what_changed.md` in the same development cycle. Significant release evidence should also be recorded in [Release Evidence Ledger](release-evidence.md).
