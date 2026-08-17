@@ -95,19 +95,11 @@ Other filesystems/platforms remain separate acceptance if claimed.
 
 `.github/workflows/package.yml` builds on Windows/macOS/Ubuntu with Python 3.12.
 
-The build-host matrix:
+The build-host matrix validates packaging, builds the native onedir application, executes a real packaged PDF+DOCX smoke project, archives it, generates a `.sha256` sidecar, generates privacy-safe provenance bound to archive filename/size/SHA-256, and uploads archive/checksum/provenance.
 
-- validates packaging configuration;
-- builds the native PyInstaller onedir application;
-- executes `--packaged-smoke`, including a real temporary PDF+DOCX project;
-- archives the application;
-- generates a `.sha256` sidecar;
-- generates privacy-safe provenance bound to archive filename/size/SHA-256;
-- uploads archive, checksum, and provenance.
+A second fresh-runner matrix intentionally does not check out the repository or install DocMergeForge/Python project dependencies. It downloads only the uploaded artifact, verifies provenance source/mode/label/trust state/archive filename/size/SHA-256, verifies the checksum sidecar, extracts the archive, and executes packaged smoke again. Linux installs only the documented system `libegl1` runtime.
 
-A second **fresh-runner** matrix intentionally does not check out the repository or install DocMergeForge/Python project dependencies. It downloads only the uploaded artifact, verifies provenance source/mode/label/trust state/archive filename/size/SHA-256, verifies the checksum sidecar, extracts the archive, and executes packaged smoke again. Linux installs only the documented system `libegl1` runtime.
-
-Design run `32024177298` proved downloaded-artifact verification across Windows/macOS/Ubuntu before archive-bound provenance was added. Archive-bound provenance run `32025126032` passed the complete build-host + fresh-runner sequence on all three platforms.
+Archive-bound provenance run `32025126032` at `59107192d494d76a4112cdeaa9a55f01cfe37972` passed the complete build-host + fresh-runner sequence on Windows, macOS, and Ubuntu.
 
 ## Onefile Acceptance
 
@@ -115,7 +107,7 @@ Design run `32024177298` proved downloaded-artifact verification across Windows/
 
 It performs native Windows/macOS/Ubuntu onefile build, packaged PDF+DOCX smoke, archive/checksum/provenance upload, and separate fresh-runner download/provenance/checksum/extract/execute verification.
 
-Design run `32024284609` passed the initial onefile fresh-runner model on all three platforms. Archive-bound provenance evidence should be recorded only after the updated workflow's complete matrix finishes.
+Archive-bound provenance run `32025167433` at `b8a181b7138a1bc617766dd3e86c9ab32aade75e` passed the complete six-job build-host + fresh-runner matrix on Windows, macOS, and Ubuntu.
 
 ## Build provenance tests
 
