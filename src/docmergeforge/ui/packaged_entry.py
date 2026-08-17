@@ -56,9 +56,15 @@ def _run_publication_smoke() -> None:
         artifacts = MergeApplicationService().run_project(project)
 
         if len(artifacts) != 2:
-            raise RuntimeError(f"Packaged smoke expected 2 manuscript outputs, got {len(artifacts)}.")
-        if not all(artifact.path.is_file() and artifact.validation_passed for artifact in artifacts):
-            raise RuntimeError("Packaged smoke manuscript validation did not complete successfully.")
+            raise RuntimeError(
+                f"Packaged smoke expected 2 manuscript outputs, got {len(artifacts)}."
+            )
+        if not all(
+            artifact.path.is_file() and artifact.validation_passed for artifact in artifacts
+        ):
+            raise RuntimeError(
+                "Packaged smoke manuscript validation did not complete successfully."
+            )
         if not list(output.glob("*_Merge_Manifest.json")):
             raise RuntimeError("Packaged smoke did not create a merge manifest.")
         if not list(output.glob("*_SHA256SUMS.txt")):
