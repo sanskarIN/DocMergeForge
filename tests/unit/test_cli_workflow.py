@@ -40,9 +40,7 @@ def test_cli_parser_supports_pattern_and_sort_controls() -> None:
 
 
 def test_cli_parser_supports_output_recovery() -> None:
-    args = cli.build_parser().parse_args(
-        ["recover-output", "--output-dir", "artifacts"]
-    )
+    args = cli.build_parser().parse_args(["recover-output", "--output-dir", "artifacts"])
     assert args.command == "recover-output"
     assert args.output_dir == Path("artifacts")
 
