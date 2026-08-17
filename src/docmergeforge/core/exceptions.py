@@ -18,5 +18,9 @@ class OutputAccessError(DocMergeForgeError):
     """Raised when the destination cannot be created or written safely."""
 
 
+class TransactionRecoveryError(DocMergeForgeError):
+    """Raised when an interrupted publication transaction needs safe recovery."""
+
+
 class UnsupportedDocumentError(DocMergeForgeError):
     """Raised when a document cannot be handled safely."""
