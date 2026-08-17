@@ -33,8 +33,7 @@ def _installed_distributions() -> list[dict[str, str]]:
         if name:
             versions[name] = distribution.version
     return [
-        {"name": name, "version": versions[name]}
-        for name in sorted(versions, key=str.casefold)
+        {"name": name, "version": versions[name]} for name in sorted(versions, key=str.casefold)
     ]
 
 
