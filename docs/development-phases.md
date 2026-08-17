@@ -51,18 +51,20 @@ The master specification is larger than a single safe implementation step. Work 
 - Reproducible PyInstaller desktop build helper is implemented.
 - Unsigned cross-platform GitHub Actions packaging is implemented for Windows, macOS, and Ubuntu runners.
 - Build/package argument tests are present.
-- The packaged PyInstaller entry supports deterministic `--packaged-smoke` initialization without first-run/recovery dialogs.
+- The packaged PyInstaller entry supports deterministic `--packaged-smoke` initialization without first-run/recovery dialogs and now runs a tiny mixed PDF+DOCX publication to exercise bundled document engines and generated evidence.
 - Package Desktop launch-tests the built application before archiving it and runs automatically on `main` when packaging/UI configuration changes, as well as on manual dispatch and `v*` tags.
 - Linux package jobs install the same required Qt/EGL runtime prerequisite used by desktop smoke CI.
 - macOS packaging handles the native `.app` bundle layout when present instead of assuming the Linux/Windows onedir path.
 - Mixed-format document outputs and publication evidence are staged and batch-promoted transactionally, including rollback of earlier replacements when a later promotion fails.
 - Promotion is journaled before final-path mutation. Interrupted `promoting` journals have a fail-closed recovery implementation and an explicit `docmergeforge recover-output` CLI path; new transactions refuse to start while a journaled recovery is pending.
-- Publication and recovery now share a non-blocking OS-level output-directory lock, preventing two independent DocMergeForge processes from concurrently staging/promoting/recovering the same destination.
+- Publication and recovery share a non-blocking OS-level output-directory lock, preventing two independent DocMergeForge processes from concurrently staging/promoting/recovering the same destination.
 - The output lock is released by the OS if the owner process exits/crashes; the persistent lock filename is not treated as stale ownership evidence.
+- A dedicated Recovery Acceptance workflow now performs real abrupt child-process termination with `os._exit()` on Windows, macOS, and Ubuntu after: the first rollback backup move, the first new final promotion, and the last new final promotion before the journal can be marked committed. Each case verifies the previous publication is restored and the lock is reusable.
+- Recovery Acceptance run `32022863454` passed all three crash phases on Windows, macOS, and Ubuntu.
 - Graceful cancellation has additional engine/finalization checkpoints and repeated cancellation recovery regression coverage.
 - Destination writeability is probed before expensive project merge work, and fault-injected `ENOSPC` coverage verifies atomic temporary-file cleanup and preservation of the previously published target.
 - A scalable synthetic stress-fixture generator and manually dispatchable stress workflow are implemented for measured large-run acceptance.
-- Remaining gate: real filled-filesystem testing, real forced-process-termination testing at multiple promotion points/filesystems, multi-host/network-filesystem locking acceptance if claimed, an actually executed multi-gigabyte stress run, large real-world manuscript fidelity runs, human accessibility acceptance, clean-machine interactive packaged-app acceptance, platform-specific installer/bundle polish, final artifact checksum publication, signing, and macOS notarization.
+- Remaining gate: real filled-filesystem testing, power-loss/device-disconnect scenarios where practical, multi-host/network-filesystem locking acceptance if claimed, an actually executed multi-gigabyte stress run, large real-world manuscript fidelity runs, human accessibility acceptance, clean-machine interactive packaged-app acceptance, platform-specific installer/bundle polish, final artifact checksum publication, signing, and macOS notarization.
 - Signed or notarized binaries are not claimed.
 
 ## v1.0.0 quality gate — not yet reached
