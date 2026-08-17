@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from docmergeforge.core.exceptions import ValidationError
+from docmergeforge.core.exceptions import MergeCancelled, ValidationError
 from docmergeforge.core.models import (
     DocumentKind,
     DocxSettings,
@@ -63,3 +63,29 @@ def test_docx_merge_does_not_promote_output_if_source_changes(tmp_path: Path) ->
         )
 
     assert not output.exists()
+
+
+@pytest.mark.integration
+def test_docx_merge_cancellation_does_not_publish_or_leave_part_files(tmp_path: Path) -> None:
+    docx = pytest.importorskip("docx")
+    pytest.importorskip("docxcompose")
+    docs = [_build_docx(docx, tmp_path / f"Part {part}.docx", part) for part in range(1, 3)]
+    output = tmp_path / "cancelled.docx"
+    cancel_requested = False
+
+    def request_cancel(index: int, _total: int, _path: Path) -> None:
+        nonlocal cancel_requested
+        if index == 1:
+            cancel_requested = True
+
+    with pytest.raises(MergeCancelled, match="cancelled safely"):
+        DocxMergeEngine().merge(
+            docs,
+            output,
+            DocxSettings(),
+            progress=request_cancel,
+            cancelled=lambda: cancel_requested,
+        )
+
+    assert not output.exists()
+    assert not list(tmp_path.glob("*.part"))
