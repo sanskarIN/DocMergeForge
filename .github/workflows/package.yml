@@ -131,6 +131,7 @@ jobs:
           --output DocMergeForge-Windows-unsigned.provenance.json
           --mode onedir
           --artifact-label DocMergeForge-Windows-unsigned
+          --artifact DocMergeForge-Windows-unsigned.zip
 
       - name: Write macOS build provenance
         if: runner.os == 'macOS'
@@ -139,6 +140,7 @@ jobs:
           --output DocMergeForge-macOS-unsigned.provenance.json
           --mode onedir
           --artifact-label DocMergeForge-macOS-unsigned
+          --artifact DocMergeForge-macOS-unsigned.tar.gz
 
       - name: Write Linux build provenance
         if: runner.os == 'Linux'
@@ -147,6 +149,7 @@ jobs:
           --output DocMergeForge-Linux-unsigned.provenance.json
           --mode onedir
           --artifact-label DocMergeForge-Linux-unsigned
+          --artifact DocMergeForge-Linux-unsigned.tar.gz
 
       - name: Upload Windows artifact
         if: runner.os == 'Windows'
@@ -224,10 +227,16 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          $archive = Join-Path "artifact" "${{ matrix.archive }}"
           $provenance = Get-Content (Join-Path "artifact" "${{ matrix.provenance }}") -Raw | ConvertFrom-Json
+          $actualHash = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
+          $actualSize = (Get-Item $archive).Length
           if ($provenance.source.commit_sha -ne "$env:GITHUB_SHA") { throw "Windows provenance commit mismatch" }
           if ($provenance.artifact.build_mode -ne "onedir") { throw "Windows provenance build mode mismatch" }
           if ($provenance.artifact.label -ne "${{ matrix.artifact }}") { throw "Windows provenance artifact label mismatch" }
+          if ($provenance.artifact.archive_filename -ne "${{ matrix.archive }}") { throw "Windows provenance archive filename mismatch" }
+          if ($provenance.artifact.archive_sha256 -ne $actualHash) { throw "Windows provenance archive SHA-256 mismatch" }
+          if ($provenance.artifact.archive_size -ne $actualSize) { throw "Windows provenance archive size mismatch" }
           if ($provenance.artifact.signed -ne $false) { throw "Windows provenance unexpectedly claims signing" }
           if ($provenance.artifact.notarized -ne $false) { throw "Windows provenance unexpectedly claims notarization" }
 
@@ -235,10 +244,20 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
+          archive="artifact/${{ matrix.archive }}"
           provenance="artifact/${{ matrix.provenance }}"
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            actual_sha="$(shasum -a 256 "$archive" | awk '{print $1}')"
+          else
+            actual_sha="$(sha256sum "$archive" | awk '{print $1}')"
+          fi
+          actual_size="$(wc -c < "$archive" | tr -d ' ')"
           grep -F '"commit_sha": "${{ github.sha }}"' "$provenance"
           grep -F '"build_mode": "onedir"' "$provenance"
           grep -F '"label": "${{ matrix.artifact }}"' "$provenance"
+          grep -F '"archive_filename": "${{ matrix.archive }}"' "$provenance"
+          grep -F "\"archive_sha256\": \"$actual_sha\"" "$provenance"
+          grep -F "\"archive_size\": $actual_size" "$provenance"
           grep -F '"signed": false' "$provenance"
           grep -F '"notarized": false' "$provenance"
 
