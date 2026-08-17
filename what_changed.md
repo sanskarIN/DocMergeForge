@@ -2,6 +2,32 @@
 
 This file records meaningful DocMergeForge development changes, validation evidence, and known limitations. An item is not treated as finished merely because code was pushed; CI, packaging, and acceptance evidence remain part of the completion gate.
 
+## 2026-08-17 — Complete executable build documentation
+
+### Added
+- `docs/build/README.md` as the dedicated executable-build documentation portal and canonical navigation for local builds, native platform builds, CI packaging, signing/notarization, verification, troubleshooting, and release acceptance.
+- `docs/build/common.md` with the shared end-to-end build procedure: commit identity, Python 3.12 parity, isolated environment setup, `.[build]` installation, dependency/environment capture, quality checks, packaging preflight, exact shared PyInstaller intent, onedir/onefile behavior, clean rebuilds, clean-machine testing, archive creation, hashes, metadata retention, and explicit installer-vs-executable boundaries.
+- `docs/build/windows.md` with complete Windows PowerShell build steps, onedir/onefile acceptance, clean-machine testing, path/Unicode coverage, ZIP creation, SHA-256, Authenticode inspection, production SignTool command shapes, SmartScreen/reputation considerations, architecture evidence, DLL/runtime troubleshooting, optional installer requirements, and a Windows release checklist.
+- `docs/build/macos.md` with complete native macOS build steps, actual `dist`/bundle inspection, Apple Silicon/Intel architecture rules, Finder/Terminal launch acceptance, Developer ID signing principles, `codesign`/`spctl` verification, `notarytool` notarization flow, stapling validation, DMG/PKG boundaries, final hashing rules, Gatekeeper acceptance, and a macOS release checklist.
+- `docs/build/linux.md` with complete Linux build steps, Python 3.12 and `libegl1` prerequisites matching CI, distro/glibc baseline recording, onedir/onefile testing, X11/Wayland checks, `ldd` runtime inspection, Qt/EGL troubleshooting, filesystem/permission acceptance, tar.gz/hash generation, distro compatibility strategy, optional AppImage/DEB/RPM boundaries, and a Linux release checklist.
+- `docs/build/ci-packaging.md` documenting the current `Package Desktop` triggers, matrix, permissions, exact workflow stages/archive commands, current unsigned artifact names, relationship to Build Smoke/Quality/Regression/Security, secure future signing architecture, artifact verification, failure triage, and CI packaging acceptance-record template.
+- `docs/build/signing-and-notarization.md` documenting the production trust boundary: credential safety, build/sign/verify order, Windows Authenticode/timestamp verification, macOS Developer ID signing/notarization/stapling, Linux hash/package trust, post-signing hash rules, protected CI signing architecture, supply-chain digest checks, credential rotation, failure handling, and platform trust checklists.
+- `docs/build/verification.md` defining four executable-verification levels and full packaged-app acceptance covering artifact inspection, launch outside the repository, UI smoke, PDF/DOCX/mixed-format merges, encrypted PDF flow, cancellation/recovery, filesystem/path/resource checks, one-file extraction, clean-machine acceptance, platform trust checks, final hashes, archive extraction, privacy inspection, and a reusable acceptance-record template.
+- `docs/build/troubleshooting.md` covering packaging-preflight/Python/editable-install problems, PyInstaller launch failures, Qt plugin/EGL/runtime issues, missing assets/dependencies, onedir/onefile differences, Windows SmartScreen/antivirus, macOS Gatekeeper/notarization, Linux glibc/permissions, archive-layout failures, stale build state, CI-vs-local differences, signature/hash failures, and privacy-safe diagnostic reporting.
+- `docs/build/release-checklist.md` as the complete executable release go/no-go checklist spanning source identity, automated gates, build environment, Windows/macOS/Linux acceptance, Package Desktop artifacts, packaged application functionality, data safety, fidelity, accessibility, stress/recovery, security/privacy, signing/notarization, final hashes, installers/distribution containers, release notes, and final platform decision recording.
+
+### Expanded / Integrated
+- Replaced the former single-page `docs/building-executables.md` with a canonical executable-build entry point that links the complete build manual, records exact repository-supported PyInstaller modes/arguments, native-build rules, CI artifact names, production trust boundaries, installer/package non-claims, clean-build/hash commands, release evidence, and current pre-stable packaging status.
+- Expanded `docs/README.md` with a dedicated **Building executables** section linking every executable-build manual directly.
+- Updated `CHANGELOG.md` to record the dedicated executable-build documentation subsystem and its conservative trust/release boundaries.
+
+### Current Implementation Boundary
+- Repository-supported executable creation remains PyInstaller onedir by default and optional onefile through `scripts/build_desktop.py --one-file`.
+- Shared build configuration remains centralized in `src/docmergeforge/packaging/desktop.py`.
+- `.github/workflows/package.yml` remains an unsigned Windows/macOS/Linux packaging foundation using Python 3.12.
+- The documentation intentionally does **not** claim automated Windows MSI/MSIX/Inno/NSIS, macOS DMG/PKG, Linux AppImage/DEB/RPM/Flatpak/Snap, production Windows signing, macOS notarization, or stable packaged-app acceptance until those capabilities are actually implemented and verified.
+- Executable documentation checkpoint before this development-record commit: `c718b82a2c9e5bb303261c5048396ab28ef4a6dc`.
+
 ## 2026-08-17 — Complete documentation suite
 
 ### Added
