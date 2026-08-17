@@ -2,6 +2,58 @@
 
 This file records meaningful DocMergeForge development changes, validation evidence, and known limitations. An item is not treated as finished merely because code was pushed; CI, packaging, and acceptance evidence remain part of the completion gate.
 
+## 2026-08-17 — Cross-process locking, forced-crash recovery, packaged publication acceptance, and real ENOSPC
+
+### Added
+- `OutputLockError` and `src/docmergeforge/utilities/output_lock.py` with an OS-level non-blocking exclusive lock for each publication output directory. The persistent lock filename is `.docmergeforge-output.lock`; ownership is determined by the OS lock rather than filename presence.
+- Cross-process exclusion tests proving a second publication transaction and interrupted-output recovery cannot enter the same output directory while another process owns the publication lock.
+- A typed Windows `msvcrt.locking` adapter so the same lock implementation remains strictly type-checkable from Linux CI while using the native Windows lock API at runtime.
+- `src/docmergeforge/ui/packaged_entry.py`, used only as the PyInstaller entry point, with deterministic `--packaged-smoke` behavior while normal `docmergeforge-gui` continues to use the existing desktop main path.
+- Packaged smoke now initializes the Qt desktop stack and executes a real temporary one-part mixed PDF+DOCX publication through `MergeApplicationService`, exercising bundled `pypdf`, `python-docx`, `docxcompose`, ReportLab publication helpers, output locking/transactions, reports, manifest, and checksum generation.
+- `Recovery Acceptance` workflow plus `tests/helpers/crash_during_promotion.py` and `tests/integration/test_forced_process_recovery.py` for real abrupt `os._exit()` termination during publication.
+- Real forced-process recovery cases at three promotion boundaries: after the first rollback backup is moved, after the first new final output is promoted, and after the last new final output is promoted before the journal can be marked committed.
+- `Disk Full Acceptance` workflow and `scripts/check_disk_full_recovery.py`, which use an isolated 32 MiB Linux tmpfs and write/fsync until the kernel returns a real `errno.ENOSPC`.
+- A safety guard in the disk-exhaustion helper that refuses to intentionally fill a filesystem with more than 128 MiB free, preventing accidental use against a normal large filesystem.
+- SHA-256 sidecars for every unsigned Package Desktop archive on Windows, macOS, and Linux; each archive and sidecar are uploaded together.
+
+### Changed
+- `OutputTransaction` now holds the output-directory OS lock across staging, promotion, rollback, and cleanup.
+- `recover_interrupted_output_transactions()` now acquires the same lock before examining or mutating journaled recovery state, preventing recovery from racing an active publication in another DocMergeForge process.
+- The OS releases lock ownership automatically after process exit/crash while the durable transaction journal continues to provide publication recovery evidence.
+- PyInstaller packaging now starts from `ui/packaged_entry.py`; build-root validation requires both the normal desktop main module and packaged entry module.
+- Package Desktop now installs the Linux Qt/EGL runtime prerequisite, builds the native application, launch-tests the produced executable, performs the packaged mixed-document publication smoke, archives it, generates/verifies a SHA-256 sidecar, and uploads the unsigned artifact.
+- Package Desktop runs automatically for packaging/UI changes on `main`, while retaining manual dispatch and `v*` tag triggers.
+- macOS package archiving now handles the native `DocMergeForge.app` bundle when produced, with an onedir fallback.
+- Recovery, testing/CI, build CI, development-phase, and changelog documentation were updated to match the implemented locking, packaged-publication, real forced-exit, and real Linux disk-full evidence.
+
+### Fixed
+- Removed the remaining race where independent DocMergeForge processes could concurrently stage/promote/recover into the same output directory before a journal was visible.
+- Fixed the package workflow assumption that macOS always emitted the Windows/Linux `dist/DocMergeForge` directory rather than a native `.app` bundle.
+- Fixed invalid PowerShell line continuation in the first Windows packaged-smoke workflow revision before relying on that run for acceptance.
+- Fixed strict Ruff `SIM117` issues in new transaction-lock and disk-full acceptance code without disabling the lint rule.
+- Fixed line-length and python-docx path typing issues discovered by Quality while adding packaged publication smoke.
+- Fixed Linux strict-mypy analysis of Windows-only `msvcrt.locking` symbols using a typed runtime-import boundary.
+
+### Verified CI / Acceptance Evidence
+- Cross-process lock source checkpoint `4785dc8386b92921be2117e5eb5f0b7f9aadce2a` passed Quality run `32022625007`, 120-Part Regression `32022625013`, Build Smoke `32022625036`, and Security/CodeQL `32022625128`.
+- Recovery Acceptance run `32022863454` passed on Windows, macOS, and Ubuntu. Every runner passed all three real abrupt `os._exit()` promotion phases and restored the previous PDF/report publication bundle; the output lock was reacquirable afterward.
+- Package Desktop run `32023353227` at checkpoint `bc7a4d1cd6e107763592115b702288e8d402b477` passed Windows, macOS, and Ubuntu. Every native package built, executed the packaged mixed PDF+DOCX publication smoke, archived successfully, generated its SHA-256 sidecar, and uploaded the unsigned artifact bundle.
+- Package Desktop artifact IDs from run `32023353227`: Windows `9286232554`, macOS `9286192114`, Linux `9286195291`. GitHub Actions also recorded artifact-container digests for all three uploads.
+- Final source/acceptance-helper checkpoint `54389ad98cb0725a78d820ca58d9fe58b331ecd5` passed Quality run `32023667004` on Python 3.12 and 3.13, including Ruff, Black, strict mypy, and full pytest with coverage.
+- The same `54389ad9…` checkpoint passed 120-Part Regression run `32023666881`, cross-platform Build Smoke run `32023666919`, and Security/CodeQL run `32023667002`.
+- Disk Full Acceptance run `32023666826` passed at `54389ad9…`: an isolated 32 MiB Ubuntu tmpfs reached a real kernel `ENOSPC`; the previous published target remained unchanged and no atomic `.part` residue remained.
+
+### Remaining Release-Gate Work
+- Execute and record an actual measured multi-gigabyte Stress Acceptance run. The scalable workflow exists, but the connected GitHub tooling available in this session does not expose workflow dispatch, so no multi-gigabyte result is claimed.
+- Run equivalent disk-exhaustion acceptance on additional filesystems/platforms if Windows/macOS-specific filesystem behavior is to be claimed. Current real exhaustion evidence is Linux tmpfs plus cross-platform injected unit coverage.
+- Physical power-loss, storage-device disconnect, and multi-host/network-filesystem locking semantics remain separate environmental tests where those support claims are required.
+- Complete production-ready LibreOffice and Microsoft Word high-fidelity DOCX adapters with representative fidelity acceptance; capability detection alone remains intentionally insufficient.
+- Run large real-world manuscript fidelity acceptance with complex styles, sections, tables, images, headers/footers, numbering, links, fields, and other PDF/OOXML structures.
+- Complete human keyboard-only, screen-reader, high-contrast, reduced-motion, text-scaling, and localization-readiness acceptance. Automated accessibility metadata/smoke checks remain supporting evidence only.
+- Perform clean-machine interactive acceptance of packaged desktop builds; the current package workflow proves native binary startup plus a real small packaged PDF/DOCX publication, not every interactive user workflow.
+- Complete platform-specific installer/distribution polish, production Windows signing, macOS signing/notarization/stapling, final post-signing checksum publication, and signature verification before any signed-production claim.
+- `v1.0.0` remains gated on the full acceptance matrix; this work does not claim signed/notarized production binaries or stable-release completion.
+
 ## 2026-08-17 — Complete executable build documentation
 
 ### Added
