@@ -22,6 +22,11 @@ jobs:
   package:
     name: package (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
     strategy:
       fail-fast: false
       matrix:
@@ -151,6 +156,24 @@ jobs:
           --artifact-label DocMergeForge-Linux-unsigned
           --artifact DocMergeForge-Linux-unsigned.tar.gz
 
+      - name: Attest Windows archive
+        if: runner.os == 'Windows'
+        uses: actions/attest@v4
+        with:
+          subject-path: DocMergeForge-Windows-unsigned.zip
+
+      - name: Attest macOS archive
+        if: runner.os == 'macOS'
+        uses: actions/attest@v4
+        with:
+          subject-path: DocMergeForge-macOS-unsigned.tar.gz
+
+      - name: Attest Linux archive
+        if: runner.os == 'Linux'
+        uses: actions/attest@v4
+        with:
+          subject-path: DocMergeForge-Linux-unsigned.tar.gz
+
       - name: Upload Windows artifact
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v7
@@ -216,6 +239,11 @@ jobs:
         with:
           name: ${{ matrix.artifact }}
           path: artifact
+
+      - name: Verify GitHub artifact attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh attestation verify "artifact/${{ matrix.archive }}" --repo "${{ github.repository }}"
 
       - name: Install Linux runtime prerequisite
         if: runner.os == 'Linux'
