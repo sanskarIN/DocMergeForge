@@ -1,10 +1,8 @@
 # CI Packaging Guide
 
-This guide documents the repository's current executable-packaging automation and how to use its artifacts safely.
+This guide documents the repository's current default **onedir** executable-packaging automation and how to consume its unsigned artifacts safely.
 
-## Current workflow
-
-File:
+## Workflow
 
 ```text
 .github/workflows/package.yml
@@ -16,29 +14,15 @@ Workflow name:
 Package Desktop
 ```
 
-## Triggers
-
-The workflow currently runs on:
+Triggers:
 
 - manual `workflow_dispatch`;
 - pushes of tags matching `v*`;
 - `main` pushes when packaging-relevant files change.
 
-The `main` path filter currently covers:
+The path filter includes the workflow itself, `pyproject.toml`, desktop/provenance build scripts, `src/docmergeforge/packaging/**`, and `src/docmergeforge/ui/**`.
 
-```text
-.github/workflows/package.yml
-pyproject.toml
-scripts/build_desktop.py
-src/docmergeforge/packaging/**
-src/docmergeforge/ui/**
-```
-
-This keeps real package-building coverage tied to packaging/UI changes without rebuilding all three desktop artifacts for unrelated documentation-only commits.
-
-## Build matrix
-
-Current matrix:
+## Native build matrix
 
 | Runner | Python |
 |---|---|
@@ -46,38 +30,80 @@ Current matrix:
 | `macos-latest` | 3.12 |
 | `ubuntu-latest` | 3.12 |
 
-`fail-fast: false` allows one platform to continue even if another platform fails.
+`fail-fast: false` allows platform-specific evidence to complete independently.
 
-## Permissions
+## Build-host stages
 
-The workflow currently uses:
+For every native platform, Package Desktop currently:
 
-```yaml
-permissions:
-  contents: read
+1. checks out the source revision;
+2. sets up Python 3.12;
+3. installs Linux `libegl1` where required;
+4. installs `.[build]`;
+5. runs packaging preflight;
+6. builds the native PyInstaller onedir application;
+7. executes `--packaged-smoke` on the built application;
+8. performs a real temporary mixed PDF+DOCX publication inside that packaged process;
+9. archives the application;
+10. creates/verifies an archive SHA-256 sidecar;
+11. generates privacy-safe provenance bound to the exact archive filename, byte size, and SHA-256;
+12. uploads archive, `.sha256`, and `.provenance.json` together.
+
+## Fresh-runner stages
+
+After all build jobs finish, a second Windows/macOS/Ubuntu matrix consumes the uploaded artifacts.
+
+These verification jobs intentionally do **not**:
+
+- check out the repository;
+- set up Python;
+- install DocMergeForge;
+- install PyInstaller/build dependencies.
+
+Linux installs only the documented `libegl1` system runtime.
+
+Each fresh runner:
+
+1. downloads its named workflow artifact;
+2. reads the provenance JSON;
+3. recomputes archive SHA-256 and byte size;
+4. requires provenance source SHA to equal the workflow head SHA;
+5. requires build mode `onedir` and the expected artifact label;
+6. requires `signed: false` and `notarized: false` for the current unsigned stage;
+7. requires provenance archive filename/size/SHA-256 to equal the downloaded archive;
+8. independently verifies the `.sha256` sidecar;
+9. extracts the archive;
+10. locates the native packaged application;
+11. executes `--packaged-smoke` again.
+
+This is automated **downloaded-artifact verification**, stronger than launching only the pre-upload `dist` output.
+
+## Verified final evidence
+
+Archive-bound provenance run:
+
+```text
+Run: 32025126032
+Checkpoint: 59107192d494d76a4112cdeaa9a55f01cfe37972
+Windows build: PASS
+macOS build: PASS
+Ubuntu build: PASS
+Windows fresh runner: PASS
+macOS fresh runner: PASS
+Ubuntu fresh runner: PASS
 ```
 
-It uploads workflow artifacts but does not publish a GitHub Release or write repository contents.
+Artifacts:
 
-## Exact workflow stages
+```text
+Windows ID: 9286905238
+macOS ID:   9286908194
+Linux ID:   9286879514
+```
 
-For each matrix platform, the workflow currently:
+See [Build Provenance](provenance.md) for the corresponding GitHub artifact-container digests and provenance details.
 
-1. checks out the repository with `actions/checkout@v4`;
-2. sets up Python with `actions/setup-python@v5`;
-3. installs the Linux `libegl1` Qt runtime prerequisite on Ubuntu;
-4. upgrades pip;
-5. installs `pip install -e ".[build]"`;
-6. runs `python scripts/build_desktop.py --check`;
-7. runs `python scripts/build_desktop.py`;
-8. launches the freshly packaged desktop binary with `--packaged-smoke`;
-9. runs a tiny mixed PDF+DOCX publication inside that packaged process;
-10. archives the platform output;
-11. generates a SHA-256 sidecar for the archive and verifies it where the platform tool supports direct check mode;
-12. uploads the archive and checksum sidecar with `actions/upload-artifact@v4`;
-13. prints a notice that the artifacts are unsigned development builds.
-
-## Packaged smoke mode
+## Packaged smoke coverage
 
 PyInstaller uses:
 
@@ -85,75 +111,18 @@ PyInstaller uses:
 src/docmergeforge/ui/packaged_entry.py
 ```
 
-as the packaged application entry point.
+Normal launches delegate to the existing desktop main path. `--packaged-smoke` is a deterministic acceptance mode that initializes Qt/settings/logging/theme, constructs the main window, creates a temporary PDF and DOCX, executes a one-part mixed project through the real merge service, verifies both manuscript outputs plus manifest/checksum evidence, and exits.
 
-Normal users still launch the regular desktop behavior. CI supplies:
+It exercises bundled `pypdf`, `python-docx`, `docxcompose`, ReportLab publication helpers, source hashing, output locking, transactional publication, and evidence generation.
 
-```text
---packaged-smoke
-```
-
-The smoke mode:
-
-1. initializes the packaged Qt application in offscreen mode;
-2. loads application settings and configures logging/theme/text scale;
-3. constructs and closes `MainWindow` without entering the normal interactive event loop;
-4. creates a temporary `Part 1.pdf` with `pypdf`;
-5. creates a temporary `Part 1.docx` with `python-docx`;
-6. runs a one-part mixed project through `MergeApplicationService`;
-7. exercises PDF front matter/page numbering so ReportLab packaging is covered;
-8. exercises DOCX composition through the normal DOCX engine;
-9. exercises output locking, transaction staging/promotion, reports, manifest, and checksums;
-10. verifies two validated manuscript artifacts plus generated manifest/checksum evidence exist;
-11. deletes the temporary smoke fixture when the process exits normally.
-
-This is substantially stronger than checking that PyInstaller merely produced a file: the generated binary must initialize the desktop stack and execute the core PDF/DOCX publication path.
-
-It still does **not** replace clean-machine interactive acceptance, large real-world manuscript fidelity testing, signing, or notarization.
-
-## Platform smoke commands
-
-### Windows
-
-The workflow uses PowerShell `Start-Process -Wait -PassThru` on:
-
-```text
-dist/DocMergeForge/DocMergeForge.exe
-```
-
-and fails if the process exit code is nonzero.
-
-### macOS
-
-The workflow prefers:
-
-```text
-dist/DocMergeForge.app/Contents/MacOS/DocMergeForge
-```
-
-and falls back to an onedir executable path when needed.
-
-It launches with:
-
-```bash
-QT_QPA_PLATFORM=offscreen ... --packaged-smoke
-```
-
-### Linux
-
-The workflow launches:
-
-```bash
-QT_QPA_PLATFORM=offscreen dist/DocMergeForge/DocMergeForge --packaged-smoke
-```
-
-## Current artifact names
+## Artifact files
 
 Windows:
 
 ```text
 DocMergeForge-Windows-unsigned.zip
 DocMergeForge-Windows-unsigned.zip.sha256
+DocMergeForge-Windows-unsigned.provenance.json
 ```
 
 macOS:
@@ -161,6 +130,7 @@ macOS:
 ```text
 DocMergeForge-macOS-unsigned.tar.gz
 DocMergeForge-macOS-unsigned.tar.gz.sha256
+DocMergeForge-macOS-unsigned.provenance.json
 ```
 
 Linux:
@@ -168,158 +138,71 @@ Linux:
 ```text
 DocMergeForge-Linux-unsigned.tar.gz
 DocMergeForge-Linux-unsigned.tar.gz.sha256
+DocMergeForge-Linux-unsigned.provenance.json
 ```
 
-The uploaded artifact container names also include `unsigned`.
+Artifact names retain `unsigned` deliberately.
 
-## Archive and checksum generation
+## Archive behavior
 
-Windows archives with PowerShell `Compress-Archive`, then records `Get-FileHash -Algorithm SHA256` in the `.sha256` sidecar.
+Windows uses `Compress-Archive` around the onedir application. macOS archives the native `.app` bundle when PyInstaller creates it and otherwise uses the onedir fallback. Linux archives `dist/DocMergeForge`.
 
-macOS archives the native `.app` bundle when PyInstaller creates it (falling back to onedir when needed), then uses:
-
-```bash
-shasum -a 256 DocMergeForge-macOS-unsigned.tar.gz > DocMergeForge-macOS-unsigned.tar.gz.sha256
-shasum -a 256 -c DocMergeForge-macOS-unsigned.tar.gz.sha256
-```
-
-Linux archives the onedir bundle and uses:
-
-```bash
-sha256sum DocMergeForge-Linux-unsigned.tar.gz > DocMergeForge-Linux-unsigned.tar.gz.sha256
-sha256sum -c DocMergeForge-Linux-unsigned.tar.gz.sha256
-```
-
-These are development-artifact integrity hashes. If a production artifact is signed, notarized, repackaged, or otherwise changed later, generate and publish a new checksum for the exact final bytes users download.
-
-## How to run manually
-
-From the repository Actions tab:
-
-1. open **Package Desktop**;
-2. choose **Run workflow**;
-3. select the intended branch/ref;
-4. run the workflow;
-5. wait for all intended matrix jobs to finish;
-6. inspect each build, packaged smoke, hash, and upload step before downloading artifacts.
-
-A manual run is a development packaging action unless release signing/acceptance is separately completed.
-
-## Tag-triggered packaging
-
-A `v*` tag causes the same unsigned packaging workflow to run.
-
-Important: a tag does not automatically make an artifact production-ready. Before creating a stable release tag, follow the repository release process and complete the acceptance matrix.
-
-## Artifact download and verification
-
-After a successful workflow run:
-
-1. download each platform artifact;
-2. record workflow run ID and head commit SHA;
-3. extract the workflow artifact ZIP/container;
-4. verify the included `.sha256` sidecar against the packaged archive;
-5. extract the platform archive into a clean location;
-6. launch it on the matching target OS normally, not only with smoke mode;
-7. perform representative packaged-app merge acceptance;
-8. retain the final hash/evidence with the release candidate.
+The archive-level SHA-256 is recorded both in the `.sha256` sidecar and inside provenance. The fresh runner recomputes the archive identity independently and requires both metadata paths to agree.
 
 ## Relationship to Build Smoke
 
-`Build Smoke` and `Package Desktop` are different.
+`Build Smoke` verifies source compilation, CLI availability, accessibility metadata, and packaging preflight. It does not invoke the complete PyInstaller build.
 
-### Build Smoke
+`Package Desktop` actually builds, executes, archives, hashes, provenance-binds, uploads, downloads, re-verifies, extracts, and executes the artifact on a separate runner.
 
-Build Smoke validates, on Windows/macOS/Linux:
+## Relationship to Onefile Acceptance
 
-- Python/source compilation;
-- CLI availability;
-- accessibility metadata smoke;
-- packaging configuration preflight.
-
-It does not invoke PyInstaller.
-
-### Package Desktop
-
-Package Desktop:
-
-- invokes PyInstaller;
-- launches the packaged executable;
-- performs a tiny packaged PDF+DOCX publication;
-- archives the application;
-- generates a SHA-256 sidecar;
-- uploads the archive plus checksum.
-
-This closes the earlier gaps where CI proved packaging configuration without launching the binary or exercising its bundled document pipeline.
-
-It still does not prove production distribution acceptance.
-
-## Relationship to Quality, Regression, Recovery, and Security
-
-Before treating Package Desktop output as a release candidate, verify the same implementation line has appropriate green results from:
-
-- Quality;
-- 120-Part Regression;
-- Build Smoke;
-- Recovery Acceptance when transaction/recovery code changed;
-- Security/CodeQL.
-
-Package Desktop should not be used to bypass a failed quality gate.
-
-## Why artifacts are labeled unsigned
-
-The current CI workflow has no signing credentials or signing steps. The explicit name prevents accidental misrepresentation.
-
-Do not remove `unsigned` from artifact naming until:
-
-- a secure signing workflow exists;
-- credentials are provisioned outside source control;
-- signing is performed;
-- signatures are verified in CI or acceptance;
-- macOS notarization is performed/verified when claimed.
-
-## Suggested future release workflow separation
-
-A robust future structure can separate:
-
-1. **Build** — create unsigned native artifacts.
-2. **Verify** — launch/test/hash unsigned artifacts.
-3. **Sign** — sign only verified immutable inputs.
-4. **Notarize** — macOS notarization where required.
-5. **Re-verify** — verify final signed/notarized artifacts.
-6. **Publish** — attach final hashes/artifacts to a release.
-
-This is a recommended production architecture, not a claim that signing/notarization/publishing already exists.
-
-## CI packaging acceptance record
-
-Record at minimum:
+`Package Desktop` is the default onedir distribution workflow. `--one-file` is treated separately by:
 
 ```text
-Commit/tag:
-Workflow run ID:
-Windows build/publication smoke: pass/fail
-macOS build/publication smoke: pass/fail
-Linux build/publication smoke: pass/fail
-Windows artifact + SHA-256:
-macOS artifact + SHA-256:
-Linux artifact + SHA-256:
-Clean-machine interactive verification:
-Signing status:
-Notarization status:
-Known deviations:
+.github/workflows/onefile-acceptance.yml
 ```
 
-## Current limitations
+Onefile Acceptance run `32025167433` passed the same archive-bound provenance/fresh-runner model on Windows/macOS/Ubuntu. Do not infer onefile acceptance from onedir or vice versa.
 
-The current workflow does not:
+## Manual consumption
 
-- sign Windows executables;
-- notarize macOS artifacts;
-- create MSI/MSIX/DMG/PKG/AppImage/DEB/RPM;
-- publish signed/final release checksums to a GitHub Release;
-- create a GitHub Release;
-- prove clean-machine interactive use;
-- prove large/representative real-world manuscript fidelity from the packaged application.
+When downloading an artifact for review:
 
-Those steps remain documented release gates, not hidden assumptions.
+1. record run ID and head commit;
+2. extract the GitHub workflow-artifact container;
+3. inspect provenance;
+4. verify the packaged archive against its `.sha256` sidecar;
+5. verify provenance archive filename/size/SHA-256 against the same archive;
+6. extract the platform archive;
+7. launch normally on the matching OS;
+8. perform representative human packaged-app testing before a production claim.
+
+## Current trust boundary
+
+The workflow has no production signing credentials or signing/notarization stages. Provenance intentionally records:
+
+```json
+{
+  "signed": false,
+  "notarized": false
+}
+```
+
+Do not remove `unsigned` from artifact naming or change those values until signing/notarization are actually performed and independently verified.
+
+## Remaining production gates
+
+Package Desktop does not by itself prove:
+
+- Windows production signing/SmartScreen acceptance;
+- macOS Developer ID signing/notarization/stapling;
+- human interactive clean-machine UI acceptance;
+- representative real-world manuscript fidelity;
+- human accessibility acceptance;
+- measured multi-gigabyte workload acceptance;
+- MSI/MSIX/DMG/PKG/AppImage/DEB/RPM installer/container support;
+- final post-signing release hashes/provenance;
+- stable `v1.0.0` readiness.
+
+See [Executable Verification](verification.md), [Release Build Checklist](release-checklist.md), and [Release Process](../release-process.md).
