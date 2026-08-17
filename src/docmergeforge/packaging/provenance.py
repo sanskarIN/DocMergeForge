@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from docmergeforge import __version__
+from docmergeforge.utilities.hashing import sha256_file
 
 PROVENANCE_SCHEMA_VERSION = 1
 
@@ -37,10 +38,23 @@ def _installed_distributions() -> list[dict[str, str]]:
     ]
 
 
+def _artifact_evidence(path: Path | None) -> dict[str, object]:
+    if path is None:
+        return {}
+    if not path.is_file():
+        raise FileNotFoundError(f"Build artifact does not exist: {path}")
+    return {
+        "archive_filename": path.name,
+        "archive_size": path.stat().st_size,
+        "archive_sha256": sha256_file(path),
+    }
+
+
 def build_provenance(
     *,
     build_mode: str,
     artifact_label: str,
+    artifact_path: Path | None = None,
     environment: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Return privacy-safe build provenance for a packaged application artifact."""
@@ -69,6 +83,7 @@ def build_provenance(
             "build_mode": build_mode,
             "signed": False,
             "notarized": False,
+            **_artifact_evidence(artifact_path),
         },
         "source": {
             "commit_sha": env.get("GITHUB_SHA", "unknown"),
@@ -99,6 +114,7 @@ def write_provenance(
     *,
     build_mode: str,
     artifact_label: str,
+    artifact_path: Path | None = None,
     environment: Mapping[str, str] | None = None,
 ) -> Path:
     """Atomically write build provenance JSON."""
@@ -106,6 +122,7 @@ def write_provenance(
     payload = build_provenance(
         build_mode=build_mode,
         artifact_label=artifact_label,
+        artifact_path=artifact_path,
         environment=environment,
     )
     path.parent.mkdir(parents=True, exist_ok=True)
