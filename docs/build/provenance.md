@@ -1,12 +1,13 @@
 # Build Provenance
 
-DocMergeForge uses three complementary integrity/provenance layers for current unsigned executable archives:
+DocMergeForge uses four complementary integrity/provenance layers for current unsigned executable archives:
 
 1. an archive `.sha256` sidecar;
 2. a privacy-safe DocMergeForge JSON provenance record bound to archive filename, byte size, and SHA-256;
-3. a signed GitHub Artifact Attestation generated with `actions/attest@v4` and independently verified on a fresh native runner.
+3. a signed GitHub/Sigstore build-provenance attestation generated with `actions/attest@v4`;
+4. a CycloneDX 1.6 build-environment dependency SBOM that is also attached to the archive as a separately signed GitHub/Sigstore attestation predicate.
 
-These layers improve traceability of the unsigned build stage. They do **not** substitute for Windows Authenticode signing, macOS Developer ID signing/notarization, or human production acceptance.
+Fresh native runners verify the signed predicates and the local checksum/provenance evidence before executing the downloaded package. These layers improve traceability of the unsigned build stage. They do **not** substitute for Windows Authenticode signing, macOS Developer ID signing/notarization, or human production acceptance.
 
 ## DocMergeForge provenance implementation
 
@@ -78,11 +79,11 @@ The generator does **not** dump the complete environment. It must never serializ
 
 Unit tests inject secret-like values and confirm they are not serialized. The CLI integration test executes the real wrapper and checks archive/source identity fields.
 
-## Dependency snapshot
+## Dependency snapshot in local JSON provenance
 
-The JSON provenance records installed Python distributions as sorted name/version pairs. This is stronger evidence than dependency ranges alone because it describes the environment actually presented to PyInstaller.
+The DocMergeForge JSON provenance records installed Python distributions as sorted name/version pairs. This is useful compact build-environment evidence, but it is not the standards-based SBOM layer.
 
-It is **not** a standards-compliant SBOM. SPDX/CycloneDX remains a separate future supply-chain improvement.
+The standards-based layer is generated separately with CycloneDX as described below.
 
 ## Atomic provenance write
 
@@ -99,13 +100,13 @@ The current local provenance intentionally records:
 }
 ```
 
-These fields describe platform-distribution trust, not whether a GitHub build-provenance attestation exists. A GitHub/Sigstore attestation does **not** make a Windows executable Authenticode-signed or a macOS application Developer ID signed/notarized.
+These fields describe platform-distribution trust, not whether GitHub build/SBOM attestations exist. A GitHub/Sigstore attestation does **not** make a Windows executable Authenticode-signed or a macOS application Developer ID signed/notarized.
 
 Never change these booleans because signing is merely planned. They can change only after the corresponding final platform artifact is actually signed/notarized and independently verified.
 
-## GitHub Artifact Attestations
+## GitHub build-provenance attestations
 
-Both Package Desktop and Onefile Acceptance now attest each native archive with:
+Both Package Desktop and Onefile Acceptance attest each native archive with:
 
 ```text
 actions/attest@v4
@@ -129,73 +130,158 @@ gh attestation verify <downloaded-archive> --repo sanskarIN/DocMergeForge
 
 This adds signed GitHub/Sigstore build provenance bound to the exact archive bytes and independently checks that provenance after the upload/download boundary.
 
-## Verified onedir attestation
+## Verified build-provenance attestation runs
+
+Onedir:
 
 ```text
 Run:        32030972195
 Checkpoint: b0e112b0fecf9b6c70fcaeffd0551222dd2ed7aa
 ```
 
-All Windows/macOS/Ubuntu build jobs and all three fresh-runner jobs passed. Each platform completed native build, packaged mixed PDF+DOCX smoke, archive/hash/local-provenance generation, GitHub Artifact Attestation creation, artifact upload, fresh-runner download, `gh attestation verify`, archive-bound JSON provenance validation, sidecar checksum verification, extraction, and packaged smoke again.
-
-Attestation-era workflow artifact containers:
-
-```text
-Windows artifact ID: 9288984074
-Container digest: sha256:a169001b7c76777acc6c30f246498b50c8a735c0fafca9657f7738d50f330ed1
-
-macOS artifact ID: 9288934609
-Container digest: sha256:e5aff9fc17eec544e395947afe553d5732b8e2af7de9fbfa78ff095a5d92d7f2
-
-Linux artifact ID: 9289011135
-Container digest: sha256:2e560f8fb8e3869320c998d3967890b8b22d51c98b7cd308e1063af124662008
-```
-
-## Verified onefile attestation
+Onefile:
 
 ```text
 Run:        32031798935
 Checkpoint: c42c3cab4083e51255d78730b613af735235494f
 ```
 
-All Windows/macOS/Ubuntu build and fresh-runner jobs passed the same attestation-first verification sequence for onefile archives.
+All Windows/macOS/Ubuntu build and fresh-runner jobs passed for both modes. See [Release Evidence Ledger](../release-evidence.md) for their artifact IDs/container digests.
 
-Attestation-era workflow artifact containers:
+## CycloneDX SBOM generation
+
+The build extra pins:
 
 ```text
-Windows artifact ID: 9289300227
-Container digest: sha256:58c0b60c67599181463c33f6efb5e77c86fdd29dbf8f98f3c4af3f91ee28867e
-
-macOS artifact ID: 9289251930
-Container digest: sha256:ac3e41a5e85891d095053e7d0be5c75a519502c8d0100ea61bfa7614b836cab1
-
-Linux artifact ID: 9289257661
-Container digest: sha256:d698e261487e756adf5eabbb4e169e99467d16842753a1a0f56341fdd02c1b3b
+cyclonedx-bom==7.3.1
 ```
 
-The GitHub artifact-container digest identifies the Actions artifact container. It is additional workflow evidence and must not be confused with the inner platform archive digest. The actual archive retains its own `.sha256`, archive SHA-256/size in DocMergeForge provenance, and GitHub attestation.
+Each platform packaging job runs the official CycloneDX Python generator against the exact build environment presented to PyInstaller:
+
+```bash
+cyclonedx-py environment \
+  --pyproject pyproject.toml \
+  --spec-version 1.6 \
+  --output-format JSON \
+  --output-file <artifact-label>.cdx.json
+```
+
+The generator validates the CycloneDX document under its normal validation behavior. The SBOM file is uploaded beside the archive, checksum sidecar, and DocMergeForge JSON provenance.
+
+### Scope of the SBOM
+
+The current CycloneDX document is a **build-environment dependency SBOM**. It describes the installed Python environment used to package the application and therefore may include PyInstaller/CycloneDX/build-time dependencies that are not embedded in the final executable, while exact binary bundling details remain governed by PyInstaller collection behavior.
+
+Do not describe this SBOM as a byte-perfect post-PyInstaller binary inventory. If that stronger claim is needed later, add a separate binary-content inventory/analysis gate and verify it independently.
+
+## CycloneDX SBOM attestations
+
+Each archive receives a second `actions/attest@v4` invocation with the generated SBOM:
+
+```yaml
+- uses: actions/attest@v4
+  with:
+    subject-path: <archive>
+    sbom-path: <artifact-label>.cdx.json
+```
+
+For CycloneDX JSON, GitHub records the predicate type:
+
+```text
+https://cyclonedx.org/bom
+```
+
+Each fresh runner therefore verifies two distinct predicates:
+
+```bash
+gh attestation verify <archive> --repo sanskarIN/DocMergeForge
+
+gh attestation verify <archive> \
+  --repo sanskarIN/DocMergeForge \
+  --predicate-type https://cyclonedx.org/bom
+```
+
+Only after both signed predicates pass does the workflow continue to local JSON provenance, `.sha256`, extraction, and packaged mixed PDF+DOCX smoke.
+
+## Verified CycloneDX onedir acceptance
+
+```text
+Run:        32033135355
+Checkpoint: 59dc14bbf1d4301177e475ac350694bdd9d90ada
+```
+
+All Windows/macOS/Ubuntu build jobs and all three fresh-runner jobs passed SBOM generation, build-provenance attestation, CycloneDX SBOM attestation, upload/download, both predicate verifications, archive-bound JSON provenance verification, checksum verification, extraction, and packaged mixed-document smoke.
+
+SBOM-era workflow artifact containers:
+
+```text
+Windows artifact ID: 9289721065
+Container digest: sha256:f00410bd8016ca05243a0be114dbe3ab336529f7a2b2251968b42922cc67e37d
+
+macOS artifact ID: 9289679866
+Container digest: sha256:c9ffec38d0c70b50e24bbd54e74c29d69b52206540b1402c9a76cbf535e54539
+
+Linux artifact ID: 9289686689
+Container digest: sha256:30b851a609ae3394174015f4f80fce52b356069131395978039c5ad82122a143
+```
+
+## Verified CycloneDX onefile acceptance
+
+```text
+Run:        32033541414
+Checkpoint: dc624e23d07e0ce94ef345245630d153ee60091a
+```
+
+All Windows/macOS/Ubuntu build and fresh-runner jobs passed the same two-predicate SBOM/provenance verification sequence for onefile archives.
+
+SBOM-era workflow artifact containers:
+
+```text
+Windows artifact ID: 9289869031
+Container digest: sha256:23082e8dce64e5225aa8234d0054f1c7c731dacd9810816a7d7a499759b5ebb6
+
+macOS artifact ID: 9289825286
+Container digest: sha256:474cc73883e67fd0bbc074ef3fdbccd9de709a8a5f1a220582c53a25c662c35c
+
+Linux artifact ID: 9289846554
+Container digest: sha256:44aba02321c0c09103987b1dc18eea5553ba16b00162ca9fed3af4420835bbda
+```
+
+## Container digest versus archive digest
+
+The GitHub artifact-container digest identifies the Actions artifact container. It is additional workflow evidence and must not be confused with the inner platform archive digest.
+
+The actual platform archive retains:
+
+- its own `.sha256` sidecar;
+- archive filename/size/SHA-256 in DocMergeForge JSON provenance;
+- a signed GitHub/Sigstore build-provenance attestation;
+- a signed CycloneDX SBOM predicate;
+- the uploaded `.cdx.json` build-environment SBOM.
 
 ## What the combined evidence proves
 
-For current unsigned onedir and onefile CI archives, the repository now has evidence that:
+For current unsigned onedir and onefile CI archives, the repository has evidence that:
 
 - the package is traceable to source/build context;
 - local JSON provenance is privacy-filtered and archive-bound;
-- a compact independent SHA-256 sidecar matches the archive;
+- an independent SHA-256 sidecar matches the archive;
 - signed GitHub/Sigstore build provenance exists for the archive;
-- a separate native runner verifies that attestation after download;
+- a validated CycloneDX 1.6 build-environment dependency SBOM is generated;
+- a signed CycloneDX SBOM predicate is bound to the archive;
+- a separate native runner verifies both signed predicates after download;
 - the fresh runner also recomputes archive identity and validates local provenance/checksum;
 - the downloaded package extracts and executes a real packaged mixed PDF+DOCX publication smoke.
 
-This does **not** prove production code signing, notarization, interactive clean-machine UX, representative real-world fidelity, accessibility acceptance, installer behavior, multi-gigabyte scale, or stable-release readiness.
+This does **not** prove production code signing, notarization, interactive clean-machine UX, representative real-world fidelity, human accessibility acceptance, installer behavior, multi-gigabyte scale, or a byte-perfect post-PyInstaller binary inventory.
 
 ## Final-byte rule
 
-Checksums, local provenance, and build attestations describe the exact bytes they were created for. If signing, notarization, stapling, installer wrapping, or repackaging changes artifact bytes, generate and verify new evidence for the final distribution artifact. Do not reuse an unsigned-build digest for changed signed bytes.
+Checksums, local provenance, SBOM predicates, and build attestations describe the exact archive bytes they were created for. If signing, notarization, stapling, installer wrapping, or repackaging changes artifact bytes, generate and verify new evidence for the final distribution artifact. Do not reuse unsigned-build evidence for changed signed bytes.
 
 ## Future supply-chain improvements
 
-Remaining useful improvements include a standards-compliant SPDX/CycloneDX SBOM, package hashes/licenses, final signing certificate identity/status, macOS notarization evidence, release-channel download identity, and reproducible-build comparison evidence.
+Remaining useful improvements include exact post-bundling binary/component inventory if required, package/license policy validation, final signing certificate identity/status, macOS notarization evidence, release-channel download identity, and reproducible-build comparison evidence.
 
 Each addition must preserve the privacy boundary and be backed by independent verification rather than metadata generation alone.
 
