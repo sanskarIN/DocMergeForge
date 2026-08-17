@@ -101,12 +101,36 @@ jobs:
         if: runner.os == 'Linux'
         run: tar -czf DocMergeForge-Linux-unsigned.tar.gz -C dist DocMergeForge
 
+      - name: Hash Windows artifact
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $file = "DocMergeForge-Windows-unsigned.zip"
+          $hash = (Get-FileHash -Algorithm SHA256 $file).Hash.ToLowerInvariant()
+          "$hash  $file" | Set-Content -Encoding ascii "$file.sha256"
+
+      - name: Hash macOS artifact
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          shasum -a 256 DocMergeForge-macOS-unsigned.tar.gz > DocMergeForge-macOS-unsigned.tar.gz.sha256
+          shasum -a 256 -c DocMergeForge-macOS-unsigned.tar.gz.sha256
+
+      - name: Hash Linux artifact
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sha256sum DocMergeForge-Linux-unsigned.tar.gz > DocMergeForge-Linux-unsigned.tar.gz.sha256
+          sha256sum -c DocMergeForge-Linux-unsigned.tar.gz.sha256
+
       - name: Upload Windows artifact
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: DocMergeForge-Windows-unsigned
-          path: DocMergeForge-Windows-unsigned.zip
+          path: |
+            DocMergeForge-Windows-unsigned.zip
+            DocMergeForge-Windows-unsigned.zip.sha256
           if-no-files-found: error
 
       - name: Upload macOS artifact
@@ -114,7 +138,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: DocMergeForge-macOS-unsigned
-          path: DocMergeForge-macOS-unsigned.tar.gz
+          path: |
+            DocMergeForge-macOS-unsigned.tar.gz
+            DocMergeForge-macOS-unsigned.tar.gz.sha256
           if-no-files-found: error
 
       - name: Upload Linux artifact
@@ -122,7 +148,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: DocMergeForge-Linux-unsigned
-          path: DocMergeForge-Linux-unsigned.tar.gz
+          path: |
+            DocMergeForge-Linux-unsigned.tar.gz
+            DocMergeForge-Linux-unsigned.tar.gz.sha256
           if-no-files-found: error
 
       - name: Packaging notice
