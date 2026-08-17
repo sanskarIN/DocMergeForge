@@ -20,6 +20,11 @@ jobs:
   build-onefile:
     name: build onefile (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
     strategy:
       fail-fast: false
       matrix:
@@ -151,6 +156,24 @@ jobs:
           --artifact-label DocMergeForge-Linux-onefile-unsigned
           --artifact DocMergeForge-Linux-onefile-unsigned.tar.gz
 
+      - name: Attest Windows onefile archive
+        if: runner.os == 'Windows'
+        uses: actions/attest@v4
+        with:
+          subject-path: DocMergeForge-Windows-onefile-unsigned.zip
+
+      - name: Attest macOS onefile archive
+        if: runner.os == 'macOS'
+        uses: actions/attest@v4
+        with:
+          subject-path: DocMergeForge-macOS-onefile-unsigned.tar.gz
+
+      - name: Attest Linux onefile archive
+        if: runner.os == 'Linux'
+        uses: actions/attest@v4
+        with:
+          subject-path: DocMergeForge-Linux-onefile-unsigned.tar.gz
+
       - name: Upload Windows onefile artifact
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v7
@@ -211,6 +234,11 @@ jobs:
         with:
           name: ${{ matrix.artifact }}
           path: artifact
+
+      - name: Verify GitHub artifact attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh attestation verify "artifact/${{ matrix.archive }}" --repo "${{ github.repository }}"
 
       - name: Install Linux runtime prerequisite
         if: runner.os == 'Linux'
