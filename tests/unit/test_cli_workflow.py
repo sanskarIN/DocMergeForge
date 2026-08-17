@@ -1,7 +1,11 @@
 from pathlib import Path
 
+import pytest
+
 from docmergeforge.cli import main as cli
+from docmergeforge.core.exceptions import TransactionRecoveryError
 from docmergeforge.core.models import DocumentKind, InputDocument, PartIdentity
+from docmergeforge.utilities.output_transaction import RecoveryResult
 
 
 def document(name: str, part: int) -> InputDocument:
@@ -35,6 +39,14 @@ def test_cli_parser_supports_pattern_and_sort_controls() -> None:
     assert args.natural_sort is False
 
 
+def test_cli_parser_supports_output_recovery() -> None:
+    args = cli.build_parser().parse_args(
+        ["recover-output", "--output-dir", "artifacts"]
+    )
+    assert args.command == "recover-output"
+    assert args.output_dir == Path("artifacts")
+
+
 def test_cli_pattern_filter_is_case_insensitive() -> None:
     items = [document("Part 1.PDF", 1), document("notes.pdf", 2)]
     assert cli._filter_pattern(items, "part *.pdf") == [items[0]]
@@ -62,3 +74,52 @@ def test_cli_password_collection_retries_without_persisting(monkeypatch) -> None
     passwords = cli._collect_pdf_passwords([item])
 
     assert passwords == {item.path: "correct"}
+
+
+def test_cli_recover_output_reports_recovered_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    transaction = tmp_path / ".docmergeforge-staging-crash"
+    restored = tmp_path / "master.pdf"
+    removed = tmp_path / "new-report.json"
+    monkeypatch.setattr(
+        cli,
+        "recover_interrupted_output_transactions",
+        lambda _output: [
+            RecoveryResult(
+                transaction,
+                "rolled-back",
+                (restored,),
+                (removed,),
+            )
+        ],
+    )
+
+    exit_code = cli.main(["recover-output", "--output-dir", str(tmp_path)])
+    output = capsys.readouterr().out
+
+    assert exit_code == 0
+    assert '"recovered": true' in output
+    assert '"status": "rolled-back"' in output
+    assert str(restored) in output
+    assert str(removed) in output
+
+
+def test_cli_recover_output_fails_closed_on_conflict(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def fail_recovery(_output: Path) -> list[RecoveryResult]:
+        raise TransactionRecoveryError("published file changed after interruption")
+
+    monkeypatch.setattr(cli, "recover_interrupted_output_transactions", fail_recovery)
+
+    exit_code = cli.main(["recover-output", "--output-dir", str(tmp_path)])
+    output = capsys.readouterr().out
+
+    assert exit_code == 2
+    assert '"recovered": false' in output
+    assert "published file changed after interruption" in output
