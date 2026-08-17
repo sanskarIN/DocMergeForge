@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import tempfile
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from types import TracebackType
@@ -367,8 +368,6 @@ class OutputTransaction:
             raise
 
         for backup in backups.values():
-            try:
+            with suppress(OSError):
                 backup.unlink(missing_ok=True)
-            except OSError:
-                pass
         self._committed = True
