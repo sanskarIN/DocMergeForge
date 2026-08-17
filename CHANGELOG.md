@@ -13,17 +13,21 @@ All notable changes follow semantic versioning.
 - Desktop packaging root validation and a `scripts/build_desktop.py --check` preflight that verifies required repository inputs without invoking PyInstaller.
 - Unit and integration coverage for desktop packaging preflight behavior, including execution of the real build script check path.
 - Transactional publication-bundle staging and rollback across mixed PDF/DOCX outputs, reports, manifests, checksums, companion indexes, and publishing checklists.
-- Repeated cancellation/recovery regression coverage and injected disk-exhaustion cleanup coverage.
+- Durable publication-promotion journals containing staged fingerprints and rollback metadata, plus `docmergeforge recover-output` for explicit fail-closed recovery of interrupted promotion transactions.
+- Repeated cancellation/recovery regression coverage, simulated interrupted-promotion recovery coverage, and injected disk-exhaustion cleanup coverage.
+- Output-destination writeability probing before expensive project merge work.
 - Scalable synthetic stress-fixture generation plus a manually dispatchable stress-acceptance workflow with validation, preflight, merge, output comparison, size evidence, and artifact upload.
-- Explicit order-editor accessibility names/descriptions, label buddy navigation, and keyboard shortcuts, with headless automated accessibility smoke coverage.
+- Explicit accessibility metadata and keyboard controls across project setup, source selection, file ordering, settings, reports, recent projects, and merge progress, with headless automated accessibility smoke coverage.
 
 ### Changed
 - Centralized desktop packaging argument generation inside the installable `docmergeforge.packaging` package so builds and tests share the same configuration.
 - Strengthened ordering, source-integrity, formatting, strict typing, and CI validation paths.
 - PDF and DOCX engines now check cancellation through later finalization stages instead of only between source documents.
 - Project merge completion now has one publication boundary: document outputs and generated evidence are promoted only after all staged work succeeds and source integrity is revalidated.
+- Publication promotion now writes a `promoting` journal before final-path mutation and a `committed` marker only after the complete batch succeeds; incomplete rollback evidence is preserved instead of silently deleted.
+- New journaled output transactions refuse to start while interrupted recovery evidence is pending.
 - Build Smoke now runs on `main` pushes as well as pull requests/manual dispatch and validates desktop packaging configuration on Ubuntu, Windows, and macOS runners.
-- Build Smoke also runs the headless order-editor accessibility smoke check on each configured desktop runner.
+- Build Smoke also runs the headless desktop accessibility smoke check on each configured desktop runner.
 - The 120-Part Regression workflow now runs on `main` pushes in addition to pull requests/manual dispatch.
 - Package Desktop installs the declared `build` extra and validates packaging configuration before invoking PyInstaller.
 
@@ -35,6 +39,8 @@ All notable changes follow semantic versioning.
 - Mixed-format partial-publication risk where a completed PDF could previously be published before a later DOCX failure or cancellation.
 - Publication-evidence skew where document outputs could previously be replaced before report generation failed.
 - Cancellation gaps during PDF page finalization and DOCX post-merge finalization.
+- Recovery-evidence loss risk when an automatic promotion rollback itself fails.
+- Late output-permission failures that could previously occur after expensive validation/merge preparation despite sufficient free-space estimates.
 
 ### Validation
 - Commit `8cc96d714c43922b0effcbb16400fb2952f056b1` passed Quality run `31948936694` on Python 3.12 and Python 3.13, including Ruff, Black, strict mypy, and full pytest with coverage.
@@ -42,8 +48,9 @@ All notable changes follow semantic versioning.
 - The same commit passed cross-platform Build Smoke run `31948936667` on the configured Ubuntu, Windows, and macOS matrix.
 - The same commit passed Security run `31948936651`.
 - Recovery checkpoint `3a38ae64d5a96f76f8557f4443e372c9a4e35871` passed Quality run `32012033604`, 120-Part Regression run `32012033657`, and Security run `32012033644`.
+- The newer journal-recovery/accessibility/writeability changes remain subject to their own final-head CI verification before being recorded as validated.
 - The scalable manual stress workflow has been added but an actual multi-gigabyte acceptance run is not claimed until such a workflow run succeeds and its measured evidence is recorded.
-- These checks do not claim signed installers, notarization, production package acceptance, full human accessibility acceptance, or `v1.0.0` readiness.
+- These checks do not claim signed installers, notarization, production package acceptance, full human accessibility acceptance, real forced-process-termination acceptance, or `v1.0.0` readiness.
 
 ## [0.1.0] - 2026-08-16
 
