@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -15,11 +16,14 @@ def test_build_provenance_script_binds_archive_and_source_identity(tmp_path: Pat
     archive.write_bytes(b"downloadable-archive-bytes")
 
     script = Path(__file__).resolve().parents[2] / "scripts" / "write_build_provenance.py"
-    environment = {
-        "GITHUB_SHA": "0123456789abcdef",
-        "GITHUB_REPOSITORY": "sanskarIN/DocMergeForge",
-        "GITHUB_REF": "refs/heads/main",
-    }
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "GITHUB_SHA": "0123456789abcdef",
+            "GITHUB_REPOSITORY": "sanskarIN/DocMergeForge",
+            "GITHUB_REF": "refs/heads/main",
+        }
+    )
     completed = subprocess.run(
         [
             sys.executable,
