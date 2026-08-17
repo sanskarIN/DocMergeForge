@@ -1,0 +1,85 @@
+name: Manual Stress Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      parts:
+        description: Number of numbered PDF/DOCX parts to generate
+        required: true
+        default: "120"
+      pdf_pages:
+        description: PDF pages per part
+        required: true
+        default: "5"
+      docx_paragraphs:
+        description: DOCX paragraphs per part
+        required: true
+        default: "50"
+      paragraph_kib:
+        description: Approximate synthetic payload KiB per DOCX paragraph
+        required: true
+        default: "1"
+
+permissions:
+  contents: read
+
+jobs:
+  stress:
+    name: synthetic stress acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: pip install -e ".[dev]"
+
+      - name: Generate scalable fixture
+        run: >-
+          python scripts/generate_stress_fixture.py fixtures/stress
+          --parts "${{ inputs.parts }}"
+          --pdf-pages "${{ inputs.pdf_pages }}"
+          --docx-paragraphs "${{ inputs.docx_paragraphs }}"
+          --paragraph-kib "${{ inputs.paragraph_kib }}"
+
+      - name: Validate all numbered inputs
+        run: >-
+          docmergeforge validate
+          --input fixtures/stress
+          --parts "1-${{ inputs.parts }}"
+
+      - name: Create stress project
+        run: >-
+          docmergeforge project-create
+          --input fixtures/stress
+          --output-dir artifacts/stress
+          --project-file stress-project.json
+          --name "Stress Fixture"
+          --parts "1-${{ inputs.parts }}"
+
+      - name: Run project preflight
+        run: docmergeforge merge --project stress-project.json --dry-run
+
+      - name: Merge stress project
+        run: docmergeforge merge --project stress-project.json
+
+      - name: Compare merged outputs to source evidence
+        run: >-
+          docmergeforge compare
+          --input fixtures/stress
+          --pdf-output artifacts/stress/Stress_Fixture_Master.pdf
+          --docx-output artifacts/stress/Stress_Fixture_Master.docx
+
+      - name: Record artifact sizes
+        run: du -ah artifacts/stress | sort -h
+
+      - name: Upload acceptance outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: docmergeforge-stress-${{ inputs.parts }}-parts
+          path: artifacts/stress
+          if-no-files-found: error
+          retention-days: 7
