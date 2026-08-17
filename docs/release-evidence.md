@@ -34,6 +34,18 @@ Verified runs:
 
 This checkpoint predates later publication-locking, packaged-artifact, provenance, and documentation-link hardening. Use the more specific evidence below for those behaviors.
 
+### Documentation-link integrity
+
+Quality run:
+
+```text
+32030103104
+```
+
+Result: PASS on Python 3.12 and 3.13 through Ruff, Black, strict mypy, repository-local Markdown link validation, and full pytest/coverage.
+
+This is the first recorded run that proves the repository documentation-link checker itself executes successfully against the current Markdown set rather than merely existing in source.
+
 ## Publication locking and recovery evidence
 
 ### Cross-process output exclusion
@@ -129,9 +141,9 @@ GitHub Actions artifact-container evidence:
 
 As with onedir, the inner onefile archive has a separate checksum sidecar and archive-bound provenance record.
 
-## Current workflow-generation migration
+## GitHub Actions generation migration
 
-The repository is migrating GitHub Actions to the current Node 24-era major generations:
+The repository uses the current Node 24-era major generations verified during this phase:
 
 - `actions/checkout@v7`;
 - `actions/setup-python@v7`;
@@ -140,11 +152,32 @@ The repository is migrating GitHub Actions to the current Node 24-era major gene
 - `actions/dependency-review-action@v5`;
 - `github/codeql-action@v4`.
 
-Do not treat this migration as verified in this ledger until the corresponding current-head workflows complete successfully. Record the final checkpoint/run IDs here after that evidence exists.
+Executable workflow verification:
+
+```text
+Package Desktop migration run: 32030446110
+Checkpoint:                    29c6ed8a480731094bb5c629a22f889b9fd9cacd
+Onefile Acceptance run:        32030487166
+Checkpoint:                    24674b776216e6da73c257b30149f46605eb1b77
+```
+
+Result: both workflows passed all Windows/macOS/Ubuntu build-host and fresh-runner jobs. This verifies checkout/setup v7, artifact upload v7, artifact download v8, archive-bound provenance validation, checksum validation, extraction, and packaged mixed-document execution across both supported PyInstaller distribution modes.
+
+Quality, Regression, Build Smoke, Recovery Acceptance, Disk Full Acceptance, Stress Acceptance, and Security workflow definitions were also migrated to their corresponding current action majors. Their individual behavior should continue to be recorded at the run level when materially relevant.
+
+Weekly Dependabot configuration is present for GitHub Actions and pip updates. It opens reviewable update pull requests and does not auto-merge them.
+
+## Artifact attestation work
+
+Default onedir Package Desktop now has a GitHub Artifact Attestations implementation using `actions/attest@v4` with job-scoped `id-token`, `attestations`, and `artifact-metadata` permissions. Fresh runners call `gh attestation verify` against the downloaded archive before the existing checksum/provenance/extraction/smoke sequence.
+
+This attestation layer is **implemented but not recorded as verified here yet**. Record the corresponding run only after all build-host and fresh-runner jobs complete successfully. Onefile attestation should remain unclaimed until separately implemented and accepted.
 
 ## Stress evidence
 
-The repository includes a configurable manual Stress Acceptance workflow, but this ledger does **not** currently record a measured multi-gigabyte successful run.
+The Stress Acceptance workflow now runs the default 120-part profile automatically when stress infrastructure changes on `main`, while retaining configurable manual dispatch. It writes exact fixture parameters, commit/run identity, measured generated source bytes, and measured output bytes into JSON/Markdown acceptance evidence.
+
+The first measured default run is in progress at the time of this ledger checkpoint. Do **not** describe it as passed or multi-gigabyte until the workflow completes and its measured evidence is retrieved.
 
 A future scale claim must record at minimum:
 
