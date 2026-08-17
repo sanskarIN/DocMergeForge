@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from docmergeforge.core.exceptions import ValidationError
+from docmergeforge.core.exceptions import MergeCancelled, ValidationError
 from docmergeforge.core.models import (
     DocumentKind,
     InputDocument,
@@ -144,3 +144,45 @@ def test_pdf_merge_requires_and_accepts_in_memory_password(tmp_path: Path) -> No
     reader = pypdf.PdfReader(str(output))
     assert not reader.is_encrypted
     assert len(reader.pages) == 1
+
+
+@pytest.mark.integration
+def test_pdf_merge_cancellation_does_not_publish_or_leave_part_files(tmp_path: Path) -> None:
+    pypdf = pytest.importorskip("pypdf")
+    docs: list[InputDocument] = []
+    for part in range(1, 3):
+        path = tmp_path / f"Part {part}.pdf"
+        writer = pypdf.PdfWriter()
+        writer.add_blank_page(width=612, height=792)
+        with path.open("wb") as handle:
+            writer.write(handle)
+        docs.append(
+            InputDocument(
+                path,
+                DocumentKind.PDF,
+                PartIdentity(part, f"Part {part}"),
+                path.stat().st_size,
+                sha256_file(path),
+                1,
+            )
+        )
+
+    output = tmp_path / "cancelled.pdf"
+    cancel_requested = False
+
+    def request_cancel(index: int, _total: int, _path: Path) -> None:
+        nonlocal cancel_requested
+        if index == 1:
+            cancel_requested = True
+
+    with pytest.raises(MergeCancelled, match="cancelled safely"):
+        PdfMergeEngine().merge(
+            docs,
+            output,
+            PdfSettings(),
+            progress=request_cancel,
+            cancelled=lambda: cancel_requested,
+        )
+
+    assert not output.exists()
+    assert not list(tmp_path.glob("*.part"))
