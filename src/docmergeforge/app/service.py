@@ -101,11 +101,11 @@ class MergeApplicationService:
         )
 
     @staticmethod
-    def _artifact(path: Path, kind: DocumentKind) -> OutputArtifact:
+    def _staged_artifact(entry: StagedOutput, kind: DocumentKind) -> OutputArtifact:
         return OutputArtifact(
-            path,
-            sha256_file(path),
-            path.stat().st_size,
+            entry.final_path,
+            sha256_file(entry.staging_path),
+            entry.staging_path.stat().st_size,
             kind,
             True,
         )
@@ -113,7 +113,7 @@ class MergeApplicationService:
     @staticmethod
     def _check_cancelled(cancelled: CancellationCallback | None) -> None:
         if cancelled and cancelled():
-            raise MergeCancelled("Merge cancelled safely before final reporting.")
+            raise MergeCancelled("Merge cancelled safely before output promotion.")
 
     @staticmethod
     def _emit(
@@ -125,6 +125,13 @@ class MergeApplicationService:
     ) -> None:
         if progress:
             progress(stage, current, total, path)
+
+    @staticmethod
+    def _stage_report(
+        transaction: OutputTransaction,
+        path: Path,
+    ) -> StagedOutput:
+        return transaction.stage(path, overwrite=True)
 
     def run_project(
         self,
@@ -181,9 +188,13 @@ class MergeApplicationService:
         require_storage([item.path for item in pdfs + docxs], project.output_folder)
         base_name = render_project_basename(project)
         preserve_order = bool(project.selected_files)
-        staged_outputs: list[tuple[StagedOutput, DocumentKind]] = []
+        refs = [
+            CompanionReference(item.part.number, item.path, item.sha256, item.size)
+            for item in companions
+        ]
 
         with OutputTransaction(project.output_folder) as transaction:
+            staged_outputs: list[tuple[StagedOutput, DocumentKind]] = []
             if pdfs:
                 pdf_entry = transaction.stage(
                     project.output_folder / f"{base_name}.pdf",
@@ -239,48 +250,78 @@ class MergeApplicationService:
             changed = verify_unchanged(before)
             if changed:
                 raise RuntimeError(f"Original integrity guarantee failed: {changed}")
+            outputs = [
+                self._staged_artifact(entry, kind) for entry, kind in staged_outputs
+            ]
             self._emit(progress, "verifying", 1, 1)
 
             self._check_cancelled(cancelled)
+            self._emit(progress, "reporting", 0, 1)
+            companion_md = self._stage_report(
+                transaction,
+                project.output_folder / "Companion_Code_Index.md",
+            )
+            companion_json = self._stage_report(
+                transaction,
+                project.output_folder / "Companion_Code_Index.json",
+            )
+            write_companion_index(
+                refs,
+                companion_md.staging_path,
+                companion_json.staging_path,
+            )
+
+            report_md = self._stage_report(
+                transaction,
+                project.output_folder / f"{base_name}_Merge_Report.md",
+            )
+            report_html = self._stage_report(
+                transaction,
+                project.output_folder / f"{base_name}_Merge_Report.html",
+            )
+            write_project_report(
+                validations,
+                skipped,
+                len(companions),
+                report_md.staging_path,
+                report_html.staging_path,
+            )
+
+            manifest = self._stage_report(
+                transaction,
+                project.output_folder / f"{base_name}_Merge_Manifest.json",
+            )
+            write_manifest(
+                pdfs + docxs,
+                outputs,
+                ignored,
+                project.warnings,
+                manifest.staging_path,
+                project.settings.profile_name,
+            )
+            if project.settings.checksum_generation:
+                checksums = self._stage_report(
+                    transaction,
+                    project.output_folder / f"{base_name}_SHA256SUMS.txt",
+                )
+                write_checksums(
+                    pdfs + docxs + companions,
+                    outputs,
+                    checksums.staging_path,
+                )
+
+            checklist = self._stage_report(
+                transaction,
+                project.output_folder / "Publishing_Checklist.md",
+            )
+            write_publishing_checklist(
+                checklist.staging_path,
+                f"Parts {project.settings.expected_start}–{project.settings.expected_end}",
+            )
+            self._emit(progress, "reporting", 1, 1)
+            self._check_cancelled(cancelled)
             transaction.promote()
 
-        outputs = [self._artifact(entry.final_path, kind) for entry, kind in staged_outputs]
-        self._emit(progress, "reporting", 0, 1)
-        refs = [
-            CompanionReference(item.part.number, item.path, item.sha256, item.size)
-            for item in companions
-        ]
-        write_companion_index(
-            refs,
-            project.output_folder / "Companion_Code_Index.md",
-            project.output_folder / "Companion_Code_Index.json",
-        )
-        write_project_report(
-            validations,
-            skipped,
-            len(companions),
-            project.output_folder / f"{base_name}_Merge_Report.md",
-            project.output_folder / f"{base_name}_Merge_Report.html",
-        )
-        write_manifest(
-            pdfs + docxs,
-            outputs,
-            ignored,
-            project.warnings,
-            project.output_folder / f"{base_name}_Merge_Manifest.json",
-            project.settings.profile_name,
-        )
-        if project.settings.checksum_generation:
-            write_checksums(
-                pdfs + docxs + companions,
-                outputs,
-                project.output_folder / f"{base_name}_SHA256SUMS.txt",
-            )
-        write_publishing_checklist(
-            project.output_folder / "Publishing_Checklist.md",
-            f"Parts {project.settings.expected_start}–{project.settings.expected_end}",
-        )
-        self._emit(progress, "reporting", 1, 1)
         return outputs
 
     def run_sql_preset(
@@ -324,7 +365,10 @@ class MergeApplicationService:
         tracked = [item.path for item in pdfs + docxs + companions]
         before = snapshot_hashes(tracked)
         require_storage([item.path for item in pdfs + docxs], project.output_folder)
-        staged_outputs: list[tuple[StagedOutput, DocumentKind]] = []
+        refs = [
+            CompanionReference(item.part.number, item.path, item.sha256, item.size)
+            for item in companions
+        ]
 
         with OutputTransaction(project.output_folder) as transaction:
             pdf_entry = transaction.stage(
@@ -348,7 +392,6 @@ class MergeApplicationService:
                 cancelled=cancelled,
                 password_provider=pdf_password_provider,
             )
-            staged_outputs.append((pdf_entry, DocumentKind.PDF))
 
             self._check_cancelled(cancelled)
             docx_entry = transaction.stage(
@@ -371,50 +414,80 @@ class MergeApplicationService:
                 ),
                 cancelled=cancelled,
             )
-            staged_outputs.append((docx_entry, DocumentKind.DOCX))
 
             self._check_cancelled(cancelled)
             self._emit(progress, "verifying", 0, 1)
             changed = verify_unchanged(before)
             if changed:
                 raise RuntimeError(f"Original integrity guarantee failed: {changed}")
+            outputs = [
+                self._staged_artifact(pdf_entry, DocumentKind.PDF),
+                self._staged_artifact(docx_entry, DocumentKind.DOCX),
+            ]
             self._emit(progress, "verifying", 1, 1)
 
             self._check_cancelled(cancelled)
+            self._emit(progress, "reporting", 0, 1)
+            companion_md = self._stage_report(
+                transaction,
+                project.output_folder / "Companion_Code_Index.md",
+            )
+            companion_json = self._stage_report(
+                transaction,
+                project.output_folder / "Companion_Code_Index.json",
+            )
+            write_companion_index(
+                refs,
+                companion_md.staging_path,
+                companion_json.staging_path,
+            )
+
+            report_md = self._stage_report(
+                transaction,
+                project.output_folder / REPORT_MD_FILENAME,
+            )
+            report_html = self._stage_report(
+                transaction,
+                project.output_folder / REPORT_HTML_FILENAME,
+            )
+            write_report(
+                pdf_result,
+                docx_result,
+                len(companions),
+                report_md.staging_path,
+                report_html.staging_path,
+            )
+
+            manifest = self._stage_report(
+                transaction,
+                project.output_folder / MANIFEST_FILENAME,
+            )
+            write_manifest(
+                pdfs + docxs,
+                outputs,
+                ignored,
+                project.warnings,
+                manifest.staging_path,
+                "Master eBook",
+            )
+            if project.settings.checksum_generation:
+                checksums = self._stage_report(
+                    transaction,
+                    project.output_folder / CHECKSUMS_FILENAME,
+                )
+                write_checksums(
+                    pdfs + docxs + companions,
+                    outputs,
+                    checksums.staging_path,
+                )
+
+            checklist = self._stage_report(
+                transaction,
+                project.output_folder / "Publishing_Checklist.md",
+            )
+            write_publishing_checklist(checklist.staging_path)
+            self._emit(progress, "reporting", 1, 1)
+            self._check_cancelled(cancelled)
             transaction.promote()
 
-        outputs = [self._artifact(entry.final_path, kind) for entry, kind in staged_outputs]
-        self._emit(progress, "reporting", 0, 1)
-        refs = [
-            CompanionReference(item.part.number, item.path, item.sha256, item.size)
-            for item in companions
-        ]
-        write_companion_index(
-            refs,
-            project.output_folder / "Companion_Code_Index.md",
-            project.output_folder / "Companion_Code_Index.json",
-        )
-        write_report(
-            pdf_result,
-            docx_result,
-            len(companions),
-            project.output_folder / REPORT_MD_FILENAME,
-            project.output_folder / REPORT_HTML_FILENAME,
-        )
-        write_manifest(
-            pdfs + docxs,
-            outputs,
-            ignored,
-            project.warnings,
-            project.output_folder / MANIFEST_FILENAME,
-            "Master eBook",
-        )
-        if project.settings.checksum_generation:
-            write_checksums(
-                pdfs + docxs + companions,
-                outputs,
-                project.output_folder / CHECKSUMS_FILENAME,
-            )
-        write_publishing_checklist(project.output_folder / "Publishing_Checklist.md")
-        self._emit(progress, "reporting", 1, 1)
         return outputs
