@@ -10,6 +10,7 @@ from pathlib import Path
 from docmergeforge.app.preflight import build_preflight
 from docmergeforge.app.service import DryRunResult, MergeApplicationService
 from docmergeforge.audit.document import audit_tree
+from docmergeforge.core.exceptions import TransactionRecoveryError
 from docmergeforge.core.models import (
     DocumentKind,
     DocxSettings,
@@ -25,6 +26,7 @@ from docmergeforge.pdf.engine import PdfMergeEngine
 from docmergeforge.pdf.passwords import verify_pdf_password
 from docmergeforge.presets.sql_full_mastery import PRESET_NAME, create_sql_full_mastery_project
 from docmergeforge.project.store import load_project, save_project
+from docmergeforge.utilities.output_transaction import recover_interrupted_output_transactions
 from docmergeforge.validation.compare import compare_docx, compare_pdf
 from docmergeforge.validation.service import validate_part_set
 
@@ -162,6 +164,12 @@ def build_parser() -> argparse.ArgumentParser:
     project_merge.add_argument("--project", required=True, type=Path)
     project_merge.add_argument("--dry-run", action="store_true")
 
+    recover = sub.add_parser(
+        "recover-output",
+        help="Recover an interrupted journaled publication transaction.",
+    )
+    recover.add_argument("--output-dir", required=True, type=Path)
+
     audit = sub.add_parser("audit", help="Audit PDF and DOCX manuscript content locally.")
     audit.add_argument("--input", required=True, type=Path)
 
@@ -248,6 +256,43 @@ def _run_project(project: MergeProject, dry_run: bool) -> int:
         passwords.clear()
 
 
+def _recover_output(output_folder: Path) -> int:
+    try:
+        results = recover_interrupted_output_transactions(output_folder)
+    except TransactionRecoveryError as exc:
+        print(
+            json.dumps(
+                {
+                    "recovered": False,
+                    "output_dir": str(output_folder),
+                    "error": str(exc),
+                },
+                indent=2,
+            )
+        )
+        return 2
+
+    print(
+        json.dumps(
+            {
+                "recovered": True,
+                "output_dir": str(output_folder),
+                "transactions": [
+                    {
+                        "folder": str(result.transaction_folder),
+                        "status": result.status,
+                        "restored": [str(path) for path in result.restored_paths],
+                        "removed": [str(path) for path in result.removed_paths],
+                    }
+                    for result in results
+                ],
+            },
+            indent=2,
+        )
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "validate":
@@ -291,6 +336,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "merge":
         return _run_project(load_project(args.project), args.dry_run)
+
+    if args.command == "recover-output":
+        return _recover_output(args.output_dir)
 
     if args.command == "audit":
         findings = audit_tree(args.input)
