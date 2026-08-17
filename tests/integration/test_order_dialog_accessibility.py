@@ -3,13 +3,15 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-
 import pytest
-from PySide6.QtWidgets import QApplication, QDialogButtonBox
 
 from docmergeforge.core.models import DocumentKind, InputDocument, PartIdentity
-from docmergeforge.ui.order_dialog import OrderEditorDialog
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+from PySide6.QtWidgets import QApplication, QDialogButtonBox  # noqa: E402
+
+from docmergeforge.ui.order_dialog import OrderEditorDialog  # noqa: E402
 
 
 def _document(path: Path, part: int) -> InputDocument:
