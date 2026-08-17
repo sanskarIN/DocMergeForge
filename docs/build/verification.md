@@ -10,9 +10,9 @@ Confirms PyInstaller produced output and the packaged application can initialize
 
 ### Level 2 — Downloaded-artifact fresh-runner verification
 
-Confirms the uploaded archive can be downloaded on a separate runner that has no repository checkout or installed DocMergeForge/Python build environment, its SHA-256 sidecar matches, it extracts correctly, and its packaged application executes the real mixed PDF+DOCX smoke workload.
+Confirms the uploaded archive can be downloaded on a separate runner with no repository checkout or installed DocMergeForge/Python project environment; its provenance and SHA-256 sidecar match the exact archive bytes; it extracts correctly; and its packaged application executes the mixed PDF+DOCX smoke workload.
 
-The current Linux fresh-runner job installs only the system `libegl1` runtime required by packaged PySide6/Qt.
+Linux fresh-runner jobs install only the system `libegl1` runtime required by packaged PySide6/Qt.
 
 ### Level 3 — Human clean-machine interactive verification
 
@@ -20,15 +20,15 @@ Confirms the artifact behaves correctly on representative end-user machines/VMs 
 
 ### Level 4 — Production trust/distribution verification
 
-Confirms final hashes, signatures/notarization where claimed, installer/package behavior, update/uninstall behavior, and target-platform acceptance.
+Confirms final post-signing hashes, signatures/notarization where claimed, installer/package behavior, update/uninstall behavior, and target-platform acceptance.
 
 A production release should not stop at Level 1 or Level 2.
 
 ## Current automated executable evidence
 
-### Default onedir
+### Default onedir — verified Level 1 + Level 2
 
-Package Desktop run `32024177298` at checkpoint `a325c12e89e0bc6dc9798f80fb866f469165647f` completed successfully on Windows, macOS, and Ubuntu.
+Package Desktop run `32025126032` at checkpoint `59107192d494d76a4112cdeaa9a55f01cfe37972` completed successfully on Windows, macOS, and Ubuntu.
 
 For every platform it completed:
 
@@ -36,21 +36,23 @@ For every platform it completed:
 2. build-host packaged mixed PDF+DOCX smoke;
 3. archive creation;
 4. archive SHA-256 sidecar creation/verification;
-5. artifact upload;
-6. separate fresh-runner artifact download;
-7. checksum verification on the downloaded archive;
-8. extraction;
-9. execution of `--packaged-smoke` again without source checkout/project installation.
+5. archive-bound privacy-safe provenance generation;
+6. artifact upload;
+7. separate fresh-runner artifact download;
+8. provenance validation for source SHA, build mode, artifact label, unsigned/notarized state, archive filename, byte size, and archive SHA-256;
+9. independent checksum-sidecar verification;
+10. extraction;
+11. execution of `--packaged-smoke` again without repository checkout/project installation.
 
-### Onefile
+### Onefile — verified Level 1 + Level 2
 
-Onefile Acceptance run `32024284609` at checkpoint `6720e7a8a8cbbcad79c7e0c9c853c2382ae4a277` completed successfully on Windows, macOS, and Ubuntu.
+Onefile Acceptance run `32025167433` at checkpoint `b8a181b7138a1bc617766dd3e86c9ab32aade75e` completed the same archive-bound provenance and fresh-runner model on Windows, macOS, and Ubuntu.
 
-It performs the same build-host plus downloaded-artifact/fresh-runner acceptance for `scripts/build_desktop.py --one-file`.
+Both repository-supported PyInstaller modes therefore have automated Level 1 and Level 2 acceptance on all three desktop CI runner families.
 
-This evidence means both repository-supported PyInstaller modes now have automated Level 1 and Level 2 acceptance on all three desktop CI runner families.
+This does **not** convert Level 3 human interactive acceptance or Level 4 signing/notarization into completed claims.
 
-It does **not** convert Level 3 human interactive acceptance or Level 4 signing/notarization into completed claims.
+See [Build Provenance](provenance.md) for artifact IDs and GitHub artifact-container digests.
 
 ## 1. Capture build identity
 
@@ -66,11 +68,13 @@ Build mode: onedir/onefile
 Build command:
 CI workflow/run ID:
 Artifact label:
-Artifact SHA-256:
+Archive byte size:
+Archive SHA-256:
+Provenance file:
 Fresh-runner result:
 ```
 
-The reusable provenance generator can automate much of this metadata; see [Build Provenance](provenance.md).
+The provenance generator automates much of this metadata.
 
 ## 2. Inspect artifact contents
 
@@ -82,17 +86,18 @@ For onefile, inspect both the distribution archive and runtime behavior because 
 
 Do not test only the pre-upload `dist` directory when evaluating a distributable artifact.
 
-For automated CI, Package Desktop and Onefile Acceptance now:
+Current Package Desktop and Onefile Acceptance fresh-runner jobs:
 
-- upload the archive + `.sha256` sidecar;
-- start a new runner;
-- download the named artifact;
-- recompute/verify SHA-256;
+- download the uploaded archive/checksum/provenance artifact;
+- recompute archive size and SHA-256;
+- require provenance archive filename/size/SHA-256 to match;
+- require provenance source/mode/label/trust fields to match workflow expectations;
+- independently verify the `.sha256` sidecar;
 - extract the archive;
 - locate the packaged executable/bundle;
 - execute packaged smoke.
 
-This detects upload/archive/layout/permission corruption that a build-host-only launch cannot.
+This detects upload/archive/layout/provenance/dependency corruption that a build-host-only launch cannot.
 
 ## 4. Launch outside repository
 
@@ -158,7 +163,7 @@ Launch from a different current working directory and verify bundled branding/re
 
 ## 14. Onefile-specific acceptance
 
-Onefile Acceptance now automatically covers native build, real packaged publication smoke, archive/hash, and fresh-runner execution on Windows/macOS/Ubuntu.
+Onefile Acceptance now automatically covers native build, real packaged publication smoke, archive/checksum/provenance, and fresh-runner execution on Windows/macOS/Ubuntu.
 
 Human onefile acceptance should additionally review startup latency, repeated launches, temporary extraction policy/cleanup, restrictive temp storage, endpoint protection reaction, low temp-space behavior, and user-visible crash recovery.
 
@@ -203,25 +208,7 @@ Verify the exact archive hash and compatibility on every claimed distribution/gl
 
 ## 17. Final artifact hash
 
-Generate hashes after the final byte-changing operation. Current CI produces hashes for **unsigned** archives. If signing/notarization/repacking changes bytes, generate new final distribution hashes.
-
-Windows:
-
-```powershell
-Get-FileHash <artifact> -Algorithm SHA256
-```
-
-macOS:
-
-```bash
-shasum -a 256 <artifact>
-```
-
-Linux:
-
-```bash
-sha256sum <artifact>
-```
+Generate hashes after the final byte-changing operation. Current CI produces hashes/provenance for **unsigned** archives. If signing/notarization/repacking changes bytes, generate new final distribution hashes and appropriate final-stage provenance/attestation.
 
 ## 18. Security/privacy inspection
 
@@ -244,11 +231,12 @@ Build mode:
 Python:
 PyInstaller:
 Artifact:
-Artifact SHA-256:
+Archive SHA-256:
+Provenance:
 CI run:
 
 Build-host packaged smoke: PASS/FAIL
-Fresh-runner checksum/extract/smoke: PASS/FAIL
+Fresh-runner provenance/checksum/extract/smoke: PASS/FAIL
 Human clean-machine interactive launch: PASS/FAIL/PENDING
 Representative PDF merge: PASS/FAIL
 Representative DOCX merge: PASS/FAIL
