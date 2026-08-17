@@ -11,6 +11,7 @@ The master specification is larger than a single safe implementation step. Work 
 - Companion-code indexing/copy organization only; no code merging.
 - Reports, checksums, manifest, publishing checklist.
 - CLI, desktop application, branding, CI, and unit/integration/regression coverage.
+- Project publication now uses an outer transaction so mixed PDF/DOCX outputs and their generated reports/checksums/checklists are promoted as one bundle.
 
 ## v0.2.x — Project workflow and ordering — substantially implemented
 - Graphical file-order review/editor before merge.
@@ -18,7 +19,8 @@ The master specification is larger than a single safe implementation step. Work 
 - Filename templates and cross-platform-safe output naming.
 - Dry-run/preflight evidence and storage planning.
 - Output comparison workflow and manuscript audit/preview support.
-- Remaining gate: complete UX/accessibility acceptance of reorder behavior on all supported desktop platforms.
+- Explicit keyboard shortcuts, screen-reader names/descriptions, and search-label buddy navigation are implemented for the order editor.
+- Remaining gate: complete keyboard-only and assistive-technology acceptance of reorder behavior on all supported desktop platforms.
 
 ## v0.3.x — Publication tooling — substantially implemented
 - PDF front-matter generation.
@@ -34,20 +36,25 @@ The master specification is larger than a single safe implementation step. Work 
 - LibreOffice availability is detected, but high-fidelity automation is not production-ready.
 - Microsoft Word capability is detected on Windows, but the high-fidelity adapter is not production-ready.
 - Non-production fidelity modes are rejected explicitly instead of silently falling back.
-- Remaining gate: complete LibreOffice/Word adapters plus risky-construct review and platform fidelity testing.
+- Remaining gate: complete LibreOffice/Word adapters plus risky-construct review and platform fidelity testing. Detection alone must never be represented as production fidelity support.
 
 ## v0.5.x — Desktop completeness and accessibility — substantially implemented / acceptance pending
 - Settings, Help, Recent Projects, Validate, Audit, Compare, Resume, Support, and About entry points are implemented.
 - First-run onboarding is implemented and persisted.
 - Accessible names, text scaling/theme controls, and keyboard-oriented application behavior are present in the desktop codebase.
+- The order editor has automated accessibility-metadata coverage and a headless smoke check that is included in the cross-platform Build Smoke workflow.
 - Light/dark/system theme infrastructure is implemented.
-- Remaining gate: keyboard-only, screen-reader, high-contrast, reduced-motion, scaling, and localization-readiness acceptance testing across supported platforms.
+- Remaining gate: human keyboard-only, screen-reader, high-contrast, reduced-motion, scaling, and localization-readiness acceptance testing across supported platforms. Automated metadata checks are supporting evidence, not a substitute for those tests.
 
 ## v0.6.x+ — Packaging and hardening — in progress
 - Reproducible PyInstaller desktop build helper is implemented.
 - Unsigned cross-platform GitHub Actions packaging workflow foundation is implemented.
 - Build/package argument tests are present.
-- Remaining gate: platform-specific installer/bundle polish, artifact verification, disk-full tests, repeated cancellation/crash recovery, multi-gigabyte stress tests, accessibility stress tests, and release checksum/signing automation.
+- Mixed-format document outputs and publication evidence are staged and batch-promoted transactionally, including rollback of earlier replacements when a later promotion fails.
+- Graceful cancellation has additional engine/finalization checkpoints and repeated cancellation recovery regression coverage.
+- Fault-injected `ENOSPC` coverage verifies atomic temporary-file cleanup and preservation of the previously published target.
+- A scalable synthetic stress-fixture generator and manually dispatchable stress workflow are implemented for measured large-run acceptance.
+- Remaining gate: real filled-filesystem testing, abrupt process-termination/crash recovery, an actually executed multi-gigabyte stress run, large real-world manuscript fidelity runs, accessibility acceptance, platform-specific installer/bundle polish, artifact verification, and release checksum/signing automation.
 - Signed or notarized binaries are not claimed.
 
 ## v1.0.0 quality gate — not yet reached
