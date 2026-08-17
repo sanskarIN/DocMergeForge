@@ -1,29 +1,30 @@
 # Executable Build Documentation
 
-This directory is the complete build and packaging manual for DocMergeForge desktop executables.
+This directory is the canonical build and packaging manual for DocMergeForge desktop executables.
 
-DocMergeForge currently uses **PyInstaller** through the repository helper `scripts/build_desktop.py`. The supported repository build modes are:
+DocMergeForge currently uses **PyInstaller** through `scripts/build_desktop.py`. Supported repository build modes are:
 
 - **onedir** — default distribution/development build mode;
-- **onefile** — optional single-file PyInstaller build with its own cross-platform acceptance workflow;
-- **GitHub Actions unsigned native artifacts** — Windows, macOS, and Linux with packaged publication smoke, SHA-256, archive-bound provenance, and independent fresh-runner verification.
+- **onefile** — optional single-file PyInstaller mode with an independent acceptance workflow;
+- **unsigned native CI artifacts** — Windows, macOS, and Linux archives with packaged publication smoke, archive checksum, archive-bound JSON provenance, CycloneDX SBOM, signed GitHub/Sigstore build provenance, signed CycloneDX predicate, and independent fresh-runner verification.
 
-The repository does **not** currently claim that Windows installers, macOS notarized releases, Linux distro-native packages, or signed production binaries are automatically produced. Those are documented as production distribution steps and remain separate acceptance gates.
+The repository does **not** currently claim production-signed Windows binaries, macOS Developer ID/notarized applications, native installers, or a stable `v1.0.0` release.
 
 > **Made by the Sanskar** · [Buy Me a Coffee](https://buymeacoffee.com/sanskarIN)
 
 ## Build documentation map
 
-1. [Common Build Guide](common.md) — environment preparation, helper commands, build modes, clean builds, output layout, and common verification.
-2. Native platform guide — [Windows](windows.md), [macOS](macos.md), or [Linux](linux.md).
-3. [CI Packaging](ci-packaging.md) — current onedir Package Desktop workflow and artifact behavior.
-4. [Build Provenance](provenance.md) — privacy-safe source/build/dependency metadata bound to exact archive bytes.
-5. [Signing and Notarization](signing-and-notarization.md) — production trust requirements and safe credential handling.
-6. [Executable Verification](verification.md) — build-host, downloaded-artifact, human clean-machine, hash, provenance, and signature acceptance.
-7. [Build Troubleshooting](troubleshooting.md) — packaging/import/resource/Qt/runtime failures.
-8. [Release Build Checklist](release-checklist.md) — repeatable final checklist before publishing any executable.
+1. [Common Build Guide](common.md)
+2. Native guides — [Windows](windows.md), [macOS](macos.md), [Linux](linux.md)
+3. [CI Packaging](ci-packaging.md)
+4. [Build Provenance and SBOM](provenance.md)
+5. [Signing and Notarization](signing-and-notarization.md)
+6. [Executable Verification](verification.md)
+7. [Build Troubleshooting](troubleshooting.md)
+8. [Release Build Checklist](release-checklist.md)
+9. [Release Evidence Ledger](../release-evidence.md)
 
-## Canonical repository build commands
+## Canonical build commands
 
 From the repository root after installing `.[build]`:
 
@@ -32,7 +33,7 @@ python scripts/build_desktop.py --check
 python scripts/build_desktop.py
 ```
 
-Optional one-file build:
+Optional onefile build:
 
 ```bash
 python scripts/build_desktop.py --one-file
@@ -45,27 +46,22 @@ python scripts/build_desktop.py --check --root /path/to/DocMergeForge
 python scripts/build_desktop.py --root /path/to/DocMergeForge
 ```
 
-## What the helper currently packages
+## What the helper packages
 
-The shared configuration in `src/docmergeforge/packaging/desktop.py` currently tells PyInstaller to:
+`src/docmergeforge/packaging/desktop.py` currently configures PyInstaller to:
 
-- use `src/docmergeforge/ui/packaged_entry.py` as the PyInstaller entry point;
-- delegate normal packaged launches to the existing desktop `ui.main` behavior;
-- expose `--packaged-smoke` for deterministic CI acceptance without changing normal `docmergeforge-gui` behavior;
+- use `src/docmergeforge/ui/packaged_entry.py` as the packaged entry point;
+- delegate normal packaged launches to the existing desktop main behavior;
+- expose `--packaged-smoke` for deterministic CI acceptance;
 - name the application `DocMergeForge`;
-- build in windowed mode;
-- clean old PyInstaller analysis state;
-- run non-interactively;
-- collect `docmergeforge` submodules;
-- collect `docxcompose`, `docx`, and `pypdf` package data/submodules;
-- include `assets/branding` when that directory exists;
+- build windowed/clean/non-interactively;
+- collect DocMergeForge plus `docxcompose`, `docx`, and `pypdf` dependencies/data;
+- include `assets/branding` when present;
 - build `--onedir` by default or `--onefile` when requested.
-
-If packaging behavior changes, update both the shared packaging code and this documentation.
 
 ## Native-build rule
 
-PyInstaller is not used here as a general cross-compiler. Build each target on its native OS or a matching CI runner:
+PyInstaller is not used here as a general cross-compiler. Build each target on its matching OS or native CI runner:
 
 | Target | Build host |
 |---|---|
@@ -73,57 +69,67 @@ PyInstaller is not used here as a general cross-compiler. Build each target on i
 | macOS | macOS |
 | Linux | Linux |
 
-Do not describe a Windows executable built on Linux, or a macOS application built on Windows, as a supported repository path unless a separate cross-compilation system is deliberately implemented and tested.
+## Current automated evidence stack
 
-## CI acceptance layers
+Every current unsigned archive carries or is associated with four complementary evidence layers:
 
-### Package Desktop — onedir
+1. `<archive>.sha256` — independent archive checksum;
+2. `<artifact-label>.provenance.json` — privacy-safe source/build identity bound to archive filename, byte size, and SHA-256;
+3. `<artifact-label>.cdx.json` — validated CycloneDX 1.6 **build-environment dependency SBOM** generated with pinned `cyclonedx-bom==7.3.1`;
+4. signed GitHub/Sigstore attestations — one default build-provenance predicate and one CycloneDX predicate for the exact archive.
+
+The CycloneDX document describes the Python build environment used to package the application. It is not represented as a byte-perfect inventory of every component embedded by PyInstaller.
+
+## Package Desktop — onedir
 
 `.github/workflows/package.yml` builds the default onedir package on Windows/macOS/Ubuntu. Each build job:
 
 1. validates packaging configuration;
-2. creates the native PyInstaller application;
-3. runs the packaged mixed PDF+DOCX smoke on the build host;
-4. archives the application;
-5. creates a SHA-256 sidecar;
-6. creates privacy-safe provenance bound to archive filename, byte size, and SHA-256;
-7. uploads archive, sidecar, and provenance together.
+2. builds the native application;
+3. runs the packaged mixed PDF+DOCX smoke;
+4. creates the native archive;
+5. creates `.sha256` and archive-bound JSON provenance;
+6. generates CycloneDX 1.6 JSON;
+7. creates signed build-provenance and CycloneDX SBOM attestations;
+8. uploads archive/checksum/provenance/SBOM.
 
-The workflow then runs a separate **fresh-runner verification** matrix. Those jobs do not check out the repository or install DocMergeForge/Python project dependencies. They download the uploaded artifact, verify source/build/trust/archive provenance, recompute archive SHA-256/size, verify the `.sha256` sidecar, extract the archive, and execute `--packaged-smoke` again. Linux installs only the required system `libegl1` runtime prerequisite.
+A separate fresh-runner matrix downloads only the artifact and must verify:
 
-Verified archive-bound run:
+```bash
+gh attestation verify <archive> --repo sanskarIN/DocMergeForge
 
-```text
-Package Desktop: 32025126032
-Checkpoint: 59107192d494d76a4112cdeaa9a55f01cfe37972
-Windows/macOS/Ubuntu build jobs: PASS
-Windows/macOS/Ubuntu fresh-runner jobs: PASS
+gh attestation verify <archive> \
+  --repo sanskarIN/DocMergeForge \
+  --predicate-type https://cyclonedx.org/bom
 ```
 
-### Onefile Acceptance
+It then independently validates archive-bound JSON provenance, verifies `.sha256`, extracts the archive, and executes the packaged mixed-document smoke again.
 
-`.github/workflows/onefile-acceptance.yml` independently builds `--one-file` on Windows/macOS/Ubuntu and applies the same build-host publication smoke, archive/checksum/provenance upload, and fresh-runner archive-bound verification model.
-
-Verified archive-bound run:
+Verified CycloneDX/two-predicate evidence:
 
 ```text
-Onefile Acceptance: 32025167433
-Checkpoint: b8a181b7138a1bc617766dd3e86c9ab32aade75e
-Windows/macOS/Ubuntu build jobs: PASS
-Windows/macOS/Ubuntu fresh-runner jobs: PASS
+Run:        32033135355
+Checkpoint: 59dc14bbf1d4301177e475ac350694bdd9d90ada
+All Windows/macOS/Ubuntu build and fresh-runner jobs: PASS
 ```
 
-Onedir and onefile are therefore verified as separate distribution surfaces rather than assuming that one mode proves the other.
+## Onefile Acceptance
 
-## Development build versus production distribution
+`.github/workflows/onefile-acceptance.yml` independently applies the same checksum/provenance/CycloneDX/two-attestation/fresh-runner model to `--one-file` packages.
 
-A successful PyInstaller/fresh-runner build still does not automatically equal production distribution.
+Verified evidence:
 
-Production acceptance additionally requires current source/security/recovery/stress/fidelity/accessibility evidence appropriate to the support claim, human interactive testing on representative clean machines, and real signing/notarization when claimed.
+```text
+Run:        32033541414
+Checkpoint: dc624e23d07e0ce94ef345245630d153ee60091a
+All Windows/macOS/Ubuntu build and fresh-runner jobs: PASS
+```
+
+Onedir and onefile are separate distribution surfaces; one does not prove the other.
 
 ## Current unsigned artifact families
 
-Onedir:
+Onedir archives:
 
 ```text
 DocMergeForge-Windows-unsigned.zip
@@ -131,7 +137,7 @@ DocMergeForge-macOS-unsigned.tar.gz
 DocMergeForge-Linux-unsigned.tar.gz
 ```
 
-Onefile:
+Onefile archives:
 
 ```text
 DocMergeForge-Windows-onefile-unsigned.zip
@@ -139,42 +145,29 @@ DocMergeForge-macOS-onefile-unsigned.tar.gz
 DocMergeForge-Linux-onefile-unsigned.tar.gz
 ```
 
-Each automated archive has matching evidence:
+Each workflow artifact also contains matching `.sha256`, `.provenance.json`, and `.cdx.json` evidence files. The names intentionally retain `unsigned`.
 
-```text
-<archive>.sha256
-<artifact-label>.provenance.json
-```
+## Development build versus production distribution
 
-These names are intentionally explicit. Do not rename unsigned artifacts to imply signed production trust.
+A successful PyInstaller build plus fresh-runner checksum/provenance/SBOM/attestation verification is strong automated distribution evidence, but it still does not equal production acceptance.
 
-## Build provenance
+Remaining production-oriented gates include:
 
-The verified provenance implementation is:
+- human interactive clean-machine testing;
+- representative real-world PDF/DOCX fidelity review;
+- human accessibility acceptance;
+- measured multi-gigabyte stress if such scale is claimed;
+- Windows Authenticode/SmartScreen review where distributed;
+- macOS Developer ID signing/notarization/stapling/Gatekeeper review where distributed;
+- intentional installer/container formats and their acceptance;
+- final post-signing/post-notarization hashes, provenance, SBOM, and trust verification;
+- exact post-bundling binary/component inventory if that stronger supply-chain claim is required.
 
-```text
-src/docmergeforge/packaging/provenance.py
-scripts/write_build_provenance.py
-```
+## Final-byte rule
 
-It records allowlisted source/CI/build/dependency metadata without dumping environment secrets or manuscript paths, and binds CI provenance to the exact archive filename/size/SHA-256. Fresh runners recompute and validate those values before executing the downloaded package.
-
-See [Build Provenance](provenance.md) for the exact verified run/artifact evidence.
-
-## Output directories
-
-PyInstaller normally uses repository-local generated directories including:
-
-```text
-build/
-dist/
-```
-
-The exact internal output shape varies by platform and build mode. Always inspect the actual `dist` output on the target OS rather than assuming one platform's layout applies to another.
+Current checksums/provenance/SBOM predicates attest the exact **unsigned archive bytes** created by CI. If signing, notarization, stapling, installer wrapping, or repackaging changes those bytes, generate new evidence for the final distribution artifact. Never reuse unsigned-build hashes or attestations for changed signed bytes.
 
 ## Build source of truth
-
-Current implementation sources include:
 
 ```text
 scripts/build_desktop.py
@@ -187,20 +180,7 @@ pyproject.toml
 .github/workflows/onefile-acceptance.yml
 ```
 
-Documentation is intentionally conservative: if these files do not implement and verify a packaging feature, this manual does not claim that feature is already automated.
-
-## Current remaining executable release gates
-
-Automated native build/download/extract/execute and archive-bound provenance are verified for onedir and onefile. Remaining production-oriented gates include:
-
-- human interactive clean-machine testing;
-- representative real-world PDF/DOCX fidelity review;
-- human accessibility acceptance;
-- measured multi-gigabyte stress appropriate to scale claims;
-- Windows production signing/SmartScreen review where distributed;
-- macOS Developer ID signing/notarization/stapling where distributed;
-- intentional installer/container formats and their acceptance;
-- final post-signing/post-notarization hashes and trust verification.
+Documentation remains conservative: if these files do not implement and verify a behavior, this manual does not claim it is automated.
 
 ## Related documentation
 
