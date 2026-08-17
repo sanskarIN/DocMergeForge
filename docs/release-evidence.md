@@ -180,6 +180,14 @@ Result: PASS for all Windows/macOS/Ubuntu build-host and fresh-runner jobs.
 
 Each native archive is attested with `actions/attest@v4` using job-scoped `id-token`, `attestations`, and `artifact-metadata` write permissions. The generated GitHub Artifact Attestation is signed through GitHub/Sigstore provenance infrastructure and is bound to the exact archive bytes.
 
+Attestation-era artifact-container evidence:
+
+| Platform | Artifact ID | GitHub artifact-container digest |
+|---|---:|---|
+| Windows | `9288984074` | `sha256:a169001b7c76777acc6c30f246498b50c8a735c0fafca9657f7738d50f330ed1` |
+| macOS | `9288934609` | `sha256:e5aff9fc17eec544e395947afe553d5732b8e2af7de9fbfa78ff095a5d92d7f2` |
+| Linux | `9289011135` | `sha256:2e560f8fb8e3869320c998d3967890b8b22d51c98b7cd308e1063af124662008` |
+
 Every separate fresh runner downloads the named workflow artifact and runs:
 
 ```text
@@ -192,9 +200,24 @@ This is cryptographic build-provenance evidence for the current **unsigned devel
 
 ### Optional onefile
 
-Onefile Artifact Attestations are implemented at checkpoint `c42c3cab4083e51255d78730b613af735235494f` using the same least-privilege permissions and fresh-runner `gh attestation verify` model.
+```text
+Run:        32031798935
+Checkpoint: c42c3cab4083e51255d78730b613af735235494f
+```
 
-The onefile attestation workflow is **not recorded as accepted here yet**. Record its run only after all Windows/macOS/Ubuntu build-host and fresh-runner jobs complete successfully.
+Result: PASS for all Windows/macOS/Ubuntu build-host and fresh-runner jobs.
+
+Onefile uses the same least-privilege `actions/attest@v4` permissions and separate fresh-runner `gh attestation verify` model as onedir. Each downloaded onefile archive passed cryptographic attestation verification before archive-bound JSON provenance, checksum validation, extraction, and the packaged mixed PDF+DOCX smoke.
+
+Attestation-era onefile artifact-container evidence:
+
+| Platform | Artifact ID | GitHub artifact-container digest |
+|---|---:|---|
+| Windows | `9289300227` | `sha256:58c0b60c67599181463c33f6efb5e77c86fdd29dbf8f98f3c4af3f91ee28867e` |
+| macOS | `9289251930` | `sha256:ac3e41a5e85891d095053e7d0be5c75a519502c8d0100ea61bfa7614b836cab1` |
+| Linux | `9289257661` | `sha256:d698e261487e756adf5eabbb4e169e99467d16842753a1a0f56341fdd02c1b3b` |
+
+Both repository-supported PyInstaller distribution modes therefore have independent archive checksums, archive-bound privacy-safe JSON provenance, signed GitHub/Sigstore build provenance, and separate native-runner verification of the downloaded bytes.
 
 ## Stress evidence
 
