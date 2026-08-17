@@ -2,6 +2,60 @@
 
 This file records meaningful DocMergeForge development changes, validation evidence, and known limitations. An item is not treated as finished merely because code was pushed; CI, packaging, and acceptance evidence remain part of the completion gate.
 
+## 2026-08-17 — Transaction recovery, stress tooling, accessibility, and output hardening
+
+### Added
+- A project-level publication transaction that stages PDF/DOCX outputs and the generated companion index, reports, manifest, optional checksums, and publishing checklist before one final publication boundary.
+- Durable publication journals written before final-path mutation. Journals record staged-file size/SHA-256 evidence, previous-output state, and rollback-backup names.
+- Explicit interrupted-output recovery through `docmergeforge recover-output --output-dir <path>`.
+- Fail-closed recovery logic that restores known rollback backups, removes newly published files only when their fingerprint proves they belong to the interrupted transaction, and refuses destructive recovery when a final path changed after interruption.
+- Transaction-state protection that blocks a new journaled publication while unresolved recovery evidence is present.
+- Repeated cancellation/recovery regression coverage and simulated interrupted-promotion journal tests.
+- Injected `ENOSPC` coverage for atomic output cleanup and preservation of the last published target.
+- Output-folder writeability probing before expensive project merge work begins, with a dedicated `OutputAccessError` for destination-access failures.
+- A scalable synthetic stress-fixture generator for valid numbered PDF, DOCX, and companion ZIP parts.
+- A manually dispatchable stress-acceptance workflow that generates the selected fixture size, validates expected parts, performs project preflight and merge, compares output evidence, records artifact sizes, and uploads the result bundle.
+- Explicit accessibility names/descriptions across project setup, source selection, order editing, settings, report viewing, recent projects, and merge progress.
+- Keyboard controls for source selection and the order editor, including sorting, move commands, undo/redo, order locking, and restore-auto-order.
+- A headless desktop accessibility smoke script exercised by Build Smoke on Ubuntu, Windows, and macOS.
+
+### Changed
+- PDF and DOCX cancellation checks now continue through later finalization work instead of occurring only between source documents.
+- Mixed PDF/DOCX project runs no longer publish one document format before the other format and its reporting evidence are ready.
+- Report-generation failure before publication now leaves the prior publication bundle untouched.
+- Promotion writes a durable `promoting` journal before replacing final paths and marks it `committed` only after the whole batch succeeds.
+- If automatic rollback itself fails, recovery evidence is deliberately preserved instead of being deleted by context cleanup.
+- Build Smoke, Quality, and 120-Part Regression install the required Linux Qt runtime library before importing PySide6 accessibility tests.
+- Build Smoke now verifies the accessibility smoke and desktop packaging preflight on its full Ubuntu/Windows/macOS matrix.
+
+### Fixed
+- A partial-publication bug where a PDF could already be replaced before a later DOCX failure or cancellation.
+- A publication-evidence skew where merged documents could be replaced before report generation failed.
+- Late cancellation gaps during PDF overlay/finalization and DOCX finalization.
+- Transaction rollback cleanup paths that could otherwise lose recovery evidence after an incomplete rollback.
+- A strict-`mypy` type error in journal backup lookup found by final-head Quality CI.
+- Ubuntu CI failures caused by PySide6 requiring `libEGL.so.1`; the Linux workflows now install `libegl1` explicitly.
+- Late output-permission failures that previously could occur despite a successful free-space estimate.
+
+### Verified CI Evidence
+- Hardening checkpoint: `82fe37725a2ae4e71678903c4d67fdff40d819e4`.
+- Quality run `32014319266` passed on Python 3.12 and Python 3.13. Ruff, Black, strict `mypy`, and full pytest with coverage all passed on both matrix jobs.
+- 120-Part Regression run `32014319264` passed, including generated 120-part fixture creation, regression/integration tests, and CLI validation of Parts 1–120.
+- Build Smoke run `32014319394` passed on Ubuntu, Windows, and macOS. Each configured platform completed source compilation, CLI smoke, headless accessibility smoke, and desktop packaging preflight.
+- Security run `32014319291` completed CodeQL successfully. Dependency review was skipped because this was a push rather than a pull request.
+- Earlier recovery checkpoint `3a38ae64d5a96f76f8557f4443e372c9a4e35871` also passed Quality run `32012033604`, 120-Part Regression run `32012033657`, and Security run `32012033644` before the later journal/accessibility/writeability work was added.
+
+### Remaining Release-Gate Work
+- Execute and record an actual multi-gigabyte stress run. The scalable workflow exists, but no multi-gigabyte acceptance claim is made yet.
+- Perform a real filled-filesystem/disk-exhaustion acceptance run. Injected `ENOSPC` unit coverage is not the same as filling the destination filesystem.
+- Perform real forced-process-termination testing at multiple promotion points and on supported filesystems. Simulated journal states prove recovery logic paths but do not replace killing a real process during promotion.
+- Add cross-process single-writer locking if concurrent independent DocMergeForge processes must be prevented from staging/promoting into the same output directory at the same time. The current journal blocks an already-journaled pending transaction but is not represented as a complete multi-process lock.
+- Complete production-ready LibreOffice and Microsoft Word high-fidelity DOCX adapters with representative fidelity acceptance. Capability detection alone remains intentionally insufficient.
+- Run large real-world manuscript fidelity acceptance with complex styles, sections, tables, images, headers/footers, numbering, links, fields, and other PDF/OOXML structures.
+- Complete human keyboard-only, screen-reader, high-contrast, reduced-motion, text-scaling, and localization-readiness acceptance. Automated accessibility metadata/smoke checks are supporting evidence only.
+- Exercise real packaged desktop artifacts on their target platforms and complete installer/bundle polish, release-artifact verification, checksums, signing, and macOS notarization before any signed-production claim.
+- `v1.0.0` remains gated on the full acceptance matrix; this work does not claim signed/notarized production binaries or stable-release completion.
+
 ## 2026-08-16 — Packaging preflight and continuously exercised release gates
 
 ### Added
