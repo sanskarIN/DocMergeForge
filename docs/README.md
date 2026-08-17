@@ -42,12 +42,25 @@ This directory is the canonical documentation set for DocMergeForge. It covers e
 - [Accessibility](accessibility.md)
 - [Known Limitations](known-limitations.md)
 
-## Building, testing, and releasing
+## Building executables
+
+- **[Complete Executable Build Manual](build/README.md)** — canonical build portal.
+- [Building Executables Overview](building-executables.md)
+- [Common Build Guide](build/common.md)
+- [Windows Executable Build Guide](build/windows.md)
+- [macOS Executable Build Guide](build/macos.md)
+- [Linux Executable Build Guide](build/linux.md)
+- [CI Packaging Guide](build/ci-packaging.md)
+- [Signing and Notarization](build/signing-and-notarization.md)
+- [Executable Verification](build/verification.md)
+- [Executable Build Troubleshooting](build/troubleshooting.md)
+- [Executable Release Build Checklist](build/release-checklist.md)
+
+## Development, testing, and releasing
 
 - [Development Guide](development.md)
 - [Testing and CI](testing-and-ci.md)
 - [Stress Testing](stress-testing.md)
-- [Building Executables](building-executables.md)
 - [Release Packaging](release-packaging.md)
 - [Release Process](release-process.md)
 - [Operator Runbook](operator-runbook.md)
@@ -94,5 +107,7 @@ DocMergeForge currently exposes:
 ## Documentation accuracy policy
 
 Documentation should describe implemented behavior, not aspirational behavior. Features that are capability-detected but not production-ready—such as high-fidelity LibreOffice or Microsoft Word automation—must remain clearly marked as incomplete until their adapters and acceptance tests are finished.
+
+Executable documentation follows the same rule: current PyInstaller and unsigned CI packaging are documented as implemented, while code signing, notarization, and native installer formats remain explicit production steps until corresponding automation and acceptance exist.
 
 When code changes behavior, update the relevant guide and `what_changed.md` in the same development cycle.
