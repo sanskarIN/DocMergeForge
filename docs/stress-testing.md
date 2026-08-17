@@ -1,58 +1,81 @@
 # Stress and Recovery Acceptance
 
-DocMergeForge uses layered stress/recovery testing because a fast 120-part synthetic regression and a multi-gigabyte publication exercise different failure modes. The project intentionally does **not** claim a workload class until a measured run at that class has completed and its evidence is recorded.
+DocMergeForge uses layered stress/recovery testing because a fast 120-part synthetic regression, filesystem failure tests, and a multi-gigabyte publication exercise different failure modes. The project intentionally does **not** claim a workload class until a measured run at that class has completed and its evidence is recorded.
 
 ## Goals
 
-Stress acceptance should answer:
-
-- Can discovery/hash/validation handle the target part count?
-- Can PDF composition handle the target total page count/bytes?
-- Can DOCX composition handle the target document count/payload/OOXML complexity?
-- Is memory/runtime behavior acceptable on supported machines?
-- Is preflight storage estimation operationally useful?
-- Does cancellation remain responsive during long finalization stages?
-- Does a failed/cancelled run leave no falsely published bundle?
-- Can an interrupted promotion be recovered safely?
-- Are reports/checksums/manifests generated at scale?
-- Do output comparison/validation still complete?
+Stress acceptance should answer whether discovery/hash/validation, PDF/DOCX composition, storage planning, cancellation, transactional publication, recovery, reporting, comparison, and resource usage remain acceptable at the claimed scale.
 
 ## Continuous automated regression
 
-The normal test suite and 120-Part Regression workflow continuously exercise smaller deterministic fixtures.
+The normal test suite and 120-Part Regression workflow continuously exercise smaller deterministic fixtures. Coverage includes natural numbered discovery, Parts 1–120 validation, PDF/DOCX integration, transaction rollback/recovery, repeated cancellation cleanup, source-integrity enforcement, disk-full paths, and accessibility integration tests.
 
-Coverage includes concepts such as:
+## Cross-platform controlled crash recovery
 
-- natural numbered discovery;
-- complete Parts 1–120 validation;
-- PDF/DOCX integration;
-- transaction rollback/recovery;
-- repeated cancellation cleanup;
-- source-integrity enforcement;
-- storage/disk-full injected failures;
-- accessibility integration tests.
+Recovery is no longer represented only by simulated journal states.
 
-These are fast enough to run on normal development events.
+Workflow:
 
-## Repeated transaction recovery regression
+```text
+.github/workflows/recovery-acceptance.yml
+```
 
-The regression suite includes repeated cancelled publication transactions followed by a successful transaction. This is designed to detect:
+Name:
 
-- stale staging directories;
-- accidental replacement of the last published bundle;
-- cleanup problems accumulating across repeated runs;
-- cancellation/recovery regressions.
+```text
+Recovery Acceptance
+```
 
-Repeated tests matter because cleanup defects can remain invisible in a single isolated failure.
+The workflow runs a real child Python process on Windows, macOS, and Ubuntu. The child owns an `OutputTransaction` and terminates with `os._exit()` at one of three controlled promotion boundaries, bypassing normal Python context-manager cleanup:
 
-## Injected disk exhaustion
+1. after the first existing final output is moved to its rollback backup;
+2. after the first new output is promoted to its final path;
+3. after the last new output is promoted but before the journal can be marked `committed`.
 
-Unit coverage injects an `ENOSPC`-style write failure and checks that:
+The parent test then verifies:
 
-- the prior published file remains preserved;
-- temporary atomic `.part` files are cleaned where safe.
+- the expected abrupt exit occurred;
+- a pending `promoting` journal remains;
+- public recovery acquires the released OS-level output lock;
+- the previous PDF/report publication is restored coherently;
+- pending transaction evidence is removed after successful rollback;
+- the output-directory lock can be acquired again.
 
-This is valuable deterministic coverage but remains different from filling a real filesystem while a full multi-output transaction is active.
+Recovery Acceptance run `32022863454` passed all three crash phases on Windows, macOS, and Ubuntu.
+
+This is real controlled process-termination acceptance on local GitHub-hosted filesystems. It does **not** simulate physical power failure, storage-controller/device removal, filesystem corruption, or multi-host network-lock behavior.
+
+## Real Linux filesystem exhaustion
+
+The project also has real filesystem exhaustion evidence rather than only an injected exception.
+
+Workflow:
+
+```text
+.github/workflows/disk-full-acceptance.yml
+```
+
+Name:
+
+```text
+Disk Full Acceptance
+```
+
+On Ubuntu, the workflow mounts an isolated 32 MiB `tmpfs` under the runner temporary directory. `scripts/check_disk_full_recovery.py` has a safety guard that refuses intentional filling when the target filesystem has more than 128 MiB free. On the isolated tmpfs it:
+
+1. writes a known previous published target;
+2. enters the real `atomic_output()` path;
+3. writes, flushes, and fsyncs 1 MiB chunks until the kernel returns `errno.ENOSPC`;
+4. verifies the previous published target is unchanged;
+5. verifies no atomic `.part` residue remains.
+
+Corrected Disk Full Acceptance run `32023666826` passed at checkpoint `54389ad98cb0725a78d820ca58d9fe58b331ecd5`.
+
+This proves real Linux tmpfs exhaustion behavior for the atomic-output path. It does not automatically prove NTFS, APFS, removable storage, network shares, or every Linux filesystem.
+
+## Injected disk exhaustion still matters
+
+Unit coverage also injects an `ENOSPC`-style write failure. Deterministic fault injection remains useful because it is fast and can target exact exception paths on every normal test run. The real tmpfs workflow complements rather than replaces those unit tests.
 
 ## Generate a scalable synthetic fixture locally
 
@@ -67,59 +90,32 @@ python scripts/generate_stress_fixture.py fixtures/stress \
   --paragraph-kib 1
 ```
 
-The generator creates for every part:
+The generator creates a valid deterministic PDF, valid deterministic DOCX, and separate companion ZIP for every part. It reports generated source bytes so acceptance records use measured size rather than a guessed “large” label.
 
-- a valid deterministic PDF;
-- a valid deterministic DOCX;
-- a companion ZIP kept separate from manuscript inputs.
-
-It reports generated source bytes so acceptance records can use measured size instead of a guessed label such as “large.”
-
-## Useful local sequence
-
-After generation:
+## Useful local stress sequence
 
 ```bash
-docmergeforge validate \
-  --input fixtures/stress \
-  --parts 1-120
-```
+docmergeforge validate --input fixtures/stress --parts 1-120
 
-Create project:
-
-```bash
 docmergeforge project-create \
   --input fixtures/stress \
   --output-dir artifacts/stress \
   --project-file stress-project.json \
   --name "Stress Fixture" \
   --parts 1-120
-```
 
-Preflight:
-
-```bash
 docmergeforge merge --project stress-project.json --dry-run
-```
-
-Merge:
-
-```bash
 docmergeforge merge --project stress-project.json
-```
 
-Compare:
-
-```bash
 docmergeforge compare \
   --input fixtures/stress \
   --pdf-output artifacts/stress/Stress_Fixture_Master.pdf \
   --docx-output artifacts/stress/Stress_Fixture_Master.docx
 ```
 
-Record output file sizes and elapsed/resource observations if they matter to the acceptance target.
+Record output sizes plus elapsed/resource observations when they matter to the acceptance target.
 
-## Manual GitHub Actions workflow
+## Manual GitHub Actions stress workflow
 
 Workflow:
 
@@ -135,121 +131,38 @@ Manual Stress Acceptance
 
 It is intentionally manual so large generated files do not make every PR/push expensive.
 
-### Inputs
+Inputs:
 
-`parts`
-: Number of numbered PDF/DOCX parts. Default `120`.
+- `parts` — numbered PDF/DOCX part count, default `120`;
+- `pdf_pages` — pages per PDF part, default `5`;
+- `docx_paragraphs` — paragraphs per DOCX part, default `50`;
+- `paragraph_kib` — approximate deterministic payload KiB per paragraph, default `1`.
 
-`pdf_pages`
-: PDF pages generated per part. Default `5`.
+Current environment is Ubuntu latest, Python 3.12, maximum 120-minute job timeout, with `.[dev]` installed.
 
-`docx_paragraphs`
-: DOCX paragraphs per part. Default `50`.
+The workflow generates the fixture, validates numbered inputs, creates a project, runs preflight/merge/compare, records artifact sizes, and uploads `docmergeforge-stress-<parts>-parts` for short-term inspection.
 
-`paragraph_kib`
-: Approximate deterministic payload KiB per DOCX paragraph. Default `1`.
+## Current multi-gigabyte status
 
-The local fixture generator also supports `--pdf-lines-per-page`; the current GitHub workflow uses the generator default for that option.
+No measured multi-gigabyte Stress Acceptance result is currently claimed.
 
-## Workflow environment
+The workflow exists, but the connected GitHub tooling available in the current development session does not expose workflow dispatch. Therefore the project record deliberately does not invent a stress run ID or size result.
 
-Current manual stress job:
-
-- Ubuntu latest GitHub runner;
-- Python 3.12;
-- maximum workflow timeout: 120 minutes;
-- installs `.[dev]`.
-
-A run that times out is not a successful acceptance result. Record it as a scale/resource limit for that runner configuration.
-
-## Workflow steps
-
-The workflow currently:
-
-1. checks out source;
-2. sets up Python/pip cache;
-3. installs developer dependencies;
-4. generates scalable fixture;
-5. validates all numbered inputs using `1-<parts>`;
-6. creates a generic `Stress Fixture` project;
-7. runs project preflight;
-8. merges the stress project;
-9. compares PDF/DOCX outputs to source evidence;
-10. runs `du -ah`/sort to record artifact sizes;
-11. uploads `artifacts/stress`.
-
-## Artifact retention
-
-Manual stress output is uploaded as:
-
-```text
-docmergeforge-stress-<parts>-parts
-```
-
-with current retention:
-
-```text
-7 days
-```
-
-If a run is release-gate evidence, preserve its important measurements/hashes/run ID outside short-retention workflow artifacts.
+To claim multi-gigabyte acceptance, run the manual workflow at parameters whose **reported generated source byte total** meets the intended class and record the successful evidence.
 
 ## Scaling methodology
 
-Increase one dimension at a time so failures are diagnosable.
+Increase one dimension at a time so failures remain diagnosable:
 
-### Stage 1 — part-count scaling
+1. **part-count scaling** — scanner/hash/validation/report overhead;
+2. **PDF page scaling** — page append/overlay/compression/validation;
+3. **DOCX paragraph scaling** — composition/structure overhead;
+4. **DOCX byte-payload scaling** — ZIP/XML memory/save/reopen pressure;
+5. **combined target class** — realistic release workload.
 
-Keep each part small while increasing `parts`.
+Do not jump directly to an extreme combination without knowing which dimension creates the bottleneck.
 
-Measures:
-
-- scanner/hash overhead;
-- numbered validation performance;
-- project/report index scale;
-- relationship between part count and DOCX composition overhead.
-
-### Stage 2 — PDF page scaling
-
-Keep DOCX payload modest while increasing `pdf_pages`.
-
-Measures:
-
-- PDF writer page count;
-- overlay/compression finalization loops;
-- cancellation responsiveness;
-- output validation time.
-
-### Stage 3 — DOCX paragraph scaling
-
-Increase `docx_paragraphs` while keeping each paragraph small.
-
-Measures:
-
-- document XML/paragraph composition scale;
-- generated heading/page-break overhead;
-- structural comparison time.
-
-### Stage 4 — DOCX byte-payload scaling
-
-Increase `paragraph_kib`.
-
-Measures:
-
-- ZIP/XML size;
-- memory pressure;
-- save/reopen behavior;
-- hash/storage/report overhead.
-
-### Stage 5 — combined target class
-
-Run the intended release workload class with realistic combined values.
-
-Do not jump straight to an extreme combination without knowing which dimension creates the bottleneck.
-
-## Multi-gigabyte claims
-
-To claim multi-gigabyte acceptance, record an actual run whose **generated source byte total** meets the stated scale and successfully completes the relevant workflow.
+## Multi-gigabyte evidence record
 
 Record at minimum:
 
@@ -267,7 +180,6 @@ reported source bytes
 free bytes before run
 final PDF size
 final DOCX size
-report/evidence sizes
 validation result
 compare result
 runtime/resource observations
@@ -279,132 +191,56 @@ artifact hashes
 
 ## Real-world fidelity stress corpus
 
-Synthetic repeated text does not exercise real OOXML/PDF complexity.
+Synthetic repeated text does not exercise real OOXML/PDF complexity. A privacy-safe fidelity corpus should combine large images, tables, numbering/styles, multiple sections/page geometries, headers/footers, links, fields/TOC, equations/content controls/custom XML where applicable, and PDF annotations/forms when publication requires preservation.
 
-Maintain a privacy-safe corpus containing combinations such as:
-
-- large images;
-- many tables;
-- nested/complex numbering;
-- many styles;
-- sections with different page size/orientation;
-- headers/footers;
-- hyperlinks;
-- footnotes/endnotes;
-- fields/TOC;
-- equations;
-- content controls/custom XML where applicable;
-- large PDF page trees;
-- mixed PDF page geometries;
-- annotations/forms where publication requires preservation.
-
-A stable release should have both scale stress and structural fidelity stress evidence.
+A stable release should have both scale stress and structural fidelity evidence.
 
 ## Cancellation stress
 
-Test cancellation at different phases:
+Test cancellation during discovery/validation, PDF append/finalization, DOCX append/finalization, report generation, and immediately before transaction promotion.
 
-- early discovery/validation;
-- midway through PDF source append;
-- PDF overlay/finalization loop;
-- midway through DOCX append;
-- DOCX finalization/save;
-- report generation;
-- immediately before final transaction promotion.
+After cancellation, verify the previous final publication remains unchanged, no partial final bundle appears, ordinary staging is cleaned where safe, no unresolved journal exists unless promotion actually began, and a later fresh run succeeds.
 
-After each cancellation:
+## Remaining physical/environmental recovery tests
 
-- previous final publication remains unchanged;
-- no new partial final bundle appears;
-- ordinary staging is cleaned where safe;
-- no unresolved journal is created unless promotion actually began;
-- a subsequent fresh run succeeds.
+Controlled `os._exit()` recovery is now verified, but separate tests remain appropriate where support claims require them:
 
-## Real abrupt-termination recovery
+- machine/power loss during storage flush;
+- storage-device disconnect;
+- filesystem corruption or unavailable mount;
+- SMB/NAS/cloud-mounted behavior;
+- multi-host advisory locking semantics;
+- Windows/macOS-specific real filesystem exhaustion.
 
-Automated tests simulate interrupted journal states, but release acceptance should also include real process termination on disposable data.
-
-Example test plan:
-
-1. create an output folder with known previous PDF/DOCX/report bundle;
-2. start a sufficiently large overwrite publication;
-3. terminate the process during final promotion (using controlled instrumentation/test hook if needed to make timing reproducible);
-4. restart/inspect output folder;
-5. confirm pending transaction detection blocks a new merge;
-6. run `recover-output`;
-7. verify previous bundle hashes are restored coherently;
-8. rerun publication successfully.
-
-Do this only on synthetic/backed-up fixtures.
-
-## Real filesystem-full acceptance
-
-A real low-space test should use a disposable filesystem/container/volume rather than risking the developer's main disk.
-
-Verify:
-
-- preflight blocks obviously insufficient space;
-- if free space disappears after preflight, the merge fails safely;
-- previous final outputs are preserved/restorable;
-- transaction evidence is not lost;
-- recovery succeeds after space is restored;
-- no false success is reported.
+Use only disposable or fully backed-up fixtures for destructive environmental tests.
 
 ## Network/removable-storage acceptance
 
-If the product intends to support publishing directly to SMB/NAS/removable/cloud-mounted filesystems, test those explicitly.
+If direct publication to SMB/NAS/removable/cloud-mounted filesystems is intended, test those environments explicitly. Rename/replace/locking semantics and interruption behavior can differ from local disk.
 
-Filesystem rename/replace/locking semantics and interruption behavior can differ from local disk.
-
-A safer operational recommendation is to merge on local disk and copy verified final artifacts afterward unless network/filesystem acceptance is documented.
+A safer operational recommendation remains: merge on local disk and copy verified final artifacts afterward unless direct-network acceptance is documented.
 
 ## Memory/resource observations
 
-The current workflow records file sizes but does not automatically publish a formal memory/CPU benchmark report.
-
-For performance claims, add measured instrumentation rather than estimating. Possible metrics:
-
-- peak RSS;
-- elapsed time by stage;
-- CPU utilization;
-- bytes read/written;
-- temporary peak disk usage.
-
-Performance metrics should be tied to exact hardware/runner/environment.
+The current manual stress workflow records file sizes but does not yet publish a formal peak-memory/CPU benchmark report. Performance claims should use measured instrumentation such as peak RSS, elapsed time by stage, CPU utilization, bytes read/written, and temporary peak disk usage, tied to exact runner/hardware context.
 
 ## Stress pass criteria
 
-A target stress run passes only when:
-
-- fixture generation completes;
-- expected numbered validation passes;
-- preflight passes;
-- merge completes without timeout/uncaught failure;
-- project transaction commits;
-- outputs reopen/validate;
-- compare evidence is reviewed/acceptable;
-- publication evidence exists;
-- no stale transaction directory remains;
-- reported bytes meet the claimed workload class;
-- human fidelity checks pass for real-world corpus runs.
+A target scale run passes only when fixture generation, expected numbered validation, preflight, merge transaction, output reopen/validation, compare evidence, publication evidence, and staging cleanup all succeed and the measured bytes actually meet the claimed workload class. Real-world fidelity runs additionally require human review.
 
 ## Release evidence
 
-Add significant successful/failed acceptance results to the release-development record (`what_changed.md`) without overstating what the run proves.
-
-Examples:
+Record significant successful/failed acceptance results in `what_changed.md` without overstating what each run proves.
 
 Good:
 
 > “Synthetic stress run generated 3.4 GiB of source data on Ubuntu runner and completed validation/merge/compare.”
 
-Not supported without evidence:
+Unsupported without evidence:
 
 > “DocMergeForge handles unlimited file sizes.”
 
-## Remaining acceptance distinction
-
-Keep these separate:
+## Acceptance categories to keep separate
 
 - synthetic regression;
 - scalable synthetic stress;
@@ -413,7 +249,8 @@ Keep these separate:
 - injected disk-full;
 - real filesystem exhaustion;
 - simulated interrupted promotion;
-- real process termination;
+- controlled real process termination;
+- physical/storage-disconnect recovery;
 - packaged-app stress.
 
-A stable release should record which of these were actually performed for the supported platform/workload claims.
+A stable release record should state exactly which categories were performed for each support/workload claim.
