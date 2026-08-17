@@ -118,8 +118,9 @@ def test_output_transaction_rejects_target_outside_destination(tmp_path: Path) -
     output = tmp_path / "output"
     outside = tmp_path / "outside.pdf"
 
-    with OutputTransaction(output) as transaction, pytest.raises(
-        ValueError, match="must stay inside"
+    with (
+        OutputTransaction(output) as transaction,
+        pytest.raises(ValueError, match="must stay inside"),
     ):
         transaction.stage(outside, overwrite=True)
 
@@ -254,7 +255,8 @@ def test_pending_journal_blocks_new_transaction(tmp_path: Path) -> None:
     transaction_folder.mkdir()
     (transaction_folder / JOURNAL_FILENAME).write_text("{}", encoding="utf-8")
 
-    with pytest.raises(
-        TransactionRecoveryError, match="Recover it before starting"
-    ), OutputTransaction(tmp_path):
+    with (
+        pytest.raises(TransactionRecoveryError, match="Recover it before starting"),
+        OutputTransaction(tmp_path),
+    ):
         pass
