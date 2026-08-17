@@ -157,3 +157,86 @@ jobs:
         run: >-
           echo "These CI artifacts are unsigned development builds. Code signing and notarization
           must be configured with platform credentials before production distribution."
+
+  fresh-runner-verification:
+    name: fresh-runner verification (${{ matrix.os }})
+    needs: package
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: DocMergeForge-Windows-unsigned
+            archive: DocMergeForge-Windows-unsigned.zip
+          - os: macos-latest
+            artifact: DocMergeForge-macOS-unsigned
+            archive: DocMergeForge-macOS-unsigned.tar.gz
+          - os: ubuntu-latest
+            artifact: DocMergeForge-Linux-unsigned
+            archive: DocMergeForge-Linux-unsigned.tar.gz
+
+    steps:
+      - name: Download packaged artifact only
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: artifact
+
+      - name: Install Linux runtime prerequisite
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1
+
+      - name: Verify and launch Windows downloaded artifact
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = Join-Path "artifact" "${{ matrix.archive }}"
+          $sidecar = "$archive.sha256"
+          $expected = ((Get-Content $sidecar).Trim() -split '\s+')[0].ToLowerInvariant()
+          $actual = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) {
+            throw "Downloaded Windows archive SHA-256 mismatch"
+          }
+          Expand-Archive -Path $archive -DestinationPath "extracted"
+          $exe = Get-ChildItem -Path "extracted" -Recurse -Filter "DocMergeForge.exe" | Select-Object -First 1
+          if ($null -eq $exe) {
+            throw "Could not locate DocMergeForge.exe in downloaded artifact"
+          }
+          $process = Start-Process -FilePath $exe.FullName -ArgumentList "--packaged-smoke" -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "Fresh-runner Windows packaged smoke failed with exit code $($process.ExitCode)"
+          }
+
+      - name: Verify and launch macOS downloaded artifact
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          cd artifact
+          shasum -a 256 -c "${{ matrix.archive }}.sha256"
+          mkdir ../extracted
+          tar -xzf "${{ matrix.archive }}" -C ../extracted
+          cd ..
+          executable="$(find extracted -type f -path '*/Contents/MacOS/DocMergeForge' -perm -111 -print -quit)"
+          if [ -z "$executable" ]; then
+            executable="$(find extracted -type f -name DocMergeForge -perm -111 -print -quit)"
+          fi
+          if [ -z "$executable" ]; then
+            echo "Could not locate packaged macOS executable" >&2
+            find extracted -maxdepth 6 -type f -print
+            exit 1
+          fi
+          QT_QPA_PLATFORM=offscreen "$executable" --packaged-smoke
+
+      - name: Verify and launch Linux downloaded artifact
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          cd artifact
+          sha256sum -c "${{ matrix.archive }}.sha256"
+          mkdir ../extracted
+          tar -xzf "${{ matrix.archive }}" -C ../extracted
+          cd ..
+          QT_QPA_PLATFORM=offscreen extracted/DocMergeForge/DocMergeForge --packaged-smoke
