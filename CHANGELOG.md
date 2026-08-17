@@ -5,6 +5,8 @@ All notable changes follow semantic versioning.
 ## [Unreleased]
 
 ### Documentation
+- Added a dedicated `docs/build/` executable-build manual with a central portal, shared environment/build procedure, complete Windows/macOS/Linux native build guides, CI packaging reference, signing/notarization requirements, packaged-app verification matrix, build troubleshooting, and release go/no-go checklist.
+- Converted `docs/building-executables.md` into the canonical entry point for the complete executable manual and linked all build guides from `docs/README.md`.
 - Added a canonical `docs/README.md` documentation portal covering the complete user, operator, contributor, architecture, engine, safety, packaging, and release documentation set.
 - Added complete installation, getting-started, desktop-user, CLI-reference, project-file, discovery/ordering, validation/preflight, output-artifact, publication-recovery, companion-code, audit/compare, settings, diagnostics, security, accessibility, development, testing/CI, executable-building, release-process, operator-runbook, FAQ, glossary, support, and known-limitations guides.
 - Expanded the existing architecture, PDF engine, DOCX engine, privacy, release-packaging, SQL Full Mastery preset, troubleshooting, and stress-testing documentation to match the current implementation.
