@@ -1,30 +1,47 @@
 # Building Executables
 
-DocMergeForge includes a reproducible PyInstaller helper for producing desktop development builds on Windows, macOS, and Linux. The default build is an **onedir** application; an optional **one-file** build is also supported.
+This is the canonical entry point for building DocMergeForge desktop executable artifacts.
 
-The current packaging foundation creates unsigned development artifacts. Signing, notarization, installer creation, and final distribution acceptance are separate release steps.
+The complete executable-build manual is split into focused guides under [`docs/build/`](build/README.md) so platform-specific details, signing requirements, verification, and troubleshooting are not compressed into a single page.
 
-## Supported build hosts
+> **Made by the Sanskar** · [Buy Me a Coffee](https://buymeacoffee.com/sanskarIN)
 
-The repository packaging matrix currently targets:
+## Complete manual
 
-- Windows (`windows-latest`);
-- macOS (`macos-latest`);
-- Linux (`ubuntu-latest`).
+Follow these in order:
 
-Build each platform artifact on its native platform/runner. PyInstaller is not a general cross-compiler: a Windows host should build the Windows app, macOS should build macOS, and Linux should build Linux.
+1. [Executable Build Documentation Portal](build/README.md)
+2. [Common Build Guide](build/common.md)
+3. Native platform:
+   - [Windows Build Guide](build/windows.md)
+   - [macOS Build Guide](build/macos.md)
+   - [Linux Build Guide](build/linux.md)
+4. [CI Packaging Guide](build/ci-packaging.md)
+5. [Signing and Notarization](build/signing-and-notarization.md)
+6. [Executable Verification](build/verification.md)
+7. [Build Troubleshooting](build/troubleshooting.md)
+8. [Release Build Checklist](build/release-checklist.md)
 
-## Requirements
+## Repository-supported build modes
 
-- Python 3.12 recommended for parity with packaging CI.
-- Repository checkout containing `pyproject.toml`.
-- `src/docmergeforge/ui/main.py` present.
-- Build dependencies installed.
-- Platform runtime/build prerequisites available.
+DocMergeForge currently uses PyInstaller through:
 
-## Prepare a clean environment
+```text
+scripts/build_desktop.py
+src/docmergeforge/packaging/desktop.py
+```
 
-From the repository root:
+Supported repository build modes:
+
+- `--onedir` by default;
+- `--onefile` through `--one-file`;
+- unsigned GitHub Actions onedir archives for Windows/macOS/Linux.
+
+Production code signing, macOS notarization, and native installer/package formats are documented release steps but are not currently automated repository claims.
+
+## Minimum local build
+
+From a clean repository checkout:
 
 ```bash
 python -m venv .venv
@@ -44,218 +61,96 @@ macOS/Linux:
 source .venv/bin/activate
 ```
 
-Install packaging dependencies:
+Install:
 
 ```bash
 python -m pip install --upgrade pip
 pip install -e ".[build]"
 ```
 
-This installs the application plus PyInstaller through the declared `build` optional dependency.
-
-## Always run packaging preflight first
+Run packaging preflight:
 
 ```bash
 python scripts/build_desktop.py --check
 ```
 
-Expected success message:
-
-```text
-Desktop build configuration OK: <repository-root>
-```
-
-The preflight verifies the build root contains required repository inputs rather than failing later inside PyInstaller.
-
-You can validate another checkout/root explicitly:
-
-```bash
-python scripts/build_desktop.py --check --root "/path/to/DocMergeForge"
-```
-
-## Default onedir build
-
-Run:
+Build recommended onedir artifact:
 
 ```bash
 python scripts/build_desktop.py
 ```
 
-The helper constructs PyInstaller arguments for:
-
-- entry point `src/docmergeforge/ui/main.py`;
-- app name `DocMergeForge`;
-- windowed mode;
-- clean/noninteractive build;
-- `docmergeforge` submodule collection;
-- `docxcompose`, `docx`, and `pypdf` data/submodule collection;
-- `assets/branding` inclusion when present;
-- `--onedir` output by default.
-
-Typical generated locations:
-
-```text
-build/
-dist/DocMergeForge/
-```
-
-The exact executable/bundle structure is platform-specific.
-
-## One-file build
+Optional one-file:
 
 ```bash
 python scripts/build_desktop.py --one-file
 ```
 
-This replaces `--onedir` with PyInstaller `--onefile`.
+## Exact current packaging intent
 
-One-file packaging can have different startup/runtime extraction behavior. Treat it as a separate acceptance target and test it on the real OS rather than assuming parity with onedir.
+The shared helper currently configures PyInstaller to:
 
-## Windows build
+- use `src/docmergeforge/ui/main.py`;
+- name the application `DocMergeForge`;
+- use windowed mode;
+- use clean/noninteractive packaging;
+- collect all `docmergeforge` submodules;
+- collect `docxcompose`, `docx`, and `pypdf` package content;
+- include `assets/branding` when present;
+- emit onedir by default or onefile when selected.
 
-### Local build
+## Build natively
 
-PowerShell:
+PyInstaller is not treated as a general cross-compiler in this project.
 
-```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -e ".[build]"
-python scripts/build_desktop.py --check
-python scripts/build_desktop.py
-```
+| Target | Supported build host/runner |
+|---|---|
+| Windows | Windows |
+| macOS | macOS |
+| Linux | Linux |
 
-Then inspect:
+Use the platform guide for exact commands and acceptance requirements.
+
+## What a successful PyInstaller command proves
+
+It proves that PyInstaller completed on that build host.
+
+It does **not** by itself prove:
+
+- the artifact launches on a clean machine;
+- PDF/DOCX merging works from the packaged app;
+- recovery works from the packaged app;
+- onefile behaves like onedir;
+- Windows Authenticode signing is valid;
+- macOS Developer ID/notarization is valid;
+- Linux runtime compatibility spans all distributions;
+- an installer/package works;
+- the artifact is ready for stable release.
+
+Use [Executable Verification](build/verification.md) before distribution.
+
+## Current CI packaging
+
+Workflow:
 
 ```text
-dist\DocMergeForge\
+.github/workflows/package.yml
 ```
-
-Launch the generated executable from a normal non-admin account.
-
-### Windows acceptance checklist
-
-- app starts without a console window unexpectedly appearing;
-- branding assets load;
-- create/open project works;
-- file/folder dialogs work;
-- PDF merge works;
-- DOCX merge works;
-- encrypted PDF prompt works;
-- reports open/display;
-- cancellation/recovery path works;
-- long/Unicode/space-containing paths work;
-- app works from a non-development machine or clean VM;
-- Windows Defender/SmartScreen behavior is reviewed;
-- final installer/executable is code-signed before production distribution.
-
-### Windows installer
-
-The repository currently builds a PyInstaller directory/archive foundation, not a finished signed installer format such as MSI/MSIX/Inno Setup/NSIS.
-
-If a production installer is added later, document and test:
-
-- install/uninstall;
-- per-user/per-machine choice;
-- shortcuts;
-- upgrade/downgrade behavior;
-- file associations if any;
-- code signing;
-- clean removal without deleting user manuscripts/projects.
-
-## macOS build
-
-### Local build
-
-```bash
-python3.12 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-pip install -e ".[build]"
-python scripts/build_desktop.py --check
-python scripts/build_desktop.py
-```
-
-Inspect `dist/DocMergeForge` and the generated macOS bundle/layout produced by the active PyInstaller version/configuration.
-
-### macOS acceptance checklist
-
-- launch from Finder and terminal;
-- Gatekeeper behavior reviewed;
-- file dialogs work;
-- app can read/write intended folders under macOS privacy controls;
-- PDF/DOCX workflows pass;
-- Unicode/long paths pass;
-- Apple Silicon target is tested where required;
-- Intel target/universal strategy is explicitly decided if required;
-- app is signed with the intended Developer ID identity;
-- hardened runtime/entitlements are reviewed;
-- notarization succeeds;
-- stapling/verification succeeds;
-- a clean Mac accepts/launches the distributed build.
-
-### Signing/notarization
-
-The current repository does **not** claim macOS signing/notarization. Production distribution should add a credential-secured release pipeline rather than embedding signing secrets in the repository.
-
-## Linux build
-
-### Local build
-
-```bash
-python3.12 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-pip install -e ".[build]"
-python scripts/build_desktop.py --check
-python scripts/build_desktop.py
-```
-
-On Debian/Ubuntu, if PySide6 fails to import due to missing EGL runtime:
-
-```bash
-sudo apt-get update
-sudo apt-get install -y libegl1
-```
-
-### Linux acceptance checklist
-
-- test on the minimum supported distro/glibc baseline you intend to claim;
-- launch in a normal graphical session;
-- check Qt platform plugins;
-- verify `libEGL`/graphics runtime availability;
-- test file dialogs/paths;
-- test PDF/DOCX workflows;
-- test Wayland/X11 environments where relevant;
-- verify permissions on mounted/removable filesystems;
-- decide distribution format (tarball/AppImage/deb/rpm/etc.) explicitly;
-- document runtime compatibility instead of assuming a binary built on a new distro works everywhere.
-
-The current CI artifact is a tar.gz of the PyInstaller `dist/DocMergeForge` directory, not a distro-native package.
-
-## GitHub Actions Package Desktop workflow
-
-The repository provides `.github/workflows/package.yml`.
 
 Triggers:
 
 - manual `workflow_dispatch`;
-- pushes of tags matching `v*`.
+- tags matching `v*`.
 
-It runs a matrix on Windows, macOS, and Ubuntu using Python 3.12.
+Current matrix:
 
-Workflow stages:
+```text
+windows-latest / Python 3.12
+macos-latest   / Python 3.12
+ubuntu-latest  / Python 3.12
+```
 
-1. checkout;
-2. setup Python/pip cache;
-3. install `.[build]`;
-4. run `python scripts/build_desktop.py --check`;
-5. run `python scripts/build_desktop.py`;
-6. archive the platform output;
-7. upload an unsigned artifact.
-
-Current archive names:
+Current development artifact names:
 
 ```text
 DocMergeForge-Windows-unsigned.zip
@@ -263,138 +158,109 @@ DocMergeForge-macOS-unsigned.tar.gz
 DocMergeForge-Linux-unsigned.tar.gz
 ```
 
-Artifact names explicitly include `unsigned` so they cannot be confused with production-signed releases.
+They are intentionally labeled **unsigned**.
 
-## Build Smoke versus Package Desktop
+See [CI Packaging Guide](build/ci-packaging.md).
 
-### Build Smoke
+## Production trust
 
-Runs cross-platform source/import/accessibility/packaging **preflight** checks. It does not produce final release packages.
+### Windows
 
-### Package Desktop
+A signed production claim requires an actual Authenticode signing identity, signing operation, timestamping where applicable, signature verification, and final artifact hash.
 
-Actually invokes PyInstaller and uploads development artifacts.
+### macOS
 
-### Production release acceptance
+A signed/notarized production claim requires actual Developer ID signing, bundle verification, notarization, Gatekeeper acceptance, and final artifact hash after all transformations.
 
-Must additionally verify signing/notarization/installer behavior and real packaged-app launch/merge workflows.
+### Linux
 
-## Clean rebuilds
+At minimum publish and verify final artifact hashes. Any package/repository signature must be implemented and verified before it is claimed.
 
-The PyInstaller helper already uses `--clean` and `--noconfirm`, but when investigating strange packaging behavior it can be useful to remove local generated directories first:
+See [Signing and Notarization](build/signing-and-notarization.md).
+
+## Native installers/packages
+
+The repository does not currently automate these formats:
+
+- Windows MSI/MSIX/Inno Setup/NSIS;
+- macOS DMG/PKG;
+- Linux AppImage/DEB/RPM/Flatpak/Snap.
+
+If one is added, it becomes a distinct maintained build target with install/update/uninstall/signing/compatibility tests. The current PyInstaller archive must not be mislabeled as one of these formats.
+
+## Clean build commands
 
 Windows PowerShell:
 
 ```powershell
 Remove-Item -Recurse -Force build, dist -ErrorAction SilentlyContinue
+python scripts/build_desktop.py --check
+python scripts/build_desktop.py
 ```
 
 macOS/Linux:
 
 ```bash
 rm -rf build dist
+python scripts/build_desktop.py --check
+python scripts/build_desktop.py
 ```
 
-Then reinstall/update dependencies if needed and rebuild.
+Only remove generated build directories. Never point cleanup at manuscript/source/output folders.
 
-Do not delete source/output manuscript folders when cleaning packaging artifacts.
+## Final hashes
 
-## Build from a specific repository root
+Windows:
 
-The helper supports:
+```powershell
+Get-FileHash <artifact> -Algorithm SHA256
+```
+
+macOS:
 
 ```bash
-python scripts/build_desktop.py --root "/path/to/repo"
+shasum -a 256 <artifact>
 ```
 
-Preflight requires at least:
-
-```text
-<root>/pyproject.toml
-<root>/src/docmergeforge/ui/main.py
-```
-
-An invalid root exits with a clear missing-input message.
-
-## Branding assets
-
-If `assets/branding` exists, the build helper adds it to the package data under:
-
-```text
-assets/branding
-```
-
-Keep asset paths stable or update packaging/resource-loading tests together.
-
-## Debugging packaging failures
-
-### `PyInstaller is required`
-
-Install:
+Linux:
 
 ```bash
-pip install -e ".[build]"
+sha256sum <artifact>
 ```
 
-### Invalid build root
+Generate release hashes from the exact final distributed files after any byte-changing signing/notarization/container steps.
 
-Run:
+## Required release evidence
 
-```bash
-python scripts/build_desktop.py --check --root <path>
-```
+For each target executable retain:
 
-Confirm `pyproject.toml` and `src/docmergeforge/ui/main.py` exist.
+- commit/tag;
+- OS/architecture;
+- Python/PyInstaller versions;
+- build mode;
+- CI run ID if applicable;
+- final artifact filename/size/SHA-256;
+- clean-machine launch result;
+- packaged PDF merge result;
+- packaged DOCX merge result;
+- cancellation/recovery result;
+- signature/notarization verification when claimed;
+- installer/package acceptance when distributed;
+- known limitations.
 
-### PySide6/Qt runtime failure on Linux
+Use the [Release Build Checklist](build/release-checklist.md) as the go/no-go record.
 
-Install the missing system runtime such as `libegl1`, then rerun the import/smoke/build.
+## Current status
 
-### App builds but fails on launch
+The repository has a reproducible shared PyInstaller configuration, cross-platform build preflight, cross-platform Build Smoke, and an unsigned Package Desktop workflow foundation.
 
-Test from terminal where possible to capture diagnostics. Check:
+It does **not** currently claim signed/notarized production binaries or stable `v1.0.0` package acceptance. Those remain release gates documented in the build and release manuals.
 
-- missing Qt plugin/library;
-- missing bundled Python package/data;
-- incorrect resource path;
-- unsupported OS/runtime baseline;
-- permissions;
-- packaging hidden imports/submodule collection.
+## Related documentation
 
-Fix the shared build configuration in `src/docmergeforge/packaging/desktop.py` so local/CI builds use the same solution.
-
-## Reproducibility notes
-
-The helper centralizes PyInstaller arguments, which reduces configuration drift, but fully bit-for-bit reproducible binaries are not currently claimed. Build output can vary with:
-
-- OS image;
-- Python patch version;
-- dependency versions;
-- PyInstaller version;
-- filesystem metadata;
-- signing/notarization timestamps.
-
-For releases, record exact commit/tag, workflow run, dependency environment, and artifact hashes.
-
-## Production packaging checklist
-
-Before calling an executable production-ready:
-
-- Quality CI green at release head;
-- 120-Part Regression green;
-- Build Smoke green on all target OSes;
-- Security/CodeQL green;
-- PyInstaller package built on each target OS;
-- packaged app launched on clean target machines;
-- representative PDF/DOCX project merge succeeds in packaged app;
-- cancellation/recovery tested;
-- accessibility smoke/manual checks completed;
-- real-world fidelity acceptance completed;
-- stress acceptance appropriate to claimed scale completed;
-- Windows signing verified;
-- macOS signing/notarization verified;
-- Linux distribution compatibility verified;
-- release checksums generated/published;
-- no artifact labeled `unsigned` is presented as signed.
-
-See [Release Process](release-process.md) for the end-to-end release gate.
+- [Release Packaging](release-packaging.md)
+- [Release Process](release-process.md)
+- [Testing and CI](testing-and-ci.md)
+- [Known Limitations](known-limitations.md)
+- [Security Model](security.md)
+- [Complete documentation index](README.md)
