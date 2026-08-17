@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -36,6 +37,7 @@ class OrderEditorDialog(QDialog):
     ) -> None:
         super().__init__()
         self.setWindowTitle("Confirm File Order")
+        self.setAccessibleName("Confirm file order")
         self.resize(920, 680)
         self.editor = OrderEditor(list(documents))
         self.expected_start = expected_start
@@ -51,17 +53,29 @@ class OrderEditorDialog(QDialog):
             "Confirm the final document sequence before merge. PDF and DOCX are still "
             "merged independently; companion code is never included in this list."
         )
+        intro.setAccessibleName("File order instructions")
         intro.setWordWrap(True)
         layout.addWidget(intro)
 
         search_row = QHBoxLayout()
-        search_row.addWidget(QLabel("Search"))
+        self.search_label = QLabel("&Search")
+        self.search_label.setAccessibleName("Search file order label")
+        search_row.addWidget(self.search_label)
         self.search = QLineEdit()
         self.search.setPlaceholderText("Filter by filename, format, or part number")
         self.search.setAccessibleName("Filter file order")
+        self.search.setAccessibleDescription(
+            "Type part numbers, filenames, or formats to filter the order list."
+        )
+        self.search_label.setBuddy(self.search)
         self.search.textChanged.connect(self._apply_filter)
         search_row.addWidget(self.search, 1)
         self.lock = QCheckBox("Lock order")
+        self.lock.setAccessibleName("Lock file order")
+        self.lock.setAccessibleDescription(
+            "Prevents drag-and-drop and manual order changes while enabled."
+        )
+        self.lock.setShortcut(QKeySequence("Alt+L"))
         self.lock.setChecked(self.editor.locked)
         self.lock.setEnabled(allow_manual_order)
         self.lock.toggled.connect(self._set_locked)
@@ -70,6 +84,9 @@ class OrderEditorDialog(QDialog):
 
         self.list = QListWidget()
         self.list.setAccessibleName("Final merge document order")
+        self.list.setAccessibleDescription(
+            "The ordered PDF and DOCX documents. Select a row before using move commands."
+        )
         self.list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.list.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         self.list.setDefaultDropAction(Qt.DropAction.MoveAction)
@@ -83,20 +100,24 @@ class OrderEditorDialog(QDialog):
         controls = QGridLayout()
         self._manual_buttons: list[QPushButton] = []
         definitions = [
-            ("Part ↑", lambda: self._sort_part(False), 0, 0),
-            ("Part ↓", lambda: self._sort_part(True), 0, 1),
-            ("Filename ↑", lambda: self._sort_filename(False), 0, 2),
-            ("Filename ↓", lambda: self._sort_filename(True), 0, 3),
-            ("Move Up", self._move_up, 1, 0),
-            ("Move Down", self._move_down, 1, 1),
-            ("Move Top", self._move_top, 1, 2),
-            ("Move Bottom", self._move_bottom, 1, 3),
-            ("Undo", self._undo, 2, 0),
-            ("Redo", self._redo, 2, 1),
-            ("Restore Auto Order", self._restore_auto, 2, 2),
+            ("Part ↑", "Alt+1", lambda: self._sort_part(False), 0, 0),
+            ("Part ↓", "Alt+2", lambda: self._sort_part(True), 0, 1),
+            ("Filename ↑", "Alt+3", lambda: self._sort_filename(False), 0, 2),
+            ("Filename ↓", "Alt+4", lambda: self._sort_filename(True), 0, 3),
+            ("Move Up", "Alt+Up", self._move_up, 1, 0),
+            ("Move Down", "Alt+Down", self._move_down, 1, 1),
+            ("Move Top", "Alt+Home", self._move_top, 1, 2),
+            ("Move Bottom", "Alt+End", self._move_bottom, 1, 3),
+            ("Undo", "Ctrl+Z", self._undo, 2, 0),
+            ("Redo", "Ctrl+Y", self._redo, 2, 1),
+            ("Restore Auto Order", "Ctrl+Shift+R", self._restore_auto, 2, 2),
         ]
-        for label, callback, row, column in definitions:
+        for label, shortcut, callback, row, column in definitions:
             button = QPushButton(label)
+            button.setAccessibleName(label.replace("↑", "ascending").replace("↓", "descending"))
+            button.setAccessibleDescription(f"Keyboard shortcut: {shortcut}")
+            button.setShortcut(QKeySequence(shortcut))
+            button.setToolTip(f"{label} ({shortcut})")
             button.clicked.connect(callback)
             controls.addWidget(button, row, column)
             self._manual_buttons.append(button)
@@ -113,14 +134,17 @@ class OrderEditorDialog(QDialog):
         self.boundary.setAccessibleName("Adjacent boundary preview")
         layout.addWidget(self.boundary)
 
-        buttons = QDialogButtonBox(
+        self.buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Ok
         )
-        ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        ok_button = self.buttons.button(QDialogButtonBox.StandardButton.Ok)
         ok_button.setText("Confirm Order")
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
+        ok_button.setAccessibleName("Confirm file order")
+        cancel_button = self.buttons.button(QDialogButtonBox.StandardButton.Cancel)
+        cancel_button.setAccessibleName("Cancel file order changes")
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+        layout.addWidget(self.buttons)
 
         self._refresh_list()
         self._set_locked(self.editor.locked)
