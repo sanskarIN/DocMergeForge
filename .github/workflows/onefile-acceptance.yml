@@ -27,8 +27,8 @@ jobs:
         python-version: ["3.12"]
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -153,7 +153,7 @@ jobs:
 
       - name: Upload Windows onefile artifact
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: DocMergeForge-Windows-onefile-unsigned
           path: |
@@ -164,7 +164,7 @@ jobs:
 
       - name: Upload macOS onefile artifact
         if: runner.os == 'macOS'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: DocMergeForge-macOS-onefile-unsigned
           path: |
@@ -175,7 +175,7 @@ jobs:
 
       - name: Upload Linux onefile artifact
         if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: DocMergeForge-Linux-onefile-unsigned
           path: |
@@ -207,7 +207,7 @@ jobs:
 
     steps:
       - name: Download onefile artifact only
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ matrix.artifact }}
           path: artifact
