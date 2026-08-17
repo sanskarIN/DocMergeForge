@@ -27,6 +27,11 @@ class DocxMergeEngine:
     def analyze_conflicts(documents: list[InputDocument]) -> list[PackageCollision]:
         return detect_docx_collisions([item.path for item in documents])
 
+    @staticmethod
+    def _check_cancelled(cancelled: Cancelled | None) -> None:
+        if cancelled and cancelled():
+            raise MergeCancelled("DOCX merge cancelled safely.")
+
     def merge(
         self,
         documents: list[InputDocument],
@@ -60,11 +65,14 @@ class DocxMergeEngine:
         before = snapshot_hashes(item.path for item in ordered)
         final_output = output if overwrite else versioned_path(output)
         for item in ordered:
+            self._check_cancelled(cancelled)
             diagnostics = validate_docx_package(item.path)
             if any(diag.level.value in {"ERROR", "FATAL"} for diag in diagnostics):
                 raise ValidationError(f"Invalid DOCX input: {item.path}: {diagnostics[0].message}")
 
+        self._check_cancelled(cancelled)
         collisions = self.analyze_conflicts(ordered)
+        self._check_cancelled(cancelled)
         style_collisions = [item for item in collisions if item.category == "style"]
         numbering_collisions = [item for item in collisions if item.category == "numbering"]
         if settings.style_conflict_policy not in {"prefer_master", "error"}:
@@ -87,6 +95,7 @@ class DocxMergeEngine:
             )
 
         with atomic_output(final_output, overwrite=True) as temporary:
+            self._check_cancelled(cancelled)
             master = Document(str(ordered[0].path))
             if settings.add_part_headings:
                 first = ordered[0]
@@ -94,11 +103,12 @@ class DocxMergeEngine:
                 insert_part_heading(master, f"{first.part.label} — {title}")
             if settings.create_toc_field:
                 insert_toc_field(master)
+            if progress:
+                progress(1, len(ordered), ordered[0].path)
 
             composer = Composer(master)
             for index, item in enumerate(ordered[1:], start=2):
-                if cancelled and cancelled():
-                    raise MergeCancelled("DOCX merge cancelled safely.")
+                self._check_cancelled(cancelled)
                 source = Document(str(item.path))
                 if settings.start_each_part_on_new_page:
                     master.add_page_break()  # type: ignore[no-untyped-call]
@@ -109,13 +119,16 @@ class DocxMergeEngine:
                 if progress:
                     progress(index, len(ordered), item.path)
 
+            self._check_cancelled(cancelled)
             if not settings.preserve_sections:
                 normalize_sections_to_first(master)
             if settings.continuous_page_numbering:
                 make_page_numbering_continuous(master)
             apply_book_headers_footers(master, settings.header_text, settings.footer_text)
+            self._check_cancelled(cancelled)
             composer.save(str(temporary))
 
+            self._check_cancelled(cancelled)
             diagnostics = validate_docx_package(temporary)
             if any(diag.level.value in {"ERROR", "FATAL"} for diag in diagnostics):
                 raise ValidationError(
@@ -123,6 +136,7 @@ class DocxMergeEngine:
                 )
 
             Document(str(temporary))
+            self._check_cancelled(cancelled)
             changed = verify_unchanged(before)
             if changed:
                 raise ValidationError(f"Source integrity violation: {changed}")
