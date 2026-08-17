@@ -1,0 +1,295 @@
+name: Update Development Record
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/update-development-record.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  update-records:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Configure commit identity
+        run: |
+          git config user.name "Sanskar"
+          git config user.email "sanskarin@outlook.in"
+
+      - name: Update changelog without replacing history
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("CHANGELOG.md")
+          text = path.read_text(encoding="utf-8")
+          marker = "### Continuation hardening — 2026-08-17"
+          if marker not in text:
+              section = '''### Continuation hardening — 2026-08-17
+- Fixed the new Markdown-link checker so Quality reaches and passes Ruff, Black, strict mypy, repository-local link validation, and full pytest on Python 3.12/3.13; verified by Quality run `32030103104`.
+- Migrated GitHub Actions to the current Node 24-era action generations and verified Package Desktop `32030446110`, Onefile Acceptance `32030487166`, and Security/CodeQL `32030403035`.
+- Added weekly Dependabot PRs for GitHub Actions and pip dependencies without auto-merge; modernized local pre-commit pins and added repository-local Markdown-link validation plus `pre-commit validate-config` to Quality.
+- Added per-workflow/ref stale-run cancellation for Quality, Regression, Build Smoke, Security, Package Desktop, and Onefile Acceptance to reduce obsolete CI runner consumption.
+- Added signed GitHub/Sigstore build-provenance attestations to onedir and onefile packages; verified by runs `32030972195` and `32031798935` on Windows/macOS/Ubuntu build and fresh-runner matrices.
+- Added pinned `cyclonedx-bom==7.3.1`, validated CycloneDX 1.6 build-environment SBOMs, signed `https://cyclonedx.org/bom` predicates, uploaded `.cdx.json` evidence, and independent fresh-runner predicate verification; verified by Package Desktop `32033135355` and Onefile Acceptance `32033541414`.
+- Verified the final concurrency-enabled package definitions without changing acceptance semantics: Package Desktop `32034423325` at `934018afa1eccbe528303569c552edb222e6420d` and Onefile Acceptance `32034494077` at `7b53c89df43f5da935df81e44581a709d173c6f4` both passed all six Windows/macOS/Ubuntu build/fresh-runner jobs.
+- Automated a measured 120-part Stress Acceptance baseline. Run `32030895119` validated/merged/compared 120 PDF + 120 DOCX parts with 600 source PDF pages and `9,881,006` generated source bytes; this is explicitly not a multi-gigabyte claim.
+- Added privacy-safe merge resource telemetry and integration coverage. Formatter-clean Stress Acceptance `32032403859` measured `16.744248664` seconds elapsed, `169,193,472` bytes peak RSS, `16.562235` user CPU seconds, `0.17077` system CPU seconds, and a `5,332,992`-byte free-space delta for the same synthetic 120-part profile.
+- Expanded the offscreen accessibility smoke with light/dark/system theme application, text-scale clamp/round-trip, and reduced-motion preference round-trip; Build Smoke `32033541402` passed on Windows/macOS/Ubuntu. Human screen-reader, high-contrast, keyboard-only end-to-end, localization, and layout acceptance remain separate gates.
+- Added `docs/release-evidence.md` and synchronized build/provenance/verification/release/stress/accessibility documentation with exact run IDs, artifact IDs/digests, current SBOM/attestation semantics, and conservative evidence boundaries.
+- Current automated supply-chain evidence describes **unsigned development archives**. It does not replace Windows Authenticode, macOS Developer ID/notarization, final post-signing evidence, human clean-machine QA, representative real-world fidelity, or stable `v1.0.0` acceptance.
+
+'''
+              anchor = "## [Unreleased]\n\n"
+              if anchor not in text:
+                  raise SystemExit("Could not locate Unreleased changelog section")
+              text = text.replace(anchor, anchor + section, 1)
+              path.write_text(text, encoding="utf-8")
+          PY
+          git add CHANGELOG.md
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: record continuation hardening evidence"
+            git push origin HEAD:main
+          fi
+
+      - name: Prepend detailed what changed phase without truncation
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("what_changed.md")
+          text = path.read_text(encoding="utf-8")
+          marker = "## Continuation — CI, supply-chain, stress, accessibility, and release-evidence hardening (2026-08-17)"
+          if marker in text:
+              raise SystemExit(0)
+
+          section = r'''## Continuation — CI, supply-chain, stress, accessibility, and release-evidence hardening (2026-08-17)
+
+This continuation started from the previously verified executable/documentation checkpoint and intentionally focused on remaining **automatable release gates**. No human-production gate has been marked complete merely because related automation exists.
+
+### Documentation-link Quality gate fixed and verified
+
+The new repository-local Markdown link checker initially exposed two Ruff E501 failures before Quality could reach later steps. Those were fixed without weakening lint policy:
+
+- `60bc354b54debc141ae3d3ce9c04342b0b3bacdd` — wrap docs-link CLI description;
+- `5d895c3b920bbb3bbf61b3161501eeaf979a782f` — wrap docs-link skip-directory set.
+
+Quality run `32030103104` then passed on Python 3.12 and 3.13 through Ruff, Black, strict mypy, `python scripts/check_docs_links.py`, and the full pytest/coverage suite. The link checker is therefore a verified CI gate rather than documentation-only intent.
+
+### GitHub Actions modernization
+
+Official current action releases were checked before changing workflow pins. The repository moved to the Node 24-era generations used in this phase:
+
+- `actions/checkout@v7`;
+- `actions/setup-python@v7`;
+- `actions/upload-artifact@v7`;
+- `actions/download-artifact@v8`;
+- `actions/dependency-review-action@v5`;
+- `github/codeql-action@v4`.
+
+Focused workflow commits were used instead of a single broad rewrite. The key executable migration evidence is:
+
+- Package Desktop `32030446110` at `29c6ed8a480731094bb5c629a22f889b9fd9cacd` — all Windows/macOS/Ubuntu build-host and fresh-runner jobs passed;
+- Onefile Acceptance `32030487166` at `24674b776216e6da73c257b30149f46605eb1b77` — all six jobs passed;
+- Security `32030403035` — CodeQL v4 passed; dependency review correctly skipped because the event was a normal push rather than a pull request.
+
+### Dependency and local contributor maintenance
+
+Added `.github/dependabot.yml` in `0b249a4a063907e39dcecdd81c05ba186335ec3d` for weekly reviewable GitHub Actions and pip update pull requests. There is no auto-merge policy.
+
+Local pre-commit tooling was also modernized:
+
+- Ruff pre-commit -> `v0.16.3`;
+- pre-commit-hooks -> `v6.0.0`;
+- local `DocMergeForge documentation link integrity` hook added;
+- Quality now runs `pre-commit validate-config` before Ruff/Black/mypy/tests.
+
+### CI stale-run cancellation
+
+Per-workflow/ref concurrency with `cancel-in-progress: true` was added to high-frequency/expensive workflows so obsolete `main` commits do not consume runner capacity:
+
+- Quality;
+- 120-Part Regression;
+- Build Smoke;
+- Security;
+- Package Desktop;
+- Onefile Acceptance.
+
+The package definitions were re-exercised after concurrency-only changes:
+
+- **Package Desktop run `32034423325`** at `934018afa1eccbe528303569c552edb222e6420d` — all 3 build-host + 3 fresh-runner jobs PASS;
+- **Onefile Acceptance run `32034494077`** at `7b53c89df43f5da935df81e44581a709d173c6f4` — all 3 build-host + 3 fresh-runner jobs PASS.
+
+These runs prove the concurrency additions did not alter package acceptance behavior.
+
+### Signed GitHub/Sigstore build provenance
+
+Default onedir archives gained `actions/attest@v4` with least-privilege job permissions (`id-token`, `attestations`, and `artifact-metadata` write; repository contents remain read-only). Fresh native runners independently execute `gh attestation verify` against the downloaded archive before ordinary JSON provenance/checksum/extraction/smoke checks.
+
+Verified onedir attestation evidence:
+
+- run `32030972195`;
+- checkpoint `b0e112b0fecf9b6c70fcaeffd0551222dd2ed7aa`;
+- Windows artifact `9288984074` / container digest `sha256:a169001b7c76777acc6c30f246498b50c8a735c0fafca9657f7738d50f330ed1`;
+- macOS artifact `9288934609` / `sha256:e5aff9fc17eec544e395947afe553d5732b8e2af7de9fbfa78ff095a5d92d7f2`;
+- Linux artifact `9289011135` / `sha256:2e560f8fb8e3869320c998d3967890b8b22d51c98b7cd308e1063af124662008`.
+
+The same proven model was then applied independently to onefile.
+
+Verified onefile attestation evidence:
+
+- run `32031798935`;
+- checkpoint `c42c3cab4083e51255d78730b613af735235494f`;
+- Windows artifact `9289300227` / `sha256:58c0b60c67599181463c33f6efb5e77c86fdd29dbf8f98f3c4af3f91ee28867e`;
+- macOS artifact `9289251930` / `sha256:ac3e41a5e85891d095053e7d0be5c75a519502c8d0100ea61bfa7614b836cab1`;
+- Linux artifact `9289257661` / `sha256:d698e261487e756adf5eabbb4e169e99467d16842753a1a0f56341fdd02c1b3b`.
+
+These are cryptographic **build-provenance attestations for unsigned development archives**. They do not make Windows artifacts Authenticode-signed or macOS artifacts Developer ID signed/notarized.
+
+### CycloneDX SBOM and signed SBOM predicate
+
+The build extra now pins `cyclonedx-bom==7.3.1`. Each packaging host generates validated CycloneDX 1.6 JSON from the exact Python build environment used by PyInstaller. The SBOM is uploaded as `<artifact-label>.cdx.json` and is also attached to the archive through a second `actions/attest@v4` invocation.
+
+Fresh runners verify two distinct signed predicates:
+
+1. default GitHub/Sigstore build provenance;
+2. `https://cyclonedx.org/bom`.
+
+Only after both signed predicates pass does verification continue to archive-bound DocMergeForge JSON provenance, `.sha256`, extraction, and packaged mixed PDF+DOCX smoke.
+
+Verified onedir CycloneDX evidence:
+
+- Package Desktop `32033135355` at `59dc14bbf1d4301177e475ac350694bdd9d90ada`;
+- all six Windows/macOS/Ubuntu jobs PASS;
+- Windows artifact `9289721065`, digest `sha256:f00410bd8016ca05243a0be114dbe3ab336529f7a2b2251968b42922cc67e37d`;
+- macOS `9289679866`, `sha256:c9ffec38d0c70b50e24bbd54e74c29d69b52206540b1402c9a76cbf535e54539`;
+- Linux `9289686689`, `sha256:30b851a609ae3394174015f4f80fce52b356069131395978039c5ad82122a143`.
+
+Verified onefile CycloneDX evidence:
+
+- Onefile Acceptance `32033541414` at `dc624e23d07e0ce94ef345245630d153ee60091a`;
+- all six jobs PASS;
+- Windows artifact `9289869031`, digest `sha256:23082e8dce64e5225aa8234d0054f1c7c731dacd9810816a7d7a499759b5ebb6`;
+- macOS `9289825286`, `sha256:474cc73883e67fd0bbc074ef3fdbccd9de709a8a5f1a220582c53a25c662c35c`;
+- Linux `9289846554`, `sha256:44aba02321c0c09103987b1dc18eea5553ba16b00162ca9fed3af4420835bbda`.
+
+The current CycloneDX document is a **build-environment dependency SBOM**. It may include build-time tools and is not claimed to be a byte-perfect post-PyInstaller binary inventory.
+
+### Measured Stress Acceptance baseline
+
+Stress Acceptance was changed from manual-only scaffolding into a real measured baseline that automatically runs when stress infrastructure changes while retaining configurable manual scaling.
+
+Initial measured run `32030895119` at `ad5d8e354efefc745a454b799632359fafd29658` passed:
+
+- 120 numbered PDF parts;
+- 120 numbered DOCX parts;
+- 120 companion ZIPs;
+- 5 PDF pages per part / 600 total source PDF pages;
+- 50 DOCX paragraphs per part;
+- 1 KiB synthetic paragraph payload;
+- measured source bytes: `9,881,006`;
+- output bytes before evidence files: `5,421,739`;
+- artifact ID `9288923591`;
+- artifact-container digest `sha256:f552c3007dc6121f77145e9335f4ca39a7a3809bb4a97eb98c4118f2f2529189`.
+
+Generation, Parts 1–120 validation, project creation, dry-run/preflight, mixed merge, output comparison, evidence generation, and upload all passed. This is a real 120-part baseline but only about 9.9 MB of source data; it is explicitly **not multi-gigabyte acceptance**.
+
+### Privacy-safe merge resource telemetry
+
+Added `scripts/run_with_resource_evidence.py` plus integration tests. It records elapsed time, child CPU counters, normalized peak RSS, page faults, filesystem I/O counters, and watched-filesystem free space before/after. It deliberately does not serialize full command arguments or the environment.
+
+The first telemetry source triggered a Black-only correction; the formatter-clean checkpoint is `73a79a763ef7c363964b1808ddb9e3156785e2f9`.
+
+Formatter-clean Stress Acceptance run `32032403859` passed the full 120-part workflow and measured:
+
+- source bytes: `9,881,006`;
+- output bytes before acceptance evidence: `5,422,356`;
+- merge elapsed: `16.744248664` seconds;
+- user CPU: `16.562235` seconds;
+- system CPU: `0.17077` seconds;
+- peak RSS: `169,193,472` bytes (~161.4 MiB);
+- minor page faults: `39,178`;
+- major page faults: `1`;
+- filesystem input blocks: `536`;
+- filesystem output blocks: `10,704`;
+- disk free before merge: `91,322,392,576` bytes;
+- disk free after merge: `91,317,059,584` bytes;
+- free-space delta: `5,332,992` bytes;
+- workflow artifact `9289427729`, container digest `sha256:3bed43be22932c470e062aaf2b7e38fcfeeb168e4c3ff90aa9f0da0c314454c8`.
+
+These numbers describe that exact synthetic profile and GitHub-hosted runner execution. They are not a universal throughput or memory guarantee.
+
+### Accessibility preference automation expanded
+
+`scripts/check_accessibility.py` now extends the existing accessible-name/description/shortcut checks with:
+
+- real light/dark/system stylesheet application;
+- text-scale clamping and non-compounding base-font behavior (`50 -> 80%`, `100 -> 100%`, `250 -> 200%`);
+- Settings dialog round-trip for `170%` text scale;
+- reduced-motion preference round-trip;
+- theme preference round-trip.
+
+Build Smoke run `32033541402` passed on Windows, macOS, and Ubuntu with this expanded script. Quality run `32033541420` at `dc624e23d07e0ce94ef345245630d153ee60091a` passed `pre-commit validate-config`, Ruff, Black, strict mypy, docs-link integrity, and full pytest on Python 3.12 and 3.13.
+
+This remains **automated offscreen preference/metadata evidence**. Human screen-reader, keyboard-only end-to-end, real OS high-contrast/display-scaling, localization, and every-assistive-technology acceptance remain open.
+
+### Release evidence and documentation synchronization
+
+Added `docs/release-evidence.md` as the canonical evidence ledger and linked it from the documentation portal. The executable build portal, CI Packaging guide, Build Provenance/SBOM guide, Executable Verification guide, Release Process, Release Build Checklist, Stress Testing, Accessibility, Testing/CI, and Release Packaging documentation were synchronized with the actual verified pipeline and evidence boundaries.
+
+Important distinctions recorded throughout the docs:
+
+- GitHub workflow artifact-container digest is not the inner platform archive digest;
+- `.sha256` and archive-bound JSON provenance verify the inner archive independently;
+- GitHub/Sigstore attestation is not Windows/macOS platform code signing;
+- CycloneDX currently describes the build environment, not exact post-bundling binary contents;
+- the measured stress baseline is ~9.9 MB, not multi-gigabyte;
+- automated accessibility smoke is not human accessibility acceptance;
+- current packages remain unsigned development artifacts.
+
+### Remaining release gates after this continuation
+
+The following are still deliberately open and must not be described as completed:
+
+- measured multi-gigabyte Stress Acceptance;
+- representative real-world PDF/DOCX fidelity review in intended viewers/editors;
+- human interactive clean-machine acceptance on representative Windows/macOS/Linux systems;
+- human keyboard-only and real screen-reader acceptance;
+- real OS high-contrast/display-scaling/localization acceptance;
+- Windows Authenticode signing/timestamping and SmartScreen/trust review when distributed;
+- macOS Developer ID signing, hardened-runtime/entitlements review where required, notarization, stapling, and Gatekeeper verification when distributed;
+- acceptance of any future MSI/MSIX/Inno/NSIS/DMG/PKG/AppImage/DEB/RPM distribution container;
+- final post-signing/post-notarization hashes/provenance/SBOM/attestation for changed final bytes;
+- physical power-loss/storage-disconnect recovery acceptance;
+- multi-host network/shared-filesystem lock semantics;
+- production-ready Microsoft Word and LibreOffice high-fidelity adapters;
+- exact post-PyInstaller binary/component inventory if that stronger SBOM claim is required;
+- stable `v1.0.0` acceptance.
+
+### Current phase status
+
+This continuation materially closes several previously open **automatable** gates: current action generations, dependency maintenance, documentation-link CI, package fresh-runner integrity, signed build provenance, signed CycloneDX predicates, measured 120-part stress baseline, resource telemetry, and expanded cross-platform accessibility preference smoke.
+
+It does **not** convert remaining human, signing/notarization, real-world fidelity, environmental, or true multi-gigabyte gates into completed claims.
+
+'''
+
+          first_h2 = text.find("\n## ")
+          if first_h2 < 0:
+              raise SystemExit("Could not locate first existing what_changed section")
+          updated = text[:first_h2] + "\n\n" + section.rstrip() + "\n" + text[first_h2:]
+          path.write_text(updated, encoding="utf-8")
+          PY
+          git add what_changed.md
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: update complete continuation development record"
+            git push origin HEAD:main
+          fi
