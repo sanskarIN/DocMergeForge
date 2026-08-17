@@ -4,6 +4,15 @@ All notable changes follow semantic versioning.
 
 ## [Unreleased]
 
+### Documentation
+- Added a canonical `docs/README.md` documentation portal covering the complete user, operator, contributor, architecture, engine, safety, packaging, and release documentation set.
+- Added complete installation, getting-started, desktop-user, CLI-reference, project-file, discovery/ordering, validation/preflight, output-artifact, publication-recovery, companion-code, audit/compare, settings, diagnostics, security, accessibility, development, testing/CI, executable-building, release-process, operator-runbook, FAQ, glossary, support, and known-limitations guides.
+- Expanded the existing architecture, PDF engine, DOCX engine, privacy, release-packaging, SQL Full Mastery preset, troubleshooting, and stress-testing documentation to match the current implementation.
+- Expanded the root README with the complete documentation portal, recovery/build/release-status guidance, and corrected high-fidelity wording so unfinished external office-suite adapters are not represented as production-ready.
+- Expanded `CONTRIBUTING.md` with development/test/documentation/accessibility/recovery contribution requirements and linked it to the full developer documentation.
+- Expanded `SECURITY.md` with privacy-safe vulnerability-reporting guidance and links to the security/privacy/diagnostics documentation.
+- Documentation now distinguishes implemented behavior, automatically verified behavior, and production/manual acceptance; unsigned builds, unfinished high-fidelity adapters, multi-gigabyte stress, real forced-process recovery, and human accessibility remain explicit release gates until verified.
+
 ### Added
 - First-run onboarding, project ordering, recent-project history, recovery checkpoints, and guided SQL preset desktop workflow.
 - Desktop validation, publication audit, output comparison, settings, help, support, and About experiences.
