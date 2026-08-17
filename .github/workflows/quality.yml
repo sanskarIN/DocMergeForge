@@ -29,4 +29,5 @@ jobs:
       - run: ruff check .
       - run: black --check --diff .
       - run: mypy src/docmergeforge
+      - run: python scripts/check_docs_links.py
       - run: pytest --cov=docmergeforge --cov-report=term-missing
