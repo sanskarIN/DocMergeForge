@@ -167,11 +167,34 @@ Quality, Regression, Build Smoke, Recovery Acceptance, Disk Full Acceptance, Str
 
 Weekly Dependabot configuration is present for GitHub Actions and pip updates. It opens reviewable update pull requests and does not auto-merge them.
 
-## Artifact attestation work
+## Artifact attestation evidence
 
-Default onedir Package Desktop now has a GitHub Artifact Attestations implementation using `actions/attest@v4` with job-scoped `id-token`, `attestations`, and `artifact-metadata` permissions. Fresh runners call `gh attestation verify` against the downloaded archive before the existing checksum/provenance/extraction/smoke sequence.
+### Default onedir
 
-This attestation layer is **implemented but not recorded as verified here yet**. Record the corresponding run only after all build-host and fresh-runner jobs complete successfully. Onefile attestation should remain unclaimed until separately implemented and accepted.
+```text
+Run:        32030972195
+Checkpoint: b0e112b0fecf9b6c70fcaeffd0551222dd2ed7aa
+```
+
+Result: PASS for all Windows/macOS/Ubuntu build-host and fresh-runner jobs.
+
+Each native archive is attested with `actions/attest@v4` using job-scoped `id-token`, `attestations`, and `artifact-metadata` write permissions. The generated GitHub Artifact Attestation is signed through GitHub/Sigstore provenance infrastructure and is bound to the exact archive bytes.
+
+Every separate fresh runner downloads the named workflow artifact and runs:
+
+```text
+gh attestation verify <downloaded-archive> --repo sanskarIN/DocMergeForge
+```
+
+before the existing archive-bound JSON provenance validation, `.sha256` verification, extraction, and packaged mixed PDF+DOCX smoke. All three platforms passed every step.
+
+This is cryptographic build-provenance evidence for the current **unsigned development archive**. It does not mean the Windows executable is Authenticode-signed or the macOS application is Developer ID signed/notarized; platform distribution trust remains a separate production gate.
+
+### Optional onefile
+
+Onefile Artifact Attestations are implemented at checkpoint `c42c3cab4083e51255d78730b613af735235494f` using the same least-privilege permissions and fresh-runner `gh attestation verify` model.
+
+The onefile attestation workflow is **not recorded as accepted here yet**. Record its run only after all Windows/macOS/Ubuntu build-host and fresh-runner jobs complete successfully.
 
 ## Stress evidence
 
