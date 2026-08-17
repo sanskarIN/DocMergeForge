@@ -15,6 +15,11 @@ PasswordProvider = Callable[[Path], str | None]
 
 
 class PdfMergeEngine:
+    @staticmethod
+    def _check_cancelled(cancelled: Cancelled | None) -> None:
+        if cancelled and cancelled():
+            raise MergeCancelled("PDF merge cancelled safely.")
+
     def merge(
         self,
         documents: list[InputDocument],
@@ -47,15 +52,16 @@ class PdfMergeEngine:
         final_output = output if overwrite else versioned_path(output)
 
         with atomic_output(final_output, overwrite=True) as temporary:
+            self._check_cancelled(cancelled)
             writer = PdfWriter()
             front_matter = render_front_matter(ordered, settings)
             for page in front_matter:
+                self._check_cancelled(cancelled)
                 writer.add_page(page)
             expected_pages = len(front_matter)
 
             for index, item in enumerate(ordered, start=1):
-                if cancelled and cancelled():
-                    raise MergeCancelled("PDF merge cancelled safely.")
+                self._check_cancelled(cancelled)
                 reader = PdfReader(str(item.path), strict=False)
                 if reader.is_encrypted:
                     if password_provider is None:
@@ -77,6 +83,7 @@ class PdfMergeEngine:
                         raise ValidationError(f"Encrypted PDF password is incorrect: {item.path}")
                 start_page = len(writer.pages)
                 for page in reader.pages:
+                    self._check_cancelled(cancelled)
                     writer.add_page(page)
                 expected_pages += len(reader.pages)
                 if settings.add_part_bookmarks:
@@ -86,6 +93,7 @@ class PdfMergeEngine:
                     progress(index, len(ordered), item.path)
 
             for index, page in enumerate(writer.pages, start=1):
+                self._check_cancelled(cancelled)
                 overlay = create_overlay(
                     float(page.mediabox.width),
                     float(page.mediabox.height),
@@ -106,9 +114,11 @@ class PdfMergeEngine:
                 metadata["/Subject"] = f"Edition: {settings.edition}"
             metadata["/Creator"] = "DocMergeForge — Made by the Sanskar"
             writer.add_metadata(metadata)
+            self._check_cancelled(cancelled)
             with temporary.open("wb") as handle:
                 writer.write(handle)
 
+            self._check_cancelled(cancelled)
             check = PdfReader(str(temporary), strict=False)
             if len(check.pages) != expected_pages:
                 raise ValidationError(
