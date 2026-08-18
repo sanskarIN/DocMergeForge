@@ -14,16 +14,22 @@ from PySide6.QtWidgets import (
 )
 
 from docmergeforge.diagnostics.export import export_diagnostics
+from docmergeforge.ui.resources import (
+    BMC_URL,
+    BUSINESS_EMAIL,
+    DOCS_URL,
+    REPOSITORY_URL,
+    SUPPORT_EMAIL,
+)
 
-_REPOSITORY = "https://github.com/sanskarIN/DocMergeForge"
 _LINKS = {
-    "Open Documentation": f"{_REPOSITORY}/tree/main/docs",
-    "Report a Bug": f"{_REPOSITORY}/issues/new?template=bug_report.yml",
-    "Request a Feature": f"{_REPOSITORY}/issues/new?template=feature_request.yml",
-    "Open GitHub Repository": _REPOSITORY,
-    "Business Email": "mailto:sanskarin@outlook.in",
-    "Support Email": "mailto:supportramsandesh@gmail.com",
-    "☕ Buy Me a Coffee": "https://buymeacoffee.com/sanskarIN",
+    "Open Documentation": DOCS_URL,
+    "Report a Bug": f"{REPOSITORY_URL}/issues/new?template=bug_report.yml",
+    "Request a Feature": f"{REPOSITORY_URL}/issues/new?template=feature_request.yml",
+    "Open GitHub Repository": REPOSITORY_URL,
+    "Business Email": f"mailto:{BUSINESS_EMAIL}",
+    "Support Email": f"mailto:{SUPPORT_EMAIL}",
+    "☕ Buy Me a Coffee": BMC_URL,
 }
 
 
