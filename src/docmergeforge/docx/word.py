@@ -8,9 +8,8 @@ from pathlib import Path
 from docmergeforge.core.exceptions import UnsupportedDocumentError, ValidationError
 from docmergeforge.docx.native import (
     NativeCommandResult,
+    promote_validated_native_docx_output,
     run_native_command,
-    validate_native_docx_output,
-    verify_native_source_unchanged,
 )
 from docmergeforge.utilities.hashing import sha256_file
 
@@ -108,10 +107,10 @@ def word_roundtrip_copy(
             ],
             timeout_seconds=timeout_seconds,
         )
-        validate_native_docx_output(temporary_output)
-        verify_native_source_unchanged(source, before)
-        temporary_output.replace(destination)
+        promote_validated_native_docx_output(
+            temporary_output,
+            destination,
+            {source: before},
+        )
 
-    validate_native_docx_output(destination)
-    verify_native_source_unchanged(source, before)
     return result
