@@ -19,8 +19,12 @@ def test_word_roundtrip_copy_uses_separate_validated_output(
     document.add_paragraph("Preserve this source.")
     document.save(source)
     before = source.read_bytes()
+    captured_script = ""
 
     def fake_run(command: list[str], **kwargs: object) -> NativeCommandResult:
+        nonlocal captured_script
+        script_path = Path(command[command.index("-File") + 1])
+        captured_script = script_path.read_text(encoding="utf-8")
         destination_index = command.index("-Destination") + 1
         temporary_output = Path(command[destination_index])
         shutil.copy2(source, temporary_output)
@@ -36,6 +40,8 @@ def test_word_roundtrip_copy_uses_separate_validated_output(
     assert destination.exists()
     assert source.read_bytes() == before
     assert result.stdout == "saved"
+    assert "$word.AutomationSecurity = 3" in captured_script
+    assert "$word.Documents.Open($Source, $false, $true, $false)" in captured_script
 
 
 def test_word_host_is_not_claimed_off_windows(monkeypatch: pytest.MonkeyPatch) -> None:
