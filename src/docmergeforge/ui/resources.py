@@ -1,4 +1,15 @@
 APP_NAME = "DocMergeForge"
 TAGLINE = "Discover correctly. Order correctly. Merge safely. Validate everything."
 BRAND = "Made by the Sanskar"
+
+REPOSITORY_URL = "https://github.com/sanskarIN/DocMergeForge"
+DOCS_URL = f"{REPOSITORY_URL}/tree/main/docs"
+GITHUB_PROFILE_URL = "https://www.github.com/sanskarIN"
+LINKEDIN_URL = "https://www.linkedin.com/in/sanskarIN"
 BMC_URL = "https://buymeacoffee.com/sanskarIN"
+YOUTUBE_URL = "https://youtube.com/@Sanskar-in"
+X_URL = "https://x.com/x_sanskarIN"
+
+BUSINESS_EMAIL = "sanskarin@outlook.in"
+BUSINESS_EMAIL_SECONDARY = "sanskarin.business@gmail.com"
+SUPPORT_EMAIL = "supportramsandesh@gmail.com"
