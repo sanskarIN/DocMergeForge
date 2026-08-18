@@ -2,6 +2,60 @@
 
 This file records meaningful DocMergeForge development changes, validation evidence, and known limitations. An item is not treated as finished merely because code was pushed; CI, packaging, and acceptance evidence remain part of the completion gate.
 
+## 2026-08-18 — Word native merge fidelity, page-number evidence, and exact-process cleanup
+
+### Added
+- Completed the Microsoft Word native multi-document acceptance prototype in `src/docmergeforge/docx/word_merge.py` with ordered `Range.InsertFile(...)`, a validated temporary output, source immutability checks, and an explicit process-identity file for the Word instance created by the merge.
+- Added real Word section boundaries between later source documents: `wdSectionBreakNextPage = 2` for the default new-page behavior and `wdSectionBreakContinuous = 3` when continuous section starts are requested. The previous plain page-break boundary is no longer used by the native prototype.
+- Added exact Microsoft Word process identity capture immediately after COM startup using `Word.Application.Hwnd` plus `GetWindowThreadProcessId`. The identity contains the Word PID, the exact `WINWORD` process name, and the process start-time UTC tick fingerprint.
+- Added exact-instance cleanup in `src/docmergeforge/docx/word_process.py`. Cleanup refuses broad Word termination and acts only when PID, `WINWORD` name, and start-time fingerprint still match; PID reuse and mismatched process identity fail closed.
+- Added a natural Word-exit grace period before forced cleanup, a second exact-identity check after the grace period, forced termination only for the still-matching process, and polling until the PID disappears.
+- Added Windows PowerShell 5.1 UTF-8 BOM support for the temporary Word process identity JSON.
+- Added `section_properties_sha256` to Word multi-document acceptance evidence. The fingerprint uses one global ordered section sequence and measures section start type, orientation, page size, margins, gutter, header/footer distances, different-first-page behavior, and normal/first/even header/footer linkage state.
+- Added `page_number_properties_sha256` to Word multi-document acceptance evidence. `src/docmergeforge/docx/section_evidence.py` measures ordered `w:start`, `w:fmt`, `w:chapStyle`, and `w:chapSep` state for every section.
+- Added source-revision binding to Word native acceptance: hashes are captured before expected evidence, rechecked after expected evidence construction, rechecked after native Word execution, and rechecked again after output evidence is measured.
+- Strengthened `scripts/check_word_native_merge_smoke.py` with two deterministic sources that differ in content, headers/footers, orientation, margins, header/footer distances, and page-number semantics. Source 1 starts decimal numbering at 1; source 2 restarts at upper-Roman 7.
+- Added/expanded unit and integration regressions for global page-number section order, schema-safe `w:pgNumType` fixtures, page-number-loss rejection, exact Word process cleanup, natural-exit handling, UTF-8 BOM identities, abnormal successful Word shutdown, source revision mutation, duplicate sources, smoke geometry, and smoke evidence serialization.
+
+### Changed
+- Page-number evidence no longer encodes source-document indices because multiple source DOCX files become one merged output DOCX. The digest now binds only the monotonically increasing global section sequence, preserving order while allowing valid source-to-output comparison.
+- Word native merge acceptance now validates input/output boundaries before capability discovery, rejects duplicate resolved source paths, requires a positive timeout, refuses existing output, and validates each source DOCX before expected evidence construction.
+- A nominally successful Word command is no longer automatically accepted. If the recorded Word process still requires forced termination after the natural-exit window, the exact process is cleaned but the merge is rejected.
+- A failed/timed-out Word command now attempts exact-instance cleanup before propagating the command failure. If exact cleanup itself fails, DocMergeForge reports the unsafe cleanup state rather than hiding it behind the original error.
+- The acceptance pass rule now requires measured structure equality, visible-text fingerprint equality, section-layout/linkage fingerprint equality, page-number section-semantic fingerprint equality, and no newly introduced risky OOXML category.
+- `.github/workflows/fidelity-acceptance.yml` now executes the complete Word-related boundary regression surface on Ubuntu while still treating LibreOffice Writer as the only real external office application in that Linux job.
+- `.github/workflows/word-native-acceptance.yml` now writes and validates `fidelity-capabilities.json`, requires `word.automation_ready=true`, fails if `word.production_ready` is prematurely enabled, rejects a dirty pre-existing `WINWORD` state, checks post-smoke process cleanliness, uploads available evidence on failure, and enforces pre-state/smoke/post-state success.
+- `README.md`, `docs/word-native-merge-acceptance.md`, `docs/testing-and-ci.md`, `docs/known-limitations.md`, and `CHANGELOG.md` now distinguish implemented Word-native acceptance behavior from actual external Word certification and production readiness.
+- The root README now links the dedicated Word native acceptance guide and uses the current X profile link.
+
+### Fixed / Hardened
+- Fixed a repository inconsistency where the page-number regression test referenced `section_properties_sha256` and `page_number_properties_sha256` even though the acceptance snapshot did not yet provide those fields.
+- Fixed the Word native merge path so the existing exact-process cleanup helper is actually used instead of remaining disconnected test infrastructure.
+- Fixed the Word merge boundary so later sources receive section breaks instead of a plain page break, providing a real boundary for section-specific properties.
+- Fixed page-number fixture insertion order by writing `w:pgNumType` immediately before `w:cols` in `w:sectPr`, avoiding deliberately malformed acceptance fixtures that could themselves trigger Word repair behavior.
+- Fixed optional page-number fixture attributes so empty `w:chapStyle`/`w:chapSep` values are omitted rather than emitted as invalid empty attributes.
+- Fixed exact Word cleanup handling for PowerShell-created UTF-8 BOM identity files and for the race where Word exits naturally shortly after COM `Quit()`.
+- Fixed fail-open risk from PID-only cleanup by requiring process-name and process-start-time identity as well.
+- Fixed the controlled Word workflow policy gap where capability state and clean pre/post Word process state were previously not enforced.
+
+### Verification Status
+- The implementation and regression files are committed to `main` in focused commits using the repository identity `Sanskar <sanskarin@outlook.in>`.
+- The connected GitHub combined-status endpoint returned no status contexts for the current checkpoint when queried, and the available commit-workflow lookup returned no matching workflow runs. No new green Quality/Fidelity result is fabricated in this record.
+- A local checkout/test run still cannot be used from this execution environment because direct repository cloning cannot resolve/reach GitHub. No local Ruff/Black/mypy/pytest result is invented.
+- The Ubuntu fidelity workflow is configured to exercise the new Word parser/process/acceptance regressions plus a real LibreOffice Writer round trip, but a new passing run ID is not recorded until observable.
+- The self-hosted Word workflow is configured to execute a real Microsoft Word COM smoke only on `[self-hosted, Windows, X64, docmergeforge-word]`. No controlled self-hosted Word run was available through the connected tooling in this phase, so real Word acceptance is not claimed.
+- `word.production_ready=false` remains unchanged. Portable OOXML remains the normal production-supported DOCX merge mode.
+
+### Remaining Release-Gate Work
+- Execute and review a real passing Microsoft Word native smoke on a controlled Windows host with the exact Word version/build installed and licensed.
+- Execute a real forced-timeout Word case while Word is actually running and verify exact-instance cleanup, no unrelated Word termination, and clean post-run process state.
+- Run representative private multi-document Word corpora covering complex section/header/footer linkage, page-number restarts/chapter numbering, styles/themes/list collisions, floating drawings/text boxes, fields/TOC/bookmarks/hyperlinks, comments/tracked changes/content controls, equations/charts/SmartArt/embedded objects/custom XML, non-Latin text/fonts, and large/long-running documents.
+- Record manual rendering/behavior review and repair-prompt results for every Word version/build claimed.
+- Implement and certify complete native multi-document LibreOffice semantics; the LibreOffice path remains a source-preserving round-trip acceptance adapter rather than a production native merge engine.
+- Execute and record an actual measured multi-gigabyte Stress Acceptance run.
+- Complete remaining human accessibility, clean-machine interactive packaged-app, platform signing/notarization, additional filesystem/power-loss/network semantics, and stable-release evidence gates.
+- Do not flip any external-office adapter to `production_ready=true` until its complete application integration and acceptance matrix are actually verified.
+
 ## 2026-08-18 — DOCX fidelity adapters, external-office acceptance, and private corpus evidence
 
 ### Added
