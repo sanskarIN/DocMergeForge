@@ -15,10 +15,11 @@ page-number section-semantic evidence: implemented
 source-revision binding: implemented
 exact Word process identity/cleanup boundary: implemented
 controlled synthetic Word smoke harness: implemented
+controlled timeout-cleanup harness: implemented
 manual self-hosted Word acceptance workflow: implemented
 production Word merge mode: disabled
 controlled real-Word passing run: still required
-controlled real forced-timeout run: still required
+controlled real timeout-cleanup run: still required
 representative corpus acceptance: still required
 manual rendering/behavior review: still required
 ```
@@ -193,6 +194,23 @@ The smoke creates two deterministic documents with distinct body/table/header/fo
 
 A real smoke therefore exercises more than paragraph counts: it exercises ordered content, section geometry, header/footer evidence, and non-default page-number semantics.
 
+## Controlled timeout cleanup
+
+A separate acceptance harness now intentionally holds an invisible Word COM session longer than the native command timeout:
+
+```powershell
+python scripts/check_word_timeout_cleanup_acceptance.py `
+  --output-dir ".\word-timeout-evidence" `
+  --timeout 20 `
+  --hold-seconds 140
+```
+
+It requires an actual timeout, requires the exact Word process identity to exist before timeout, invokes the same PID/name/start-time cleanup boundary used by native merge failures, and writes `word-timeout-cleanup-evidence.json`.
+
+A cleanup result may show either natural process exit after the host timeout or exact-process forced termination. Both are distinguished in evidence. Unsafe identity mismatch or cleanup failure is never accepted.
+
+See [Microsoft Word Timeout Cleanup Acceptance](word-timeout-cleanup-acceptance.md) for the complete evidence contract.
+
 ## Controlled self-hosted workflow
 
 `.github/workflows/word-native-acceptance.yml` is manual-only and requires:
@@ -203,7 +221,9 @@ A real smoke therefore exercises more than paragraph counts: it exercises ordere
 
 The workflow records Windows/Word environment metadata and `fidelity-capabilities.json`, requires `word.automation_ready=true`, and deliberately fails if `word.production_ready` has been flipped to true before certification.
 
-It rejects a dirty pre-acceptance `WINWORD` process state, runs Word boundary/evidence/process tests, executes the real Word COM smoke, verifies a clean post-acceptance process state, and uploads available environment/capability/process/merge evidence even when measured acceptance fails.
+It rejects a dirty pre-acceptance `WINWORD` process state, runs Word boundary/evidence/process tests, executes the real Word COM merge smoke, executes the controlled timeout-cleanup harness, verifies a clean post-acceptance process state, and uploads available environment/capability/process/merge/timeout evidence even when measured acceptance fails.
+
+A complete workflow pass requires the pre-process state, normal Word merge smoke, timeout-cleanup stage, and final process-state check all to succeed.
 
 A generic GitHub-hosted Windows runner is not treated as Word acceptance because Word installation/licensing/configuration is not assumed.
 
@@ -211,7 +231,7 @@ Defining this workflow is not proof that it has run. A controlled run ID and its
 
 ## What a passing result does not prove
 
-Even a passing synthetic real-Word run does not prove identical pagination or line wrapping, font availability/substitution, floating-object coordinates, field/TOC recalculation, rendered page-number fields, chart/SmartArt visual identity, tracked-change/comment display, content controls, embedded objects, custom XML semantics, every Office add-in state, packaged desktop integration, every COM deadlock/cancellation case, or behavior across untested Word builds.
+Even a passing synthetic real-Word run plus controlled timeout-cleanup run does not prove identical pagination or line wrapping, font availability/substitution, floating-object coordinates, field/TOC recalculation, rendered page-number fields, chart/SmartArt visual identity, tracked-change/comment display, content controls, embedded objects, custom XML semantics, every Office add-in state, packaged desktop integration, every COM deadlock/cancellation case, or behavior across untested Word builds.
 
 Manual review in the exact Word version being claimed remains mandatory.
 
@@ -231,8 +251,8 @@ must remain unchanged.
 
 Before production certification, complete and record at least:
 
-1. a real passing controlled Windows/Word smoke;
-2. a real forced-timeout case proving exact-instance cleanup while Word is actually running;
+1. a real passing controlled Windows/Word native merge smoke;
+2. a real passing controlled Word timeout-cleanup run using the implemented harness;
 3. representative private multi-document corpus runs;
 4. complex multi-section header/footer linkage and numbering cases;
 5. rendered fields/TOC/bookmarks/hyperlinks/page-number/chapter-number behavior;
@@ -248,6 +268,7 @@ Before production certification, complete and record at least:
 
 See also:
 
+- [Microsoft Word Timeout Cleanup Acceptance](word-timeout-cleanup-acceptance.md)
 - [DOCX Fidelity Adapters and Acceptance](docx-fidelity-acceptance.md)
 - [Private DOCX Fidelity Corpus Testing](docx-fidelity-corpus.md)
 - [DOCX Engine](docx-engine.md)
