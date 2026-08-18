@@ -24,9 +24,9 @@ def _inject_page_number_properties(path: Path, *, start: str, fmt: str) -> None:
     with ZipFile(path, "r") as source:
         members = {name: source.read(name) for name in source.namelist()}
     document_xml = members["word/document.xml"]
-    marker = b"<w:pgSz"
+    marker = b"<w:cols"
     if marker not in document_xml:
-        raise AssertionError("Expected page-size marker in generated DOCX fixture")
+        raise AssertionError("Expected section columns marker in generated DOCX fixture")
     page_number = f'<w:pgNumType w:start="{start}" w:fmt="{fmt}"/>'.encode()
     members["word/document.xml"] = document_xml.replace(
         marker, page_number + marker, 1
@@ -38,6 +38,7 @@ def _inject_page_number_properties(path: Path, *, start: str, fmt: str) -> None:
 
 def _copy_section_layout(source: object, target: object) -> None:
     for attribute in (
+        "start_type",
         "orientation",
         "page_width",
         "page_height",
@@ -51,12 +52,24 @@ def _copy_section_layout(source: object, target: object) -> None:
         "different_first_page_header_footer",
     ):
         setattr(target, attribute, getattr(source, attribute))
+    for name in (
+        "header",
+        "first_page_header",
+        "even_page_header",
+        "footer",
+        "first_page_footer",
+        "even_page_footer",
+    ):
+        source_story = getattr(source, name)
+        target_story = getattr(target, name)
+        target_story.is_linked_to_previous = source_story.is_linked_to_previous
 
 
 def _merge_without_page_number_properties(
     sources: tuple[Path, ...], output: Path
 ) -> None:
     merged = Document()
+    merged._body.clear_content()
     for index, source in enumerate(sources):
         current = Document(str(source))
         target_section = (
@@ -115,9 +128,7 @@ def test_word_merge_acceptance_rejects_lost_page_number_restart_and_format(
         )
 
     monkeypatch.setattr(word_merge_acceptance, "word_merge_documents", fake_merge)
-    evidence = word_merge_acceptance.run_word_merge_acceptance(
-        [first, second], output
-    )
+    evidence = word_merge_acceptance.run_word_merge_acceptance([first, second], output)
 
     assert evidence.structure_matches
     assert not evidence.content_matches
@@ -126,7 +137,10 @@ def test_word_merge_acceptance_rejects_lost_page_number_restart_and_format(
         evidence.expected_content.body_paragraphs_sha256
         == evidence.output_content.body_paragraphs_sha256
     )
-    assert evidence.expected_content.tables_sha256 == evidence.output_content.tables_sha256
+    assert (
+        evidence.expected_content.tables_sha256
+        == evidence.output_content.tables_sha256
+    )
     assert (
         evidence.expected_content.section_properties_sha256
         == evidence.output_content.section_properties_sha256
