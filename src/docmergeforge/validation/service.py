@@ -43,6 +43,28 @@ def validate_part_set(
                     "Replace the empty input with the correct document.",
                 )
             )
+        if kind == DocumentKind.PDF and item.encrypted and is_merge_input:
+            part_label = (
+                f"Part {item.part.number}" if item.part.number is not None else "Selected"
+            )
+            if allow_encrypted_pdf:
+                diagnostics.append(
+                    Diagnostic(
+                        DiagnosticLevel.INFO,
+                        f"{part_label} PDF password will be supplied in memory.",
+                        item.path,
+                        "The password is not stored in the project or diagnostics.",
+                    )
+                )
+            else:
+                diagnostics.append(
+                    Diagnostic(
+                        DiagnosticLevel.ERROR,
+                        f"{part_label} PDF is password protected.",
+                        item.path,
+                        "Provide the password locally before merging.",
+                    )
+                )
         if item.part.number is None:
             diagnostics.append(
                 Diagnostic(
@@ -77,25 +99,6 @@ def validate_part_set(
                     "Automatic merges exclude it unless it is explicitly selected in a project.",
                 )
             )
-        if kind == DocumentKind.PDF and item.encrypted and is_merge_input:
-            if allow_encrypted_pdf:
-                diagnostics.append(
-                    Diagnostic(
-                        DiagnosticLevel.INFO,
-                        f"Part {item.part.number} PDF password will be supplied in memory.",
-                        item.path,
-                        "The password is not stored in the project or diagnostics.",
-                    )
-                )
-            else:
-                diagnostics.append(
-                    Diagnostic(
-                        DiagnosticLevel.ERROR,
-                        f"Part {item.part.number} PDF is password protected.",
-                        item.path,
-                        "Provide the password locally before merging.",
-                    )
-                )
         for warning in item.warnings:
             diagnostics.append(
                 Diagnostic(
