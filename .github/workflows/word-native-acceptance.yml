@@ -1,0 +1,79 @@
+name: Microsoft Word Native Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      timeout_seconds:
+        description: Per-run Word automation timeout in seconds
+        required: false
+        default: "900"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  word-native-merge:
+    runs-on: [self-hosted, Windows, X64, docmergeforge-word]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: pip install -e ".[dev]"
+      - name: Record Windows and Microsoft Word environment
+        shell: powershell
+        run: |
+          .\scripts\report_word_acceptance_environment.ps1 `
+            -Output "word-merge-evidence\word-environment.json"
+      - name: Report fidelity capability state
+        shell: powershell
+        run: docmergeforge fidelity-capabilities
+      - name: Run Word boundary tests
+        shell: powershell
+        run: |
+          pytest `
+            tests/unit/test_docx_word.py `
+            tests/unit/test_docx_word_merge.py `
+            tests/unit/test_docx_word_merge_acceptance.py `
+            tests/integration/test_word_native_merge_acceptance_script.py `
+            tests/integration/test_word_native_merge_smoke_script.py
+      - name: Run real Microsoft Word native merge smoke
+        id: word_smoke
+        continue-on-error: true
+        shell: powershell
+        run: |
+          python scripts/check_word_native_merge_smoke.py `
+            --output-dir word-merge-evidence `
+            --timeout "${{ inputs.timeout_seconds }}"
+      - name: Display environment evidence
+        if: always()
+        shell: powershell
+        run: Get-Content word-merge-evidence\word-environment.json
+      - name: Display merge evidence
+        if: always()
+        shell: powershell
+        run: |
+          if (Test-Path word-merge-evidence\word-native-merge-evidence.json) {
+            Get-Content word-merge-evidence\word-native-merge-evidence.json
+          }
+      - name: Upload Word acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: microsoft-word-native-acceptance-evidence
+          path: word-merge-evidence/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Enforce Word smoke result
+        if: always() && steps.word_smoke.outcome != 'success'
+        shell: powershell
+        run: |
+          Write-Error "Microsoft Word native merge smoke did not pass measured acceptance."
+          exit 1
