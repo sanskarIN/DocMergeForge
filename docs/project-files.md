@@ -151,6 +151,10 @@ Publication/profile label. Default: `Exact Preservation`.
 
 Base naming template used by project output naming. Default: `{series}_Master`.
 
+Rendered output basenames are normalized for cross-platform-invalid characters and Windows reserved device names. Very long names are capped at **180 UTF-8 bytes** before the final extension/version suffix is added. When truncation is necessary, DocMergeForge appends a deterministic 12-hex SHA-256-derived suffix so two different long names are unlikely to collapse to the same truncated basename.
+
+This bound is a conservative filename-component safety measure; complete path limits still depend on the selected operating system, filesystem, mount, and parent-directory depth. Preflight/output write checks remain authoritative for the actual destination.
+
 ## PDF settings
 
 Default PDF settings:
@@ -197,7 +201,9 @@ See [DOCX Engine](docx-engine.md).
 
 ## Atomic project saving
 
-Project saving uses a temporary sibling path and replaces the final project file only after the complete JSON text is written. This reduces the chance of leaving a partially written JSON project after a normal write interruption.
+Project saving uses the shared atomic text-persistence helper. Each save creates a **unique sibling temporary file**, writes UTF-8 JSON, flushes and `fsync`s that temporary file, and promotes it with `os.replace(...)` only after the write completes.
+
+If writing or replacement fails, the temporary file is removed and the previously published project file remains intact. Multiple writers no longer contend on one predictable `<project>.tmp` filename, although concurrent saves are still logically last-writer-wins and should not be used as a collaborative editing protocol.
 
 The project file itself is still not a backup of the source manuscript. Back up important project files independently.
 
@@ -209,7 +215,9 @@ The loader supplies defaults for several missing settings so older/minimal proje
 - `source_folders`;
 - `output_folder`.
 
-Unknown or structurally invalid values can still fail loading. Do not hand-edit production project files without validation.
+Unknown or structurally invalid values can still fail loading. This is intentional: an explicitly opened publication project is not treated like disposable UI preference/history metadata, and DocMergeForge does not silently invent project-critical configuration when the JSON is malformed.
+
+Do not hand-edit production project files without validation.
 
 ## Manual editing
 
