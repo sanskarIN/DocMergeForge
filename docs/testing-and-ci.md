@@ -17,11 +17,11 @@ pytest --cov=docmergeforge --cov-report=term-missing
 
 ### Unit tests
 
-Focused coverage includes part detection/natural sorting, output naming, settings/project serialization, storage/writeability, transaction recovery, cross-process locking, PDF/DOCX helpers, packaging arguments, build provenance, and documentation-link resolution.
+Focused coverage includes part detection/natural sorting, output naming, settings/project serialization, storage/writeability, transaction recovery, cross-process locking, PDF/DOCX helpers, native DOCX command safety, external-office round-trip adapters, fidelity capability gates/evidence, OOXML risk scanning, packaging arguments, build provenance, and documentation-link resolution.
 
 ### Integration tests
 
-Marked `integration`. They exercise multiple components together, including real PDF/DOCX fixtures, merge flows, CLI behavior, UI metadata, provenance command execution, packaged-entry smoke behavior, abrupt child-process recovery, and the privacy-safe resource-evidence command runner.
+Marked `integration`. They exercise multiple components together, including real PDF/DOCX fixtures, merge flows, CLI behavior, fidelity acceptance evidence generation, UI metadata, provenance command execution, packaged-entry smoke behavior, abrupt child-process recovery, and the privacy-safe resource-evidence command runner.
 
 ```bash
 pytest -m integration
@@ -57,6 +57,8 @@ Head:        dc624e23d07e0ce94ef345245630d153ee60091a
 Python 3.12: PASS
 Python 3.13: PASS
 ```
+
+That recorded checkpoint predates later fidelity changes and must not be reused as proof for them. Record a new run only after the new checkpoint actually passes.
 
 ## Documentation link integrity
 
@@ -110,6 +112,28 @@ This is controlled process-termination evidence, not physical power-loss/device-
 Corrected run `32023666826` passed while preserving the previous target and cleaning atomic `.part` residue.
 
 Other filesystems/platforms remain separate acceptance if claimed.
+
+## DOCX Fidelity Acceptance
+
+`.github/workflows/fidelity-acceptance.yml` is a dedicated external-office acceptance lane. It runs automatically on relevant `main` changes and can also be manually dispatched.
+
+The current Ubuntu job:
+
+1. installs LibreOffice Writer;
+2. installs DocMergeForge plus development dependencies;
+3. runs `docmergeforge fidelity-capabilities` so availability and production-readiness remain visibly separate;
+4. runs focused native-command, LibreOffice, Word-boundary, capability, acceptance-evidence, and OOXML-risk tests;
+5. executes `scripts/check_docx_fidelity_acceptance.py --mode libreoffice` against a generated DOCX fixture;
+6. prints the measured JSON evidence;
+7. uploads the source DOCX, LibreOffice round-trip DOCX, and evidence JSON.
+
+The synthetic fixture includes a heading, formatted text, bullet paragraphs, a table, and section header/footer content.
+
+A passing run demonstrates that the tested LibreOffice build on that Linux runner could open/re-save the fixture and preserve the measured structural snapshot without introducing a new risk category. It does **not** certify complete multi-document native merge behavior, visual identity, Windows/macOS LibreOffice behavior, or Microsoft Word.
+
+Microsoft Word acceptance requires a controlled Windows host where Word is actually installed. PowerShell detection alone is not Word evidence.
+
+See [DOCX Fidelity Adapters and Acceptance](docx-fidelity-acceptance.md).
 
 ## Security workflow
 
@@ -219,9 +243,9 @@ Weekly Dependabot PRs are enabled for GitHub Actions and pip dependencies. They 
 
 ## Fidelity testing
 
-PDF/DOCX tests cover structural/package behavior, ordering, encryption, sections/styles/numbering/media/relationships/fields, cancellation, source immutability, and output validation where practical.
+PDF/DOCX tests cover structural/package behavior, ordering, encryption, sections/styles/numbering/media/relationships/fields, cancellation, source immutability, output validation, native command failures/timeouts, external-office source preservation, capability gating, measured round-trip evidence, and risky OOXML construct detection where practical.
 
-Portable automated tests cannot prove every Microsoft Word/PDF viewer rendering behavior. Representative real-world human fidelity review remains separate.
+Portable and external-office automated tests still cannot prove every Microsoft Word/LibreOffice/PDF viewer rendering behavior. Representative real-world human fidelity review remains separate.
 
 ## Test-data and evidence privacy
 
@@ -233,7 +257,7 @@ When a gate fails, inspect the exact failed step, distinguish environment from a
 
 ## Release CI acceptance matrix
 
-Before a stable release candidate, obtain current evidence appropriate to the support statement for Quality, pre-commit configuration, documentation-link integrity, 120-Part Regression, Build Smoke, Recovery Acceptance, filesystem exhaustion, Security/CodeQL, measured Stress, onedir Package Desktop, Onefile Acceptance if distributed, archive checksum/provenance, both signed attestation predicates, downloaded-artifact fresh-runner execution, representative fidelity, human accessibility/interactive clean-machine QA, and signing/notarization where claimed.
+Before a stable release candidate, obtain current evidence appropriate to the support statement for Quality, pre-commit configuration, documentation-link integrity, 120-Part Regression, Build Smoke, Recovery Acceptance, filesystem exhaustion, Security/CodeQL, measured Stress, DOCX external-office fidelity where claimed, onedir Package Desktop, Onefile Acceptance if distributed, archive checksum/provenance, both signed attestation predicates, downloaded-artifact fresh-runner execution, representative fidelity, human accessibility/interactive clean-machine QA, and signing/notarization where claimed.
 
 Do not reuse older run IDs as proof after materially changing the behavior they validated.
 
@@ -247,4 +271,4 @@ what_changed.md
 docs/release-evidence.md
 ```
 
-Keep **implemented**, **source-CI verified**, **downloaded-artifact verified**, and **human/production accepted** states distinct.
+Keep **implemented**, **source-CI verified**, **external-application measured**, **downloaded-artifact verified**, and **human/production accepted** states distinct.
