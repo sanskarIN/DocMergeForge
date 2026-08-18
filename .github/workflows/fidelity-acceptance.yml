@@ -10,6 +10,7 @@ on:
       - "scripts/check_docx_fidelity_acceptance.py"
       - "scripts/check_word_native_merge_acceptance.py"
       - "scripts/check_word_native_merge_smoke.py"
+      - "scripts/check_word_timeout_cleanup_acceptance.py"
       - "scripts/check_word_process_state.ps1"
       - "scripts/report_word_acceptance_environment.ps1"
       - "tests/unit/test_docx_*.py"
@@ -20,6 +21,7 @@ on:
       - "tests/unit/test_word_process_state_script.py"
       - "tests/integration/test_word_native_merge_acceptance_script.py"
       - "tests/integration/test_word_native_merge_smoke_script.py"
+      - "tests/integration/test_word_timeout_cleanup_acceptance_script.py"
       - ".github/workflows/fidelity-acceptance.yml"
       - ".github/workflows/word-native-acceptance.yml"
 
@@ -68,7 +70,8 @@ jobs:
             tests/unit/test_word_native_acceptance_workflow.py \
             tests/unit/test_word_process_state_script.py \
             tests/integration/test_word_native_merge_acceptance_script.py \
-            tests/integration/test_word_native_merge_smoke_script.py
+            tests/integration/test_word_native_merge_smoke_script.py \
+            tests/integration/test_word_timeout_cleanup_acceptance_script.py
       - name: Run real LibreOffice round-trip acceptance
         run: |
           python scripts/check_docx_fidelity_acceptance.py \
