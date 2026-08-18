@@ -59,14 +59,20 @@ Each selected source is passed to the same explicit single-document acceptance p
 
 That path records:
 
-- source/output SHA-256;
+- source/output file SHA-256;
 - source/output structural counts;
+- source/output visible-text SHA-256 fingerprints;
 - source/output risky-construct findings;
 - structural-match status;
+- content-fingerprint-match status;
 - newly introduced risk categories;
 - overall measured acceptance.
 
+The visible-text fingerprints cover measured body paragraphs, body table cells, header paragraphs/table cells, and footer paragraphs/table cells. The report stores SHA-256 fingerprints, not the manuscript text itself.
+
 External-office exceptions, invalid output, timeout, missing automation, source-integrity failures, and output-write failures are recorded as failed corpus items. With `--fail-fast`, processing stops after the first such error.
+
+A fail-fast run that stops before every discovered document has been processed is always reported as incomplete and is never accepted.
 
 ## Output layout
 
@@ -111,13 +117,24 @@ For example:
 
 The nested evidence object is also rewritten to use those relative paths before report serialization.
 
+When an adapter/validation error contains the absolute source file, destination file, corpus root, or evidence root, the corpus runner rewrites those locations before serializing the per-item error. Examples use placeholders such as:
+
+```text
+<corpus>/sections/landscape.docx
+<evidence>/roundtrip/sections/landscape.docx
+```
+
+The replacement is intentionally limited to known corpus/evidence paths. Third-party error text can still contain other sensitive data and should be reviewed before sharing.
+
 This reduces accidental disclosure of usernames, workstation directory layouts, client names embedded in parent folders, and other path metadata.
 
 The generated round-trip DOCX files still contain whatever document content the source manuscripts contain. Treat the entire evidence directory as private unless it has been intentionally sanitized.
 
+The report also contains file hashes and visible-text fingerprints. Those hashes do not contain the plain manuscript text, but they can still act as identifiers for known content and should be shared intentionally.
+
 ## No automatic upload
 
-`fidelity-corpus` is a local command. It does not upload the corpus, generated copies, hashes, or report to GitHub or another service.
+`fidelity-corpus` is a local command. It does not upload the corpus, generated copies, hashes, fingerprints, or report to GitHub or another service.
 
 Do not add private corpus/evidence folders to the repository. Store them outside the repository or add appropriate local ignore rules if they must temporarily live near a checkout.
 
@@ -156,22 +173,27 @@ Use legally shareable synthetic reductions when a private document reveals a rep
 
 Corpus-level `accepted=true` means:
 
-- at least one file was processed; and
-- every processed item passed the measured single-document acceptance criteria.
+- at least one matching file was discovered;
+- every discovered file was processed;
+- every processed item retained the measured structural snapshot;
+- every processed item retained the measured visible-text fingerprints; and
+- no processed item introduced a new risky-construct category.
 
 It does not mean every page renders identically or that the external adapter is production-ready.
 
-A corpus can pass structural checks while still requiring manual review for:
+A corpus can pass these structural/content checks while still requiring manual review for:
 
 - line/page wrapping;
 - font substitution;
 - floating object placement;
+- image rendering/positioning;
 - chart rendering;
 - field recalculation;
 - TOC page numbers;
-- section header/footer linkage;
+- section header/footer linkage semantics;
 - tracked-change display state;
 - equation appearance;
+- custom XML/content-control behavior;
 - application-specific layout differences.
 
 ## Manual review record
@@ -183,8 +205,9 @@ For a release-candidate corpus, keep a separate review record containing at leas
 - office-suite version/build and architecture;
 - corpus revision/identifier;
 - generated corpus report hash;
-- count of files reviewed;
+- count of discovered/processed files;
 - Word/LibreOffice repair prompts, if any;
+- automated structural/content/risk result;
 - manual visual/behavior result per risk category;
 - accepted deviations and their rationale;
 - blocker defects and regression-test links.
