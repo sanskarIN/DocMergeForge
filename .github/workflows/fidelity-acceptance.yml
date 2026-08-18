@@ -54,7 +54,7 @@ jobs:
       - name: Show measured evidence
         run: cat fidelity-evidence/fidelity-libreoffice-evidence.json
       - name: Upload fidelity evidence
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: docx-libreoffice-fidelity-evidence
           path: fidelity-evidence/
