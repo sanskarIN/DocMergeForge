@@ -33,16 +33,21 @@ The master specification is larger than a single safe implementation step. Work 
 ## v0.4.x — Fidelity adapters — implementation advanced / production certification pending
 - Interactive encrypted-PDF password-in-memory flow is implemented for desktop and CLI use.
 - Portable OOXML fidelity mode remains the production merge path.
-- Native office execution now has a shared fail-closed boundary with timeout, captured diagnostics, DOCX output validation, and source-hash verification.
-- LibreOffice has an explicit source-preserving DOCX round-trip adapter using detected `libreoffice`/`soffice` executables.
-- Microsoft Word has an explicit Windows PowerShell/COM source-preserving DOCX round-trip adapter that opens inputs read-only and writes to validated temporary output before promotion.
-- Capability reporting now separates local availability, automation readiness, and production readiness.
-- `docmergeforge fidelity-capabilities` exposes those states without promoting external adapters to production.
-- `docmergeforge fidelity-roundtrip` generates source/output hashes, structural snapshots, risky-construct findings, and an acceptance result for a selected representative DOCX.
-- Risk review now detects macros, OLE/package embeddings, ActiveX, custom XML, comments, external relationships, tracked revisions, content controls, field codes, equations, altChunk content, charts, SmartArt/diagrams, and oversized markup skipped by the bounded scan.
-- A real LibreOffice Writer round-trip acceptance workflow is implemented for Ubuntu and uploads its evidence bundle.
-- Non-production fidelity modes are still rejected by the normal merge engine instead of silently falling back.
-- Remaining gate: complete and certify true multi-document LibreOffice/Word merge semantics; execute representative real-world corpus acceptance on every claimed target platform/application version; run Microsoft Word acceptance on a controlled Windows host with Word actually installed; add regression cases for any discovered fidelity deviations. A successful synthetic or single-document round-trip alone is not production certification.
+- Native office execution has a shared fail-closed boundary with timeout, captured diagnostics, DOCX output validation, and source-hash verification.
+- LibreOffice has a source-preserving DOCX round-trip adapter using detected `libreoffice`/`soffice` executables plus a real Ubuntu Writer round-trip workflow.
+- Microsoft Word has a source-preserving Windows PowerShell/COM round-trip adapter.
+- Microsoft Word also has a separate native multi-document **acceptance prototype** using ordered `Range.InsertFile(...)`, explicit next-page/continuous section boundaries, validated temporary output, source-revision checks, and exact Word process identity cleanup.
+- Word native acceptance measures aggregate structure, privacy-safe body/table/header/footer text, section layout/linkage, page-number section semantics (`w:start`, `w:fmt`, `w:chapStyle`, `w:chapSep`), source hashes, and risky OOXML categories.
+- Word process cleanup is guarded by PID + `WINWORD` process name + process start-time fingerprint, includes a natural-exit grace period, refuses PID-reuse/mismatched identities, and rejects nominal merge success if forced Word termination was still required.
+- The deterministic Word smoke uses portrait/landscape sources, distinct margins/header/footer distances, and decimal/upper-Roman page-number restart semantics.
+- Capability reporting separates local availability, automation readiness, and production readiness.
+- `docmergeforge fidelity-capabilities`, `fidelity-roundtrip`, and private `fidelity-corpus` acceptance paths expose evidence without promoting external adapters to production.
+- The normal DOCX merge engine still rejects non-production external modes instead of silently falling back or enabling them.
+- `.github/workflows/fidelity-acceptance.yml` runs the complete Word boundary regression surface on Linux while executing LibreOffice as the real external application there.
+- `.github/workflows/word-native-acceptance.yml` is manual-only on a controlled self-hosted Windows runner and enforces Word capability policy plus clean pre/post `WINWORD` state.
+- Remaining LibreOffice gate: implement/certify true native multi-document LibreOffice semantics and representative target-platform corpora.
+- Remaining Word gate: execute/record real controlled normal and forced-timeout Word runs, representative private multi-document corpora, exact-version evidence, repair-prompt/manual rendering review, packaged integration where claimed, and regressions for discovered deviations.
+- External `libreoffice` and `word` modes remain `production_ready=false`. A synthetic fixture, source-CI regression, or workflow definition alone is not production certification.
 
 ## v0.5.x — Desktop completeness and accessibility — substantially implemented / acceptance pending
 - Settings, Help, Recent Projects, Validate, Audit, Compare, Resume, Support, and About entry points are implemented.
@@ -59,21 +64,18 @@ The master specification is larger than a single safe implementation step. Work 
 - Build/package argument tests are present.
 - The packaged PyInstaller entry supports deterministic `--packaged-smoke` initialization without first-run/recovery dialogs and runs a tiny mixed PDF+DOCX publication to exercise bundled document engines and generated evidence.
 - Package Desktop launch-tests the built application before archiving it and runs automatically on `main` when packaging/UI configuration changes, as well as on manual dispatch and `v*` tags.
-- Package Desktop creates a SHA-256 sidecar for each unsigned archive; final production hashes still need to be generated after any later signing/notarization/repackaging step.
+- Package Desktop creates a SHA-256 sidecar for each unsigned archive; final production hashes still need to be generated after later signing/notarization/repackaging.
 - Linux package jobs install the same required Qt/EGL runtime prerequisite used by desktop smoke CI.
 - macOS packaging handles the native `.app` bundle layout when present instead of assuming the Linux/Windows onedir path.
 - Mixed-format document outputs and publication evidence are staged and batch-promoted transactionally, including rollback of earlier replacements when a later promotion fails.
-- Promotion is journaled before final-path mutation. Interrupted `promoting` journals have a fail-closed recovery implementation and an explicit `docmergeforge recover-output` CLI path; new transactions refuse to start while a journaled recovery is pending.
+- Promotion is journaled before final-path mutation. Interrupted `promoting` journals have fail-closed recovery and an explicit `docmergeforge recover-output` CLI path; new transactions refuse to start while journaled recovery is pending.
 - Publication and recovery share a non-blocking OS-level output-directory lock, preventing two independent DocMergeForge processes from concurrently staging/promoting/recovering the same destination.
-- The output lock is released by the OS if the owner process exits/crashes; the persistent lock filename is not treated as stale ownership evidence.
-- Recovery Acceptance performs real abrupt child-process termination with `os._exit()` on Windows, macOS, and Ubuntu after the first rollback backup, first new final promotion, and last new final promotion before journal commit. Run `32022863454` passed all three phases on all three platforms.
-- Graceful cancellation has additional engine/finalization checkpoints and repeated cancellation recovery regression coverage.
-- Destination writeability is probed before expensive project merge work, and fault-injected `ENOSPC` coverage verifies atomic temporary-file cleanup and preservation of the previously published target.
-- Disk Full Acceptance mounts an isolated 32 MiB Linux tmpfs, writes until a real kernel `ENOSPC`, and verifies the previous published target remains unchanged and `.part` residue is removed. This is real Linux filesystem-exhaustion evidence, not merely exception injection.
+- Recovery Acceptance performs real abrupt child-process termination with `os._exit()` on Windows, macOS, and Ubuntu at multiple promotion boundaries. Run `32022863454` passed all configured phases on all three platforms.
+- Destination writeability is probed before expensive project work, fault-injected `ENOSPC` coverage verifies atomic cleanup, and Disk Full Acceptance uses a real 32 MiB Linux tmpfs to verify kernel `ENOSPC` behavior.
 - A scalable synthetic stress-fixture generator and manually dispatchable stress workflow are implemented for measured large-run acceptance.
-- DOCX Fidelity Acceptance now adds a real external-application smoke lane for LibreOffice Writer on Ubuntu while keeping Word and multi-document external merge certification as separate gates.
-- Remaining gate: equivalent disk-full acceptance on additional filesystems/platforms if claimed, power-loss/device-disconnect scenarios where practical, multi-host/network-filesystem locking acceptance if claimed, an actually executed multi-gigabyte stress run, large real-world manuscript fidelity runs, human accessibility acceptance, clean-machine interactive packaged-app acceptance, platform-specific installer/bundle polish, final signed-release checksum publication, signing, and macOS notarization.
+- DOCX Fidelity Acceptance includes real LibreOffice Writer execution plus Word boundary regressions, while real Word execution is kept in its separate controlled Windows workflow.
+- Remaining gate: additional filesystem/platform exhaustion where claimed, physical power-loss/device-disconnect/network semantics where claimed, an actually executed multi-gigabyte stress run, representative real-world fidelity, human accessibility, clean-machine interactive packaged-app acceptance, platform-specific installer/bundle polish, final signed-release checksum publication, signing, and macOS notarization.
 - Signed or notarized binaries are not claimed.
 
 ## v1.0.0 quality gate — not yet reached
-No stable release until the full master-specification acceptance matrix is verified. At minimum, the Quality and Security workflows must be green at the release candidate, packaging artifacts must be exercised on their target platforms, large-file/cancellation/recovery tests must pass, fidelity limitations must be documented, and accessibility checks must be completed. Signed binaries must never be claimed unless actual signing and signature verification are completed.
+No stable release until the full master-specification acceptance matrix is verified. At minimum, current Quality/Security evidence must be green for the release candidate, packaging artifacts must be exercised on target platforms, large-file/cancellation/recovery tests must pass, external-office claims must have their own real acceptance evidence, fidelity limitations must remain documented, accessibility acceptance must be completed, and any claimed signed binaries must actually be signed and signature-verified.
