@@ -57,3 +57,55 @@ def test_validate_native_docx_output_and_source_hash(tmp_path: Path) -> None:
     changed.save(source)
     with pytest.raises(ValidationError, match="Source integrity violation"):
         native.verify_native_source_unchanged(source, expected)
+
+
+def test_promote_validated_native_output_succeeds(tmp_path: Path) -> None:
+    source = tmp_path / "source.docx"
+    temporary = tmp_path / "temporary.docx"
+    destination = tmp_path / "final.docx"
+    Document().save(source)
+    result = Document()
+    result.add_paragraph("result")
+    result.save(temporary)
+
+    native.promote_validated_native_docx_output(
+        temporary,
+        destination,
+        {source: sha256_file(source)},
+    )
+
+    assert destination.exists()
+    assert not temporary.exists()
+
+
+def test_promote_validated_native_output_removes_destination_on_final_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "source.docx"
+    temporary = tmp_path / "temporary.docx"
+    destination = tmp_path / "final.docx"
+    Document().save(source)
+    Document().save(temporary)
+    checks = 0
+
+    original_verify = native.verify_native_sources_unchanged
+
+    def fail_second_check(source_hashes: dict[Path, str]) -> None:
+        nonlocal checks
+        checks += 1
+        original_verify(source_hashes)
+        if checks == 2:
+            raise ValidationError("Source integrity violation after promotion")
+
+    monkeypatch.setattr(native, "verify_native_sources_unchanged", fail_second_check)
+
+    with pytest.raises(ValidationError, match="after promotion"):
+        native.promote_validated_native_docx_output(
+            temporary,
+            destination,
+            {source: sha256_file(source)},
+        )
+
+    assert checks == 2
+    assert not destination.exists()
