@@ -32,7 +32,7 @@ Verified runs:
 | Build Smoke | `32014319394` | PASS on Windows/macOS/Ubuntu |
 | Security / CodeQL | `32014319291` | PASS |
 
-This checkpoint predates later publication-locking, packaged-artifact, provenance, documentation-link, accessibility-preference, and SBOM hardening. Use the more specific evidence below for those behaviors.
+This checkpoint predates later publication-locking, packaged-artifact, provenance, documentation-link, accessibility-preference, SBOM, and Word-native fidelity hardening. Use the more specific evidence below for those behaviors.
 
 ### Documentation-link integrity
 
@@ -46,8 +46,6 @@ Result: PASS on Python 3.12 and 3.13 through Ruff, Black, strict mypy, repositor
 
 ### Current source/accessibility checkpoint
 
-The source line containing the CycloneDX packaging mirror also includes the expanded accessibility-preference smoke and telemetry test code.
-
 ```text
 Quality run:     32033541420
 Build Smoke run: 32033541402
@@ -59,6 +57,28 @@ Quality passed pre-commit configuration validation, Ruff, Black, strict mypy, do
 Build Smoke passed on Windows, macOS, and Ubuntu, including `scripts/check_accessibility.py`. The accessibility smoke verifies representative accessible metadata/shortcuts plus deterministic theme application, text-scale bounds/round-trip, and reduced-motion preference round-trip.
 
 This is automated offscreen preference/metadata evidence. It is **not** human screen-reader, keyboard-only end-to-end, high-contrast, localization, or full accessibility acceptance.
+
+### Word native fidelity implementation checkpoint
+
+Current state is intentionally recorded at the **Implemented** level only.
+
+Implemented after the source checkpoint above:
+
+- Microsoft Word native multi-document acceptance prototype using ordered `Range.InsertFile(...)` and real Word section boundaries;
+- exact COM-created Word process identity using PID + `WINWORD` name + process start-time fingerprint;
+- exact-instance failure/timeout cleanup with PID-reuse protection and natural-exit grace handling;
+- privacy-safe visible-text, section-layout/linkage, and page-number section-semantic fingerprints;
+- page-number evidence for `w:start`, `w:fmt`, `w:chapStyle`, and `w:chapSep` in one global merged section sequence;
+- source-revision binding before/after expected evidence, Word automation, and output evidence;
+- deterministic Word smoke sources with portrait/landscape geometry, distinct margins/header/footer distances, and decimal/upper-Roman numbering restarts;
+- a dedicated manual self-hosted Windows Word workflow with capability-policy and clean pre/post `WINWORD` checks; and
+- expanded Ubuntu fidelity regressions for Word parser/process/acceptance boundaries while LibreOffice remains the real external application in that Linux job.
+
+No new run ID is recorded here for these changes. The connected status surface returned no current status contexts and no matching workflow run through the available commit-run lookup, while the execution container cannot resolve GitHub for a local checkout. Therefore older Quality runs are **not** reused as proof of this newer implementation.
+
+No real controlled Microsoft Word run is recorded either. The self-hosted workflow definition is not itself acceptance evidence. `word.production_ready=false` remains required.
+
+See [Microsoft Word Native Merge Acceptance](word-native-merge-acceptance.md).
 
 ## Publication locking and recovery evidence
 
@@ -326,7 +346,9 @@ The following are intentionally **not** marked complete by the evidence above:
 - final post-signing/post-notarization distribution hashes;
 - physical power-loss/storage-disconnect recovery acceptance;
 - network/shared-filesystem multi-host lock semantics;
-- production-ready Microsoft Word or LibreOffice high-fidelity adapters;
+- real controlled Microsoft Word native normal and forced-timeout acceptance;
+- representative private multi-document Word corpus plus manual rendering/behavior review;
+- production-ready Microsoft Word or LibreOffice high-fidelity modes;
 - exact post-PyInstaller binary-component SBOM/content inventory if that stronger claim is required;
 - stable `v1.0.0` acceptance.
 
@@ -334,4 +356,4 @@ The following are intentionally **not** marked complete by the evidence above:
 
 When a behavior materially changes, do not reuse an older run as proof for the changed behavior. Add a new checkpoint and run ID.
 
-Keep source-level CI evidence, downloaded-artifact evidence, and human/production acceptance separate. For executable releases, retain the exact final archive hash, provenance/attestation/SBOM evidence, signing/notarization evidence where applicable, release download identity, and human acceptance record together.
+Keep source-level CI evidence, downloaded-artifact evidence, external-application measured evidence, and human/production acceptance separate. For executable releases, retain the exact final archive hash, provenance/attestation/SBOM evidence, signing/notarization evidence where applicable, release download identity, and human acceptance record together.
