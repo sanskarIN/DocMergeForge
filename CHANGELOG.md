@@ -24,6 +24,9 @@ All notable changes follow semantic versioning.
 - Reworked `docs/libreoffice-native-merge-acceptance.md` around the single supervised UNO implementation, including the explicit ordered private-manuscript command, isolated process-group cleanup, first-gate evidence scope, real workflows, and remaining production gates.
 - Updated the root documentation portal, root README, testing/CI guide, known limitations, development phases, and release evidence ledger for the supervised LibreOffice UNO multi-document surface without claiming unobserved external acceptance.
 - Expanded GitHub bug/feature/PR templates with privacy, source-separation, fidelity, recovery, packaging, accessibility, evidence, and production-readiness checks.
+- Expanded settings, diagnostics, project-file, discovery/ordering, and CLI documentation for atomic local metadata persistence, malformed-convenience-state recovery, strict project schema validation, bounded output filenames, privacy-filtered logging fallback, numbered/in-range automatic manuscript selection, nested-output exclusion, diagnostics, and actual versioned CLI output paths.
+- Expanded third-party notices with exact-version redistribution/license review requirements and clarified that LibreOffice/Microsoft Word are externally installed applications rather than bundled dependencies.
+- Expanded the project code of conduct and added GitHub-native support routing with explicit privacy/security reporting boundaries.
 
 ### Added
 - First-run onboarding, project ordering, recent-project history, recovery checkpoints, and guided SQL preset desktop workflow.
@@ -63,6 +66,9 @@ All notable changes follow semantic versioning.
 - GitHub Funding metadata for the existing Buy Me a Coffee page.
 - Canonical package metadata links/classifiers plus `src/docmergeforge/py.typed` for the declared PEP 561 typed package.
 - `.gitignore` coverage for common private fidelity evidence/corpus directories and local DocMergeForge transaction/lock artifacts.
+- Shared `atomic_write_text(...)` persistence for project JSON, application settings, recent-project history, and diagnostics exports with unique temporary files, `fsync`, atomic replacement, and cleanup-on-failure tests.
+- Cross-platform `.editorconfig` and `.gitattributes` defaults for UTF-8 text, line-ending normalization, binary document/archive classification, and editor consistency.
+- Regression coverage for malformed settings/recent-project recovery, strict project schema/type validation, bounded Unicode output names, diagnostics-secret redaction/fallback logging, canonical desktop support links, package-version synchronization, overlapping-root scanner deduplication, nested-output discovery exclusion, automatic numbered manuscript selection, and merge-aware validation.
 
 ### Changed
 - Centralized desktop packaging argument generation inside the installable `docmergeforge.packaging` package so builds and tests share the same configuration.
@@ -89,6 +95,13 @@ All notable changes follow semantic versioning.
 - LibreOffice native multi-document acceptance now has one maintained supervised implementation/workflow; the earlier duplicate draft code, smoke, workflow, and draft-only tests were removed.
 - All maintained native-office adapters/prototypes now share the same fail-closed final promotion boundary.
 - Package metadata now exposes homepage/repository/documentation/issues/funding URLs and identifies the project as pre-alpha rather than implying stable distribution status.
+- ReportLab compatibility now allows `reportlab>=4.2,<6` after reviewing the 5.0 release boundary and confirming DocMergeForge's current ReportLab rendering path uses local/generated canvas content rather than remote image fetching.
+- Automatic project, SQL-preset, preflight, and direct CLI manuscript inputs are now restricted to numbered files inside the configured expected range unless a project has an explicit reviewed `selected_files` list.
+- Project discovery excludes a strictly nested output subtree, and scanner discovery deduplicates the same resolved file reached through overlapping source roots.
+- Validation retains warnings for excluded unnumbered/out-of-range files but binds zero-byte/encryption blocking checks to the resolved files that can actually reach the merge engine.
+- Application settings/recent-project history are recoverable convenience metadata: malformed data falls back/skips safely, while publication project JSON remains strict and validates required schema, field types, part ranges, booleans, PDF options, and DOCX policy values.
+- Generated project basenames are bounded to 180 UTF-8 bytes and receive a deterministic 12-hex digest suffix when truncation is necessary.
+- Desktop About/Support surfaces now consume centralized canonical repository, funding, X, and support-contact constants.
 
 ### Fixed
 - CLI lint/type issues found by Ruff and mypy.
@@ -113,6 +126,19 @@ All notable changes follow semantic versioning.
 - Removed the duplicate first-draft LibreOffice native engine/evidence/smoke/workflow/tests that could otherwise diverge from the corrected supervised UNO implementation.
 - Supervised LibreOffice process cleanup now polls/reaps the launcher while checking the complete isolated process group, so an exited launcher cannot mask a surviving office child or remain an unreaped zombie.
 - External-office acceptance no longer leaves a newly promoted DOCX behind when final destination validation or the last source-integrity check fails after promotion.
+- Project/settings/recent/diagnostics metadata no longer use a shared predictable temporary filename or direct final-file overwrite; failed atomic text promotion preserves the previously published file and cleans residue.
+- Malformed `settings.json` can no longer prevent the desktop from starting, and malformed recent-project history no longer prevents opening the Recent Projects surface.
+- Diagnostics redact common JSON-style secrets, API/access/refresh/client-secret names, Basic/Bearer authorization values, and API-key headers; an unwritable log path falls back to a privacy-filtered stream instead of blocking desktop startup.
+- Removed an unused duplicate logger that configured the same logger name without the maintained privacy filter.
+- Fixed stale desktop X-profile data in the About dialog and locked canonical support-link values with a regression.
+- Direct `pdf`/`docx` commands now print the engine's actual returned output path, including `_v2`/other versioned paths, instead of always printing the originally requested path.
+- Automatic merges no longer silently append unrelated unnumbered PDF/DOCX files, old master files, or numbered files outside the configured part range.
+- A nested output directory can no longer feed a previous generated artifact back into later project discovery.
+- Overlapping parent/child source roots no longer emit the same resolved file twice and create false duplicate-part failures.
+- Excluded encrypted or zero-byte files no longer block a merge they cannot enter, while explicitly selected encrypted/zero-byte special material remains blocking unless handled safely.
+- Explicitly selected unnumbered encrypted PDF front matter now receives the same password-safety validation as numbered PDF inputs.
+- Manually edited project JSON can no longer enable overwrite or other publication behavior through wrong primitive types such as `"overwrite": "false"`.
+- Removed a stale self-writing `Update Development Record` workflow that had repository write permission and could re-inject hard-coded historical text into `main`.
 
 ### Validation
 - Commit `8cc96d714c43922b0effcbb16400fb2952f056b1` passed Quality run `31948936694`, 120-Part Regression `31948936615`, Build Smoke `31948936667`, and Security `31948936651`.
@@ -128,7 +154,7 @@ All notable changes follow semantic versioning.
 - Node 24-era action migration Onefile Acceptance run `32030487166` at checkpoint `24674b776216e6da73c257b30149f46605eb1b77` passed all Windows/macOS/Ubuntu build-host and fresh-runner jobs.
 - Measured Stress Acceptance run `32030895119` at checkpoint `ad5d8e354efefc745a454b799632359fafd29658` passed generation, Parts 1–120 validation, preflight, mixed merge, and compare using 120 PDF + 120 DOCX parts, 600 PDF pages, `9,881,006` measured source bytes, and `5,421,739` measured output bytes before evidence files. Artifact ID `9288923591`; container digest `sha256:f552c3007dc6121f77145e9335f4ca39a7a3809bb4a97eb98c4118f2f2529189`.
 - The measured stress baseline is approximately 9.9 MB and is deliberately **not** represented as multi-gigabyte acceptance.
-- No new passing Quality, supervised LibreOffice UNO/process-cleanup, or controlled-Word run is recorded for the current native-office hardening until such a run is actually observable and reviewed. Workflow definitions and committed regressions are implementation evidence, not external acceptance evidence.
+- No new passing current-head Quality/Regression/Build/Security, supervised LibreOffice UNO/process-cleanup, or controlled-Word run is recorded for the final persistence/input-safety hardening until such a run is actually observable and reviewed. Workflow definitions and committed regressions are implementation evidence, not external acceptance evidence.
 - These checks do not claim signed installers, macOS notarization, full human clean-machine interactive package acceptance, physical power-loss/device-removal recovery, network-filesystem locking semantics, full human accessibility acceptance, universal high-fidelity DOCX support, or `v1.0.0` readiness.
 
 ## [0.1.0] - 2026-08-16
