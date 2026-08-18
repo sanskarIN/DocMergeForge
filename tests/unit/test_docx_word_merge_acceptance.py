@@ -181,7 +181,7 @@ def test_word_merge_acceptance_rejects_source_revision_change_before_merge(
         mutating_expected_content,
     )
 
-    with pytest.raises(ValidationError, match="changed"):
+    with pytest.raises(ValidationError, match="Source integrity violation"):
         word_merge_acceptance.run_word_merge_acceptance([source], output)
 
     assert not output.exists()
