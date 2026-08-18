@@ -5,6 +5,8 @@ from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 from typing import Any
 
+from docmergeforge.utilities.atomic import atomic_write_text
+
 
 @dataclass(slots=True)
 class AppSettings:
@@ -28,10 +30,7 @@ class AppSettings:
     first_run_completed: bool = False
 
     def save(self, path: Path) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        temp = path.with_suffix(path.suffix + ".tmp")
-        temp.write_text(json.dumps(asdict(self), indent=2), encoding="utf-8")
-        temp.replace(path)
+        atomic_write_text(path, json.dumps(asdict(self), indent=2))
 
     @classmethod
     def load(cls, path: Path) -> AppSettings:
