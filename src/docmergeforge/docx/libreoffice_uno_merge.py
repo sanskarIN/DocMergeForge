@@ -15,8 +15,8 @@ from pathlib import Path
 from docmergeforge.core.exceptions import UnsupportedDocumentError, ValidationError
 from docmergeforge.docx.libreoffice import find_libreoffice
 from docmergeforge.docx.native import (
+    promote_validated_native_docx_output,
     validate_native_docx_output,
-    verify_native_source_unchanged,
 )
 from docmergeforge.utilities.hashing import sha256_file
 
@@ -392,14 +392,12 @@ def libreoffice_uno_merge_documents(
                 worker_process.wait(timeout=5)
             _terminate_process_group(office_process)
 
-        validate_native_docx_output(temporary_output)
-        for source, expected_hash in source_hashes.items():
-            verify_native_source_unchanged(source, expected_hash)
-        temporary_output.replace(destination)
+        promote_validated_native_docx_output(
+            temporary_output,
+            destination,
+            source_hashes,
+        )
 
-    validate_native_docx_output(destination)
-    for source, expected_hash in source_hashes.items():
-        verify_native_source_unchanged(source, expected_hash)
     return LibreOfficeUnoMergeResult(
         source_count=len(ordered_sources),
         output=destination,
