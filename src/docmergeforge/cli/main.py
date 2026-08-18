@@ -22,6 +22,8 @@ from docmergeforge.core.models import (
 from docmergeforge.discovery.part_detection import natural_key
 from docmergeforge.discovery.scanner import scan
 from docmergeforge.docx.engine import DocxMergeEngine
+from docmergeforge.docx.fidelity import fidelity_capabilities
+from docmergeforge.docx.fidelity_acceptance import run_fidelity_roundtrip_acceptance
 from docmergeforge.pdf.engine import PdfMergeEngine
 from docmergeforge.pdf.passwords import verify_pdf_password
 from docmergeforge.presets.sql_full_mastery import PRESET_NAME, create_sql_full_mastery_project
@@ -37,6 +39,13 @@ def _parts(value: str) -> tuple[int, int]:
     if start_number < 1 or end_number < start_number:
         raise argparse.ArgumentTypeError("parts must be a positive range such as 1-120")
     return start_number, end_number
+
+
+def _positive_seconds(value: str) -> int:
+    seconds = int(value)
+    if seconds < 1:
+        raise argparse.ArgumentTypeError("timeout must be at least one second")
+    return seconds
 
 
 def _dry_run_payload(result: DryRunResult) -> dict[str, object]:
@@ -143,6 +152,25 @@ def build_parser() -> argparse.ArgumentParser:
         merge_kind.add_argument("--parts", default="1-120", type=_parts)
         merge_kind.add_argument("--output", required=True, type=Path)
         _add_discovery_options(merge_kind)
+
+    fidelity = sub.add_parser(
+        "fidelity-capabilities",
+        help="Report DOCX fidelity adapter detection and production-readiness separately.",
+    )
+    fidelity.set_defaults(command="fidelity-capabilities")
+
+    fidelity_roundtrip = sub.add_parser(
+        "fidelity-roundtrip",
+        help="Run explicit LibreOffice/Word DOCX round-trip acceptance evidence.",
+    )
+    fidelity_roundtrip.add_argument("--input", required=True, type=Path)
+    fidelity_roundtrip.add_argument("--output", required=True, type=Path)
+    fidelity_roundtrip.add_argument(
+        "--mode",
+        required=True,
+        choices=("libreoffice", "word"),
+    )
+    fidelity_roundtrip.add_argument("--timeout", default=300, type=_positive_seconds)
 
     preset = sub.add_parser(
         "sql-preset",
@@ -318,6 +346,20 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command in {"pdf", "docx"}:
         return _run_direct_merge(args)
+
+    if args.command == "fidelity-capabilities":
+        print(json.dumps([asdict(item) for item in fidelity_capabilities()], indent=2))
+        return 0
+
+    if args.command == "fidelity-roundtrip":
+        evidence = run_fidelity_roundtrip_acceptance(
+            args.input,
+            args.output,
+            args.mode,
+            timeout_seconds=args.timeout,
+        )
+        print(json.dumps(evidence.to_dict(), indent=2))
+        return 0 if evidence.accepted else 2
 
     if args.command == "project-create":
         if args.sql_preset:
