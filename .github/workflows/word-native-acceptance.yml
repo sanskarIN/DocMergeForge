@@ -32,36 +32,108 @@ jobs:
         run: |
           .\scripts\report_word_acceptance_environment.ps1 `
             -Output "word-merge-evidence\word-environment.json"
-      - name: Report fidelity capability state
+      - name: Record and verify Word fidelity capability policy
         shell: powershell
-        run: docmergeforge fidelity-capabilities
+        run: |
+          $capabilityJson = docmergeforge fidelity-capabilities
+          $capabilityJson | Set-Content `
+            -LiteralPath "word-merge-evidence\fidelity-capabilities.json" `
+            -Encoding UTF8
+          $capabilities = @($capabilityJson | ConvertFrom-Json)
+          $word = $capabilities | Where-Object { $_.mode -eq "word" }
+          if ($null -eq $word) {
+            throw "Word fidelity capability was not reported."
+          }
+          if (-not $word.automation_ready) {
+            throw "Word fidelity automation is not ready on the controlled runner."
+          }
+          if ($word.production_ready) {
+            throw "Word fidelity mode must remain production_ready=false during acceptance."
+          }
+          $capabilityJson
+      - name: Require clean Word process state before acceptance
+        id: word_process_before
+        continue-on-error: true
+        shell: powershell
+        run: |
+          .\scripts\check_word_process_state.ps1 `
+            -Phase before `
+            -Output "word-merge-evidence\word-process-before.json"
       - name: Run Word boundary tests
+        if: steps.word_process_before.outcome == 'success'
         shell: powershell
         run: |
           pytest `
             tests/unit/test_docx_word.py `
             tests/unit/test_docx_word_merge.py `
+            tests/unit/test_docx_word_process.py `
+            tests/unit/test_docx_section_evidence.py `
             tests/unit/test_docx_word_merge_acceptance.py `
+            tests/unit/test_docx_word_merge_page_number_acceptance.py `
+            tests/unit/test_word_acceptance_environment_script.py `
+            tests/unit/test_word_process_state_script.py `
             tests/integration/test_word_native_merge_acceptance_script.py `
             tests/integration/test_word_native_merge_smoke_script.py
       - name: Run real Microsoft Word native merge smoke
         id: word_smoke
+        if: steps.word_process_before.outcome == 'success'
         continue-on-error: true
         shell: powershell
         run: |
           python scripts/check_word_native_merge_smoke.py `
             --output-dir word-merge-evidence `
             --timeout "${{ inputs.timeout_seconds }}"
+      - name: Require clean Word process state after acceptance
+        id: word_process_after
+        if: always() && steps.word_process_before.outcome == 'success'
+        continue-on-error: true
+        shell: powershell
+        run: |
+          .\scripts\check_word_process_state.ps1 `
+            -Phase after `
+            -Output "word-merge-evidence\word-process-after.json"
       - name: Display environment evidence
         if: always()
         shell: powershell
-        run: Get-Content word-merge-evidence\word-environment.json
+        run: |
+          if (Test-Path word-merge-evidence\word-environment.json) {
+            Get-Content word-merge-evidence\word-environment.json
+          }
+          else {
+            Write-Warning "Word environment evidence was not produced."
+          }
+      - name: Display capability evidence
+        if: always()
+        shell: powershell
+        run: |
+          if (Test-Path word-merge-evidence\fidelity-capabilities.json) {
+            Get-Content word-merge-evidence\fidelity-capabilities.json
+          }
+          else {
+            Write-Warning "Word capability evidence was not produced."
+          }
+      - name: Display process-state evidence
+        if: always()
+        shell: powershell
+        run: |
+          foreach ($name in @("word-process-before.json", "word-process-after.json")) {
+            $path = Join-Path "word-merge-evidence" $name
+            if (Test-Path $path) {
+              Get-Content $path
+            }
+            else {
+              Write-Warning "$name was not produced."
+            }
+          }
       - name: Display merge evidence
         if: always()
         shell: powershell
         run: |
           if (Test-Path word-merge-evidence\word-native-merge-evidence.json) {
             Get-Content word-merge-evidence\word-native-merge-evidence.json
+          }
+          else {
+            Write-Warning "Word native merge evidence was not produced."
           }
       - name: Upload Word acceptance evidence
         if: always()
@@ -71,9 +143,19 @@ jobs:
           path: word-merge-evidence/
           if-no-files-found: error
           retention-days: 14
-      - name: Enforce Word smoke result
-        if: always() && steps.word_smoke.outcome != 'success'
+      - name: Enforce controlled Word acceptance result
+        if: always()
         shell: powershell
         run: |
-          Write-Error "Microsoft Word native merge smoke did not pass measured acceptance."
-          exit 1
+          if ("${{ steps.word_process_before.outcome }}" -ne "success") {
+            Write-Error "Controlled Word runner was not clean before acceptance."
+            exit 1
+          }
+          if ("${{ steps.word_smoke.outcome }}" -ne "success") {
+            Write-Error "Microsoft Word native merge smoke did not pass measured acceptance."
+            exit 1
+          }
+          if ("${{ steps.word_process_after.outcome }}" -ne "success") {
+            Write-Error "Microsoft Word process cleanup acceptance failed."
+            exit 1
+          }
