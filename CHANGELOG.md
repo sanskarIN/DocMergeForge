@@ -19,6 +19,7 @@ All notable changes follow semantic versioning.
 - Expanded CI packaging documentation with packaging-relevant `main` triggers, real packaged PDF/DOCX publication smoke, native `.app` handling, archive SHA-256 sidecars, archive-bound provenance, and per-platform fresh-runner evidence requirements.
 - Expanded testing/development-phase documentation with cross-platform abrupt-process recovery acceptance and real Linux tmpfs `ENOSPC` acceptance.
 - Updated stress documentation with the first measured automated 120-part baseline, exact source/output byte evidence, and the explicit distinction between the verified ~9.9 MB baseline and still-unverified multi-gigabyte scale.
+- Expanded the Microsoft Word native-merge acceptance guide, testing/CI guide, known-limitations guide, and root README with measured section/page-number fidelity, source-revision binding, exact-process cleanup, controlled-runner policy, and explicit remaining external acceptance gates.
 
 ### Added
 - First-run onboarding, project ordering, recent-project history, recovery checkpoints, and guided SQL preset desktop workflow.
@@ -45,6 +46,10 @@ All notable changes follow semantic versioning.
 - Weekly Dependabot update PRs for GitHub Actions and Python dependencies, without automatic merging.
 - GitHub Artifact Attestations support for default onedir archives using `actions/attest@v4`; final acceptance remains recorded only after the complete attestation/fresh-runner workflow passes.
 - Unit/integration coverage for output locking, transaction/recovery exclusion, packaging-entry selection, packaged desktop smoke initialization/publication, provenance, documentation links, and forced-process recovery.
+- Microsoft Word native multi-document acceptance prototype using ordered `Range.InsertFile(...)`, real next-page/continuous section boundaries, validated temporary output, source hash protection, and a manual controlled self-hosted Windows acceptance workflow.
+- Privacy-safe Word native acceptance evidence for visible text, section layout/linkage, page-number section semantics, OOXML risk categories, and source revision identity.
+- Exact Word process identity cleanup using PID, `WINWORD` name, and start-time fingerprint, with natural-exit grace handling and PID-reuse protection.
+- Deterministic Word smoke fixtures with portrait/landscape geometry, distinct margins/header/footer distances, and decimal/upper-Roman page-number restart semantics.
 
 ### Changed
 - Centralized desktop packaging argument generation inside the installable `docmergeforge.packaging` package so builds and tests share the same configuration.
@@ -65,6 +70,8 @@ All notable changes follow semantic versioning.
 - The shared PyInstaller entry now uses `src/docmergeforge/ui/packaged_entry.py` while normal `docmergeforge-gui` behavior continues to use the existing desktop main entry point.
 - GitHub Actions workflows were migrated to the current Node 24-era major generations: checkout/setup-python v7, upload-artifact v7, download-artifact v8, dependency-review v5, and CodeQL v4.
 - Stress Acceptance now automatically exercises the default 120-part profile when stress infrastructure changes on `main` while retaining configurable manual dispatch for larger workloads.
+- Word native merge acceptance now binds expected/output evidence to one global section sequence, compares section/page-number fingerprints, rechecks source hashes across evidence construction and native execution, and rejects a nominal success when Word required forced process termination.
+- The Linux fidelity workflow now executes the complete Word boundary regression surface without claiming Word execution; the manual Word workflow now requires capability-policy evidence plus clean pre/post Word process state.
 
 ### Fixed
 - CLI lint/type issues found by Ruff and mypy.
@@ -81,6 +88,10 @@ All notable changes follow semantic versioning.
 - Linux-only mypy incompatibility with direct Windows `msvcrt.locking` references by introducing a typed platform adapter.
 - Strict Ruff `SIM117`, line-length, and python-docx path typing issues found while adding new acceptance harnesses, without weakening repository rules.
 - Two Ruff E501 failures in the Markdown-link checker that previously prevented Quality from reaching Black, mypy, link validation, and pytest.
+- Word native multi-document insertion no longer uses a plain page-break constant; later sources now receive explicit Word section boundaries so section-specific properties have a preservation boundary.
+- Page-number evidence no longer encodes source-document indices that cannot exist in the single merged output; it uses global section order instead.
+- Word process cleanup now accepts Windows PowerShell UTF-8 BOM identity files, rechecks exact identity after a natural-exit grace period, and never broad-kills unrelated Word sessions.
+- A broken acceptance-test contract where page-number regression tests referenced section/page-number evidence fields that the implementation did not yet provide.
 
 ### Validation
 - Commit `8cc96d714c43922b0effcbb16400fb2952f056b1` passed Quality run `31948936694`, 120-Part Regression `31948936615`, Build Smoke `31948936667`, and Security `31948936651`.
@@ -96,6 +107,7 @@ All notable changes follow semantic versioning.
 - Node 24-era action migration Onefile Acceptance run `32030487166` at checkpoint `24674b776216e6da73c257b30149f46605eb1b77` passed all Windows/macOS/Ubuntu build-host and fresh-runner jobs.
 - Measured Stress Acceptance run `32030895119` at checkpoint `ad5d8e354efefc745a454b799632359fafd29658` passed generation, Parts 1–120 validation, preflight, mixed merge, and compare using 120 PDF + 120 DOCX parts, 600 PDF pages, `9,881,006` measured source bytes, and `5,421,739` measured output bytes before evidence files. Artifact ID `9288923591`; container digest `sha256:f552c3007dc6121f77145e9335f4ca39a7a3809bb4a97eb98c4118f2f2529189`.
 - The measured stress baseline is approximately 9.9 MB and is deliberately **not** represented as multi-gigabyte acceptance.
+- No new passing Quality/Fidelity/controlled-Word run is recorded for the current Word-native hardening until such a run is actually observable. The controlled Word workflow exists, but a workflow definition is not acceptance evidence.
 - These checks do not claim signed installers, macOS notarization, full human clean-machine interactive package acceptance, physical power-loss/device-removal recovery, network-filesystem locking semantics, full human accessibility acceptance, universal high-fidelity DOCX support, or `v1.0.0` readiness.
 
 ## [0.1.0] - 2026-08-16
