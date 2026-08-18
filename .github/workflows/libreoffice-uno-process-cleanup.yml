@@ -1,0 +1,32 @@
+name: LibreOffice UNO Process Cleanup
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "src/docmergeforge/docx/libreoffice_uno_merge.py"
+      - "tests/integration/test_lo_uno_process_group.py"
+      - ".github/workflows/libreoffice-uno-process-cleanup.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  process-group-cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: pip install -e ".[dev]"
+      - name: Run real isolated process-group cleanup acceptance
+        run: pytest tests/integration/test_lo_uno_process_group.py -vv
