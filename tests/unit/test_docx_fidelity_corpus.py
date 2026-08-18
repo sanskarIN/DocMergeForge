@@ -71,11 +71,41 @@ def test_run_fidelity_corpus_keeps_report_paths_relative(
     payload = report.to_dict()
 
     assert report.accepted
-    assert payload["input_count"] == 1
+    assert payload["discovered_count"] == 1
+    assert payload["processed_count"] == 1
     item = payload["items"][0]
     assert item["source"] == "nested/sample.docx"
     assert item["output"] == "roundtrip/nested/sample.docx"
     assert str(corpus.resolve()) not in str(payload)
+
+
+def test_fail_fast_partial_corpus_is_never_accepted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    corpus = tmp_path / "corpus"
+    output = tmp_path / "evidence"
+    _write_docx(corpus / "a.docx", "A")
+    _write_docx(corpus / "b.docx", "B")
+
+    def fail_acceptance(*args: object, **kwargs: object) -> FidelityAcceptanceEvidence:
+        raise ValidationError("adapter failed")
+
+    monkeypatch.setattr(
+        fidelity_corpus,
+        "run_fidelity_roundtrip_acceptance",
+        fail_acceptance,
+    )
+    report = fidelity_corpus.run_fidelity_corpus(
+        corpus,
+        output,
+        "libreoffice",
+        fail_fast=True,
+    )
+
+    assert report.discovered_count == 2
+    assert report.processed_count == 1
+    assert report.stopped_early
+    assert not report.accepted
 
 
 def test_run_fidelity_corpus_refuses_output_inside_source(tmp_path: Path) -> None:
@@ -95,6 +125,7 @@ def test_write_fidelity_corpus_report_refuses_overwrite(tmp_path: Path) -> None:
         mode="libreoffice",
         pattern="*.docx",
         recursive=True,
+        discovered_count=0,
         items=(),
     )
     destination = tmp_path / "report.json"
