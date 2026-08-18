@@ -52,9 +52,12 @@ def libreoffice_roundtrip_copy(
         prefix="docmergeforge-lo-fidelity-", dir=destination.parent
     ) as temp_name:
         temp_dir = Path(temp_name)
+        profile_dir = temp_dir / "profile"
+        profile_dir.mkdir()
         result = run_native_command(
             [
                 office,
+                f"-env:UserInstallation={profile_dir.resolve().as_uri()}",
                 "--headless",
                 "--nologo",
                 "--nodefault",
