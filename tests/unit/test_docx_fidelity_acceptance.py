@@ -28,6 +28,9 @@ def _write_fixture(path: Path) -> None:
     table = document.add_table(rows=1, cols=2)
     table.cell(0, 0).text = "A"
     table.cell(0, 1).text = "B"
+    section = document.sections[0]
+    section.header.paragraphs[0].text = "Header text"
+    section.footer.paragraphs[0].text = "Footer text"
     document.save(path)
 
 
@@ -58,6 +61,8 @@ def test_fidelity_acceptance_records_matching_roundtrip(
     assert evidence.accepted
     assert evidence.structure_matches
     assert evidence.source_structure == evidence.output_structure
+    assert evidence.source_structure.header_paragraphs == 1
+    assert evidence.source_structure.footer_paragraphs == 1
     assert evidence.to_dict()["accepted"] is True
 
 
