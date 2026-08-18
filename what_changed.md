@@ -2,6 +2,91 @@
 
 This file records meaningful DocMergeForge development changes, validation evidence, and known limitations. An item is not treated as finished merely because code was pushed; CI, packaging, and acceptance evidence remain part of the completion gate.
 
+## 2026-08-18 — Final persistence, source-selection, startup resilience, privacy, and repository hygiene
+
+### Added
+- Added `atomic_write_text(...)` in `src/docmergeforge/utilities/atomic.py` as the shared local-metadata persistence boundary. It creates a unique sibling temporary file, writes UTF-8 text, flushes and `fsync`s the temporary file, promotes with `os.replace(...)`, and removes temporary residue when writing or replacement fails.
+- Migrated project JSON, application settings, recent-project history, and diagnostics JSON export to the shared atomic text writer. A failed replacement now leaves the previously published metadata file intact instead of risking partial/corrupt final JSON.
+- Added atomic-persistence regressions covering successful replacement, no temporary residue, failed promotion cleanup, settings round trip, project round trip, recent-project history, and diagnostics export.
+- Added resilient application-settings loading: malformed/unreadable/non-object settings recover to defaults; primitive types are checked; unknown fields are ignored; `worker_count` is clamped to `1–64`; text scale is clamped to `80–200`; and invalid theme/logging/PDF-optimization/DOCX-fidelity/profile values reset to safe defaults.
+- Added resilient recent-project-history loading: malformed/non-list data returns an empty history, incomplete/non-string entries are skipped, and the configured history limit is applied while preserving valid entries.
+- Added strict publication-project schema validation. Required names/paths, source/selected path arrays, warning/state/checkpoint types, positive non-decreasing part ranges, booleans, PDF settings, DOCX fidelity/conflict policies, and optional strings are validated instead of relying on Python truthiness/coercion.
+- Added regressions proving project JSON such as `"overwrite": "false"`, invalid PDF booleans, invalid DOCX fidelity modes, empty source-folder lists, inverted ranges, and non-object roots are rejected.
+- Added a deterministic 180 UTF-8 byte limit for generated project basenames. Very long Unicode names are truncated only on character boundaries and receive a deterministic 12-hex SHA-256-derived suffix to reduce truncation collisions.
+- Added automatic numbered manuscript selection shared by generic projects, the SQL preset, project preflight, and direct CLI merging. Automatic PDF/DOCX inputs must have a detected part number inside the configured expected range.
+- Added an explicit reviewed-selection exception: when a project has persisted `selected_files`, the selected PDF/DOCX order is authoritative and may intentionally contain unnumbered front/back matter or special out-of-range material.
+- Added project output-subtree exclusion: when the output directory is strictly nested below a configured source root, that subtree is excluded from future project discovery so prior masters/reports/staging files cannot feed back into later runs.
+- Added resolved-path scanner deduplication so overlapping parent/child source roots cannot emit the same physical/resolved file twice and create a false duplicate-part failure.
+- Added merge-aware validation. Validation can retain diagnostics for the broad discovered set while zero-byte/encryption blocking checks are bound to the exact files that can reach the merge engine.
+- Added explicit validation for encrypted unnumbered PDF front matter when it is deliberately selected, so the unnumbered warning cannot bypass password safety.
+- Added out-of-range part diagnostics explaining that automatic merges exclude those files unless they are explicitly selected.
+- Added structured `diagnostics` to direct `validate` JSON and `pdf_diagnostics`/`docx_diagnostics` to project preflight JSON.
+- Added a CLI regression proving an old unnumbered master and an out-of-range numbered PDF are not passed to the direct merge engine while the actual engine-returned versioned destination is reported.
+- Added `tests/unit/test_service_discovery_safety.py` proving a deliberately numbered old file inside a nested output folder is excluded from project discovery.
+- Added `tests/unit/test_scanner_deduplication.py` for overlapping-root path deduplication.
+- Added `tests/unit/test_version_metadata.py` so `[project].version` in `pyproject.toml` must match `docmergeforge.__version__`.
+- Added `.editorconfig` and `.gitattributes` for UTF-8/LF normalization, Python/YAML/TOML/JSON/editor defaults, and binary document/archive classification.
+- Added `.github/SUPPORT.md`, expanded third-party redistribution guidance, and strengthened the repository Code of Conduct with privacy, safety-gate, and enforcement expectations.
+
+### Changed
+- Project preflight now uses the exact same resolved manuscript-input set as the eventual merge for counts, ordering, expected outputs, DOCX conflict analysis, and storage estimation. Preflight and publication can no longer silently disagree about an unnumbered/out-of-range file.
+- Direct `pdf`/`docx` commands now scan broadly for diagnostics but pass only numbered files inside `--parts` to the engine. The command prints the actual path returned by the engine, including a versioned `_v2` path when applicable.
+- Project CLI password collection now prompts only for encrypted PDFs in the resolved project merge input. Excluded old/out-of-range encrypted PDFs no longer cause irrelevant password prompts.
+- Blocking validation for excluded files was separated from review diagnostics. An excluded encrypted/zero-byte file can warn without stopping a merge it cannot enter; explicitly selected special material remains blocking when unsafe.
+- `docs/cli-reference.md`, `docs/discovery-and-ordering.md`, `docs/validation-and-preflight.md`, `docs/settings-reference.md`, `docs/project-files.md`, and `docs/diagnostics.md` now describe the same automatic-input, nested-output, strict-schema, atomic-persistence, diagnostics, password, and privacy behavior implemented in code.
+- Expanded diagnostic redaction for common JSON-style `password`/`passwd`/`secret`/`token` fields, `api_key`, access/refresh tokens, client secrets, Basic/Bearer authorization headers, and API-key headers.
+- Maintained logging now falls back to a privacy-filtered stream handler if the configured rotating log file cannot be opened because of an `OSError`, so an unwritable log path does not prevent desktop startup.
+- Removed the unused duplicate `src/docmergeforge/utilities/logging.py` path that configured the same logger without the maintained privacy filter.
+- Centralized canonical desktop repository/docs/GitHub/LinkedIn/BMC/YouTube/X/business/support constants in `ui/resources.py`; About and Support dialogs now use those constants. The stale old X URL was removed and a regression locks the current public values.
+- Widened the ReportLab runtime compatibility range from `<5` to `<6` after reviewing the ReportLab 5 release boundary and confirming DocMergeForge's current ReportLab path uses local/generated canvas content rather than remote image fetching. The superseded Dependabot PR was closed rather than merged twice.
+- Removed the stale self-writing `.github/workflows/update-development-record.yml`, which had repository write permission and hard-coded historical content. Development records are now updated through reviewed repository commits instead of a workflow capable of pushing stale text back to `main`.
+- Expanded `THIRD_PARTY_NOTICES.md` so exact bundled versions, Qt/PySide6 redistribution obligations, notices/source offers, external-office licensing, SBOM boundaries, and major-version dependency changes are explicit release-maintainer responsibilities.
+
+### Fixed / Hardened
+- Fixed a metadata-durability race where multiple writers could contend on one predictable `<file>.tmp`, and diagnostics export could write directly to the final JSON path.
+- Fixed a desktop-startup failure where malformed `settings.json` could raise before the main window was usable.
+- Fixed malformed/incomplete recent-project history so convenience metadata cannot make the Recent Projects UI unusable.
+- Fixed safety-sensitive project JSON coercion: a hand-edited string value such as `"overwrite": "false"` can no longer become truthy and accidentally change replacement behavior.
+- Fixed automatic project/direct merges silently appending unrelated unnumbered PDF/DOCX files, old master manuscripts, or `Part 121+` files while the expected range itself still validated successfully.
+- Fixed nested-output feedback where a prior publication stored under a source root could be rediscovered on a later project run.
+- Fixed overlapping source roots causing the same resolved file to appear twice and create false duplicate-part evidence.
+- Fixed preflight skew where counts/order/conflict analysis could include files that the new merge resolver excluded.
+- Fixed excluded encrypted/zero-byte files blocking an otherwise safe automatic merge even though those files could never reach the engine.
+- Fixed explicitly selected unnumbered encrypted PDF material skipping password diagnostics because unnumbered handling returned too early.
+- Fixed project password collection prompting for encrypted PDF files outside the actual resolved merge input.
+- Fixed direct CLI success output claiming the requested filename even when no-overwrite versioning actually published a different path.
+- Fixed diagnostics privacy coverage for common structured/API authorization secret formats.
+- Fixed desktop logging so an unwritable log destination no longer prevents application startup.
+- Fixed stale X-profile data in the About dialog.
+- Added bounded generated basenames to reduce late cross-platform filesystem failures from very long Unicode/project-template output names.
+
+### Open-Source / Dependency Maintenance
+- Reviewed ReportLab 5 compatibility rather than blindly merging the dependency range PR; the repository now declares `reportlab>=4.2,<6` with the major-version ceiling retained.
+- Closed Dependabot PR #1 as superseded by the reviewed direct dependency commit.
+- Added/expanded issue, PR, support, conduct, funding, CODEOWNERS, package metadata, typing marker, ignore patterns, line-ending/editor defaults, and third-party redistribution guidance across the final hardening passes.
+- Branch-protection administration is not exposed by the connected repository write tools in this environment, so no branch-protection change is claimed. The public branch metadata observed during this phase still reported `main` as unprotected; enabling repository rulesets/required checks remains an owner/admin action if desired.
+
+### Verification Status
+- Implementation/documentation checkpoint immediately before this development-record commit: `27aff032cb6dd3d4012f9d081e44064e9dcc3f1d`.
+- All commits in this phase were written directly to `main` through the connected GitHub repository using `Sanskar <sanskarin@outlook.in>`.
+- Repository code search returned no active `TODO`, `FIXME`, or `NotImplementedError` markers during this sweep.
+- The stale old X URL and the removed duplicate logging module/self-writing workflow were checked for active references during the audit.
+- No current-head Ruff/Black/mypy/pytest or full push-workflow pass is fabricated. The local execution container still cannot resolve `github.com`, and the connected classic-status surface has not provided a trustworthy green result for this final material head.
+- Historical Quality/Regression/Build/Security/Recovery/Disk-Full/Packaging/Stress run IDs remain evidence only for their exact older checkpoints and are not reused for this newer source-selection/persistence behavior.
+- `libreoffice.production_ready=false` and `word.production_ready=false` remain unchanged. Portable OOXML remains the only normal production-enabled DOCX mode.
+- The repository remains pre-stable (`0.1.0`, pre-alpha metadata); these commits are not represented as signed/notarized production release artifacts.
+
+### Remaining Release-Gate Work
+- Obtain and review a current-head Quality/Regression/Build/Security/document-link checkpoint for this final hardening before using it as source-CI release evidence.
+- Execute and review the current-head supervised LibreOffice UNO multi-document workflow plus independent POSIX process-group cleanup workflow.
+- Expand LibreOffice native evidence to sections/page styles/headers/footers/page numbering and advanced OOXML; run representative private corpora with exact application/OS version evidence and human Writer/Word interoperability review where relevant.
+- Execute and review the controlled Microsoft Word native normal merge and real timeout-cleanup workflow on the dedicated Windows/Word runner; then run representative private Word corpora and exact-version manual rendering/repair-prompt acceptance.
+- Execute and record a genuinely measured multi-gigabyte Stress Acceptance run; the existing ~9.9 MB evidence is not reused for that claim.
+- Complete human keyboard-only/screen-reader/high-contrast/display-scaling/localization acceptance and representative clean-machine interactive packaged-app acceptance.
+- Complete any additional filesystem/power-loss/network semantics claimed by the project, Windows production signing, macOS signing/notarization/stapling, final post-signing hashes, and installer/container acceptance required for distribution.
+- Enable appropriate repository branch protection/rulesets and required status checks through GitHub repository administration if the maintainer wants enforced review/CI policy on `main`; that administrative capability is outside the connected write surface used here.
+- Do not set LibreOffice or Word to `production_ready=true`, and do not claim `v1.0.0`, until the corresponding full external/manual release matrix is actually verified.
+
 ## 2026-08-18 — Final native-office convergence, fail-closed promotion, and open-source maintenance
 
 ### Added
@@ -344,7 +429,7 @@ This file records meaningful DocMergeForge development changes, validation evide
 - Output-folder writeability probing before expensive project merge work begins, with a dedicated `OutputAccessError` for destination-access failures.
 - A scalable synthetic stress-fixture generator for valid numbered PDF, DOCX, and companion ZIP parts.
 - A manually dispatchable stress-acceptance workflow that generates the selected fixture size, validates expected parts, performs project preflight and merge, compares output evidence, records artifact sizes, and uploads the result bundle.
-- Explicit accessibility names/descriptions across project setup, source selection, order editing, settings, report viewing, recent projects, and merge progress.
+- Explicit accessibility names/descriptions across project setup, source selection, order editing, settings, reports, recent projects, and merge progress.
 - Keyboard controls for source selection and the order editor, including sorting, move commands, undo/redo, order locking, and restore-auto-order.
 - A headless desktop accessibility smoke script exercised by Build Smoke on Ubuntu, Windows, and macOS.
 
