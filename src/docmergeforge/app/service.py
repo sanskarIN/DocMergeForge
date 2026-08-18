@@ -103,12 +103,14 @@ class MergeApplicationService:
             project.settings.expected_start,
             project.settings.expected_end,
             allow_encrypted_pdf=allow_encrypted_pdf,
+            merge_documents=pdfs,
         )
         docx_result = validate_part_set(
             inputs,
             DocumentKind.DOCX,
             project.settings.expected_start,
             project.settings.expected_end,
+            merge_documents=docxs,
         )
         documents = [item.path for item in pdfs + docxs]
         estimate = require_storage(documents, project.output_folder)
@@ -185,6 +187,7 @@ class MergeApplicationService:
                 project.settings.expected_start,
                 project.settings.expected_end,
                 allow_encrypted_pdf=pdf_password_provider is not None,
+                merge_documents=pdfs,
             )
             validations["PDF"] = pdf_result
             if not pdf_result.ready:
@@ -197,6 +200,7 @@ class MergeApplicationService:
                 DocumentKind.DOCX,
                 project.settings.expected_start,
                 project.settings.expected_end,
+                merge_documents=docxs,
             )
             validations["DOCX"] = docx_result
             if not docx_result.ready:
@@ -369,12 +373,14 @@ class MergeApplicationService:
             project.settings.expected_start,
             project.settings.expected_end,
             allow_encrypted_pdf=pdf_password_provider is not None,
+            merge_documents=pdfs,
         )
         docx_result = validate_part_set(
             inputs,
             DocumentKind.DOCX,
             project.settings.expected_start,
             project.settings.expected_end,
+            merge_documents=docxs,
         )
         if not pdf_result.ready or not docx_result.ready:
             raise ValueError(
