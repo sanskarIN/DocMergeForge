@@ -57,6 +57,7 @@ jobs:
             tests/unit/test_docx_libreoffice.py \
             tests/unit/test_docx_word.py \
             tests/unit/test_docx_word_merge.py \
+            tests/unit/test_docx_word_merge_cleanup_failure.py \
             tests/unit/test_docx_word_process.py \
             tests/unit/test_docx_fidelity.py \
             tests/unit/test_docx_fidelity_acceptance.py \
