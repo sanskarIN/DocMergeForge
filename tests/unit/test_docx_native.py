@@ -44,12 +44,16 @@ def test_run_native_command_fails_closed_on_timeout(monkeypatch: pytest.MonkeyPa
 
 def test_validate_native_docx_output_and_source_hash(tmp_path: Path) -> None:
     source = tmp_path / "source.docx"
-    Document().save(source)
+    document = Document()
+    document.add_paragraph("original")
+    document.save(source)
     expected = sha256_file(source)
 
     native.validate_native_docx_output(source)
     native.verify_native_source_unchanged(source, expected)
 
-    Document().save(source)
+    changed = Document(str(source))
+    changed.add_paragraph("changed")
+    changed.save(source)
     with pytest.raises(ValidationError, match="Source integrity violation"):
         native.verify_native_source_unchanged(source, expected)
