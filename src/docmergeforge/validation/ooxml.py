@@ -10,6 +10,7 @@ from docmergeforge.core.models import Diagnostic, DiagnosticLevel
 
 _REQUIRED = {"[Content_Types].xml", "word/document.xml", "_rels/.rels"}
 _REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
+_MAX_RISK_SCAN_XML_BYTES = 64 * 1024 * 1024
 
 
 def _relationship_source(rels_path: str) -> str:
@@ -149,6 +150,42 @@ def validate_docx_package(path: Path) -> list[Diagnostic]:
     return diagnostics
 
 
+def _risk_markup_members(names: set[str]) -> list[str]:
+    return sorted(
+        name
+        for name in names
+        if name == "word/document.xml"
+        or name.startswith("word/header")
+        or name.startswith("word/footer")
+        or name in {"word/footnotes.xml", "word/endnotes.xml"}
+    )
+
+
+def _markup_risks(archive: zipfile.ZipFile, names: set[str]) -> list[str]:
+    detected: set[str] = set()
+    signatures = {
+        b"<w:ins": "Tracked insertions/revisions detected.",
+        b"<w:del": "Tracked deletions/revisions detected.",
+        b"<w:moveFrom": "Tracked move revisions detected.",
+        b"<w:moveTo": "Tracked move revisions detected.",
+        b"<w:sdt": "Content controls detected.",
+        b"<w:fldSimple": "Word field codes detected.",
+        b"<w:instrText": "Word field codes detected.",
+        b"<m:oMath": "Office Math equations detected.",
+        b"<w:altChunk": "Alternative-format imported content detected.",
+    }
+    for name in _risk_markup_members(names):
+        info = archive.getinfo(name)
+        if info.file_size > _MAX_RISK_SCAN_XML_BYTES:
+            detected.add(f"Large OOXML markup part skipped during risk scan: {name}.")
+            continue
+        payload = archive.read(name)
+        for needle, message in signatures.items():
+            if needle in payload:
+                detected.add(message)
+    return sorted(detected)
+
+
 def risky_docx_constructs(path: Path) -> list[str]:
     risks: list[str] = []
     with zipfile.ZipFile(path) as archive:
@@ -157,8 +194,18 @@ def risky_docx_constructs(path: Path) -> list[str]:
             risks.append("Macros/VBA project detected.")
         if any("embeddings/" in name for name in names):
             risks.append("Embedded OLE/package objects detected.")
-        if "customXml/" in " ".join(names):
+        if any(name.startswith("word/activeX/") for name in names):
+            risks.append("ActiveX controls detected.")
+        if any(name.startswith("customXml/") for name in names):
             risks.append("Custom XML parts detected.")
+        if "word/comments.xml" in names or any(
+            name.startswith("word/comments") and name.endswith(".xml") for name in names
+        ):
+            risks.append("Comments/annotations detected.")
+        if any(name.startswith("word/charts/") for name in names):
+            risks.append("Charts detected.")
+        if any(name.startswith("word/diagrams/") for name in names):
+            risks.append("SmartArt/diagram parts detected.")
         external = [
             name
             for name in names
@@ -166,4 +213,5 @@ def risky_docx_constructs(path: Path) -> list[str]:
         ]
         if external:
             risks.append("External relationships detected.")
+        risks.extend(_markup_risks(archive, names))
     return risks
