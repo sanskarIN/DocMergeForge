@@ -1,6 +1,6 @@
 # CLI Reference
 
-The `docmergeforge` command is the automation-oriented interface to DocMergeForge. It supports discovery/validation, direct PDF and DOCX merging, DOCX fidelity capability/acceptance checks, reusable project files, the SQL Full Mastery preset, interrupted-output recovery, manuscript audit, and output comparison.
+The `docmergeforge` command is the automation-oriented interface to DocMergeForge. It supports discovery/validation, direct PDF and DOCX merging, DOCX fidelity capability/acceptance checks, private fidelity-corpus execution, reusable project files, the SQL Full Mastery preset, interrupted-output recovery, manuscript audit, and output comparison.
 
 ```bash
 docmergeforge --help
@@ -235,6 +235,81 @@ The command returns `0` for measured acceptance and `2` for a structurally valid
 
 This command creates evidence; it does not enable the external adapter as the normal production merge path. See [DOCX Fidelity Adapters and Acceptance](docx-fidelity-acceptance.md).
 
+## `fidelity-corpus`
+
+Run explicit external-office DOCX acceptance across a private local corpus without committing the source manuscripts to the repository.
+
+```bash
+docmergeforge fidelity-corpus \
+  --input-dir PATH \
+  --output-dir PATH \
+  --mode libreoffice|word \
+  [--pattern GLOB] \
+  [--recursive|--no-recursive] \
+  [--timeout SECONDS] \
+  [--fail-fast]
+```
+
+Required:
+
+- `--input-dir` — private source corpus directory;
+- `--output-dir` — separate evidence/output directory outside the source corpus;
+- `--mode` — `libreoffice` or `word`.
+
+Optional:
+
+- `--pattern` — case-insensitive filename glob; default `*.docx`;
+- `--recursive` / `--no-recursive` — recursive discovery is enabled by default;
+- `--timeout` — positive per-document native-office timeout in seconds; default `300`;
+- `--fail-fast` — stop after the first adapter/validation error. A stopped-early report is never accepted.
+
+LibreOffice example:
+
+```bash
+docmergeforge fidelity-corpus \
+  --input-dir "./private-corpus" \
+  --output-dir "./private-fidelity-evidence" \
+  --mode libreoffice \
+  --pattern "*.docx" \
+  --timeout 300
+```
+
+Microsoft Word example on Windows:
+
+```powershell
+docmergeforge fidelity-corpus `
+  --input-dir ".\private-corpus" `
+  --output-dir ".\private-fidelity-evidence" `
+  --mode word `
+  --timeout 300
+```
+
+The command refuses an output directory that is equal to or nested inside the source corpus, requires at least one matching DOCX, preserves relative subdirectory layout below `roundtrip/`, and writes:
+
+```text
+<output-dir>/roundtrip/...
+<output-dir>/fidelity-corpus-<mode>-report.json
+```
+
+The JSON report contains:
+
+- `mode`;
+- `pattern`;
+- `recursive`;
+- `discovered_count`;
+- `processed_count`;
+- `accepted_count`;
+- `failed_count`;
+- `stopped_early`;
+- overall `accepted`;
+- per-document relative source/output paths, error state, and measured evidence.
+
+The serialized corpus report rewrites source/output locations to corpus-relative paths so workstation/user directory information is not automatically embedded in the report. The generated round-trip DOCX files still contain the document content and therefore remain private unless sanitized.
+
+The command returns `0` only when every discovered document was processed and accepted. Fail-fast partial execution, a failed item, or an acceptance mismatch returns `2`/an error as appropriate.
+
+This command never uploads the corpus or turns an external adapter into a production merge mode. See [Private DOCX Fidelity Corpus Testing](docx-fidelity-corpus.md).
+
 ## `sql-preset`
 
 Run the dedicated SQL Full Mastery 120-part guided workflow.
@@ -463,12 +538,13 @@ For reliable scripting:
 
 - use `--dry-run` before project publication;
 - inspect exit codes, not only stdout text;
-- parse JSON for `validate`, project dry runs, `fidelity-capabilities`, `fidelity-roundtrip`, `recover-output`, `audit`, and `compare`;
+- parse JSON for `validate`, project dry runs, `fidelity-capabilities`, `fidelity-roundtrip`, `fidelity-corpus`, `recover-output`, `audit`, and `compare`;
 - avoid depending on filesystem directory listing order;
 - preserve project files and publication/fidelity evidence with release artifacts;
+- keep private fidelity corpus sources/evidence outside public source control unless intentionally sanitized;
 - do not auto-delete transaction folders on error;
 - keep encrypted-PDF workflows interactive unless a future supported secret-provider interface is implemented;
-- never promote an external DOCX fidelity mode to production based only on a successful single-file round-trip.
+- never promote an external DOCX fidelity mode to production based only on a successful single-file or corpus round-trip.
 
 ## Shell path examples
 
@@ -494,7 +570,8 @@ docmergeforge validate --input "/home/user/Books/My Series" --parts 1-120
 | `pdf` | Direct PDF merge |
 | `docx` | Direct portable DOCX merge |
 | `fidelity-capabilities` | Report fidelity detection/automation/production states |
-| `fidelity-roundtrip` | Run explicit LibreOffice/Word DOCX acceptance evidence |
+| `fidelity-roundtrip` | Run explicit one-file LibreOffice/Word DOCX acceptance evidence |
+| `fidelity-corpus` | Run privacy-safe local external-office acceptance across a DOCX corpus |
 | `sql-preset` | Guided SQL Full Mastery 120-part publication |
 | `project-create` | Create reusable JSON project |
 | `merge` | Dry-run or execute project |
