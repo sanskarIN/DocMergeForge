@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from docmergeforge.core.models import DocumentKind, InputDocument
+from docmergeforge.core.models import DocumentKind, InputDocument, MergeProject
 
 _MERGEABLE_KINDS = {DocumentKind.PDF, DocumentKind.DOCX}
 
@@ -15,16 +15,55 @@ def _path_key(path: Path) -> str:
         return str(path.absolute()).casefold()
 
 
+def automatic_numbered_documents(
+    discovered: list[InputDocument],
+    kind: DocumentKind,
+    expected_start: int,
+    expected_end: int,
+) -> list[InputDocument]:
+    """Return only numbered documents in the configured automatic merge range."""
+    return [
+        item
+        for item in discovered
+        if item.kind == kind
+        and item.part.number is not None
+        and expected_start <= item.part.number <= expected_end
+    ]
+
+
+def project_merge_documents(
+    project: MergeProject,
+    discovered: list[InputDocument],
+    kind: DocumentKind,
+) -> list[InputDocument]:
+    """Resolve merge inputs while preserving explicitly reviewed project selections.
+
+    Automatic folder discovery is intentionally strict: only numbered parts inside the
+    configured expected range become manuscript inputs. When ``selected_files`` is
+    populated, the persisted review/order is authoritative and can intentionally include
+    unnumbered front/back matter or out-of-range special material.
+    """
+    if project.selected_files:
+        return [item for item in discovered if item.kind == kind]
+    return automatic_numbered_documents(
+        discovered,
+        kind,
+        project.settings.expected_start,
+        project.settings.expected_end,
+    )
+
+
 def apply_project_selection(
     discovered: list[InputDocument],
     selected_files: list[Path],
 ) -> list[InputDocument]:
     """Apply persisted document selection/order while retaining non-mergeable metadata.
 
-    When ``selected_files`` is empty, discovery results are returned unchanged. When it
-    is populated, only the selected PDF/DOCX files are returned as mergeable inputs and
-    they are emitted in exactly the persisted order. Companion and unsupported files
-    remain available to indexing/reporting, but can never become merge inputs here.
+    When ``selected_files`` is empty, discovery results are returned unchanged so
+    validation can still report unnumbered/out-of-range files. When it is populated,
+    only the selected PDF/DOCX files are returned as mergeable candidates and they are
+    emitted in exactly the persisted order. Companion and unsupported files remain
+    available to indexing/reporting, but can never become merge inputs here.
     """
     if not selected_files:
         return list(discovered)
