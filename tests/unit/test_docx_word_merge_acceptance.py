@@ -5,10 +5,11 @@ import pytest
 from docx import Document
 from docx.enum.section import WD_SECTION
 
+from docmergeforge.core.exceptions import ValidationError
 from docmergeforge.docx import word_merge_acceptance
 from docmergeforge.docx.fidelity import FidelityCapability
-from docmergeforge.docx.word_merge import WordNativeMergeResult
 from docmergeforge.docx.native import NativeCommandResult
+from docmergeforge.docx.word_merge import WordNativeMergeResult
 
 
 def _write_source(path: Path, heading: str, body: str) -> None:
@@ -31,14 +32,46 @@ def _capability() -> FidelityCapability:
     )
 
 
+def _copy_section_layout(source: object, target: object) -> None:
+    for attribute in (
+        "start_type",
+        "orientation",
+        "page_width",
+        "page_height",
+        "top_margin",
+        "bottom_margin",
+        "left_margin",
+        "right_margin",
+        "gutter",
+        "header_distance",
+        "footer_distance",
+        "different_first_page_header_footer",
+    ):
+        setattr(target, attribute, getattr(source, attribute))
+    for name in (
+        "header",
+        "first_page_header",
+        "even_page_header",
+        "footer",
+        "first_page_footer",
+        "even_page_footer",
+    ):
+        source_story = getattr(source, name)
+        target_story = getattr(target, name)
+        target_story.is_linked_to_previous = source_story.is_linked_to_previous
+
+
 def _synthetic_merge(sources: tuple[Path, ...], output: Path) -> None:
-    first = Document(str(sources[0]))
     merged = Document()
     merged._body.clear_content()
     for index, source in enumerate(sources):
         current = Document(str(source))
-        if index:
-            merged.add_section(WD_SECTION.NEW_PAGE)
+        target_section = (
+            merged.sections[0]
+            if index == 0
+            else merged.add_section(WD_SECTION.NEW_PAGE)
+        )
+        _copy_section_layout(current.sections[0], target_section)
         for paragraph in current.paragraphs:
             target = merged.add_paragraph(style=paragraph.style.name)
             target.add_run(paragraph.text)
@@ -86,6 +119,8 @@ def test_word_merge_acceptance_accepts_measured_synthetic_merge(
     assert evidence.content_matches
     assert evidence.source_count == 2
     assert evidence.output_sha256
+    assert evidence.expected_content.section_properties_sha256
+    assert evidence.expected_content.page_number_properties_sha256
     assert evidence.to_dict()["accepted"] is True
 
 
@@ -125,6 +160,46 @@ def test_word_merge_acceptance_rejects_missing_source_content(
     assert not evidence.content_matches
 
 
+def test_word_merge_acceptance_rejects_source_revision_change_before_merge(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "Part 1.docx"
+    output = tmp_path / "merged.docx"
+    _write_source(source, "Part 1", "Alpha")
+    original_expected_content = word_merge_acceptance.expected_word_merge_content
+
+    def mutating_expected_content(
+        sources: tuple[Path, ...],
+    ) -> word_merge_acceptance.WordMergeContentSnapshot:
+        snapshot = original_expected_content(sources)
+        _write_source(sources[0], "Part 1", "Changed")
+        return snapshot
+
+    monkeypatch.setattr(
+        word_merge_acceptance,
+        "expected_word_merge_content",
+        mutating_expected_content,
+    )
+
+    with pytest.raises(ValidationError, match="changed"):
+        word_merge_acceptance.run_word_merge_acceptance([source], output)
+
+    assert not output.exists()
+
+
+def test_word_merge_acceptance_rejects_duplicate_source_before_capability(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "Part 1.docx"
+    _write_source(source, "Part 1", "Alpha")
+
+    with pytest.raises(ValidationError, match="Duplicate Word merge acceptance source"):
+        word_merge_acceptance.run_word_merge_acceptance(
+            [source, source],
+            tmp_path / "merged.docx",
+        )
+
+
 def test_word_merge_acceptance_rejects_empty_source_set(tmp_path: Path) -> None:
-    with pytest.raises(Exception, match="at least one DOCX source"):
+    with pytest.raises(ValidationError, match="at least one DOCX source"):
         word_merge_acceptance.run_word_merge_acceptance([], tmp_path / "merged.docx")
