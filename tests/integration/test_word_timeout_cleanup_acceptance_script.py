@@ -102,13 +102,13 @@ def test_word_timeout_cleanup_acceptance_rejects_non_timeout_failure(
         "require_fidelity_automation",
         lambda mode: _capability(),
     )
-    monkeypatch.setattr(
-        script,
-        "run_native_command",
-        lambda command, **kwargs: (_ for _ in ()).throw(
-            ValidationError("Word COM automation failed before timeout.")
-        ),
-    )
+
+    def fail_before_timeout(
+        command: list[str], **kwargs: object
+    ) -> NativeCommandResult:
+        raise ValidationError("Word COM automation failed before timeout.")
+
+    monkeypatch.setattr(script, "run_native_command", fail_before_timeout)
 
     with pytest.raises(ValidationError, match="before timeout"):
         script.main(["--output-dir", str(tmp_path / "evidence")])
