@@ -2,6 +2,42 @@
 
 This file records meaningful DocMergeForge development changes, validation evidence, and known limitations. An item is not treated as finished merely because code was pushed; CI, packaging, and acceptance evidence remain part of the completion gate.
 
+## 2026-08-18 — Controlled Microsoft Word timeout-cleanup acceptance harness
+
+### Added
+- `scripts/check_word_timeout_cleanup_acceptance.py` as a deterministic controlled-Windows acceptance harness for the failure mode where a Microsoft Word COM automation host exceeds its allowed native-command timeout.
+- The timeout harness starts a dedicated invisible Word instance, disables alerts and automation macros, resolves the exact Word PID from `Word.Application.Hwnd`, records PID + `WINWORD` name + process-start-time fingerprint, and intentionally holds the automation longer than the configured timeout.
+- The harness accepts only the expected DocMergeForge native-command timeout. A Word startup/COM/PowerShell error that occurs before the timeout is treated as a real failure rather than being mislabeled as timeout acceptance.
+- After the timeout, the harness requires the process identity to have been written and invokes the same exact-instance cleanup boundary used by Word native merge failures.
+- `word-timeout-cleanup-evidence.json` records timeout duration, hold duration, whether timeout was observed, the timeout message, identity-recorded state, whether the process was present during cleanup, whether forced termination was required, and the final accepted state.
+- `docs/word-timeout-cleanup-acceptance.md` now documents the exact command, evidence files, cleanup interpretation, controlled-runner integration, privacy boundary, and remaining external-execution requirement.
+- `tests/integration/test_word_timeout_cleanup_acceptance_script.py` covers accepted timeout/cleanup evidence, non-timeout failure rejection, missing process identity after timeout, missing cleanup identity, overwrite refusal, and invalid timeout/hold duration.
+- `tests/unit/test_docx_word_merge_cleanup_failure.py` covers the fail-closed case where Word native execution fails and exact-instance cleanup also fails; the unsafe cleanup failure is surfaced instead of hiding it behind the original timeout.
+
+### Changed
+- `.github/workflows/word-native-acceptance.yml` now has a separate `timeout_cleanup_seconds` manual input and runs the real timeout-cleanup harness only after the normal real Word merge smoke succeeds.
+- The controlled Word workflow now treats normal merge fidelity and timeout cleanup as separate measurable stages, displays timeout evidence, uploads it with the rest of the Word acceptance bundle, and fails unless pre-run process state, normal merge smoke, timeout cleanup, and final process state all pass.
+- `.github/workflows/fidelity-acceptance.yml` now executes the timeout-harness regression test and cleanup-failure regression on Ubuntu while still making no claim that Microsoft Word runs in the Linux job.
+- `tests/unit/test_word_native_acceptance_workflow.py` now locks the timeout-cleanup workflow policy, evidence filename, stage ID, and final enforcement rule against accidental drift.
+- `docs/README.md` and `docs/word-native-merge-acceptance.md` now link and explain the dedicated timeout-cleanup acceptance surface.
+
+### Safety / Acceptance Boundary
+- The timeout harness does not broad-kill `WINWORD`. Cleanup authority still requires the exact PID, exact process name, and original start-time fingerprint; PID reuse or identity mismatch fails closed.
+- `forced_termination=false` is a valid evidence result when Word exits naturally after the timed-out automation host disappears. `forced_termination=true` means the exact still-matching Word process required force termination.
+- A workflow definition and mocked regression coverage are implementation evidence, not proof of real Word timeout recovery. A passing run on the controlled self-hosted Windows/Word runner is still required before external timeout-cleanup acceptance is claimed.
+- `word.production_ready=false` remains unchanged. The normal production DOCX engine still uses portable OOXML only.
+
+### Verification Status
+- The timeout harness, workflow stages, tests, and documentation are committed to `main` in focused commits.
+- Current connected GitHub tooling still does not expose a trustworthy new Actions run for this head, and the local execution container still cannot resolve GitHub for a checkout. No new Ruff/Black/mypy/pytest or real Word pass is fabricated here.
+- The real controlled workflow must still be executed on `[self-hosted, Windows, X64, docmergeforge-word]` with Microsoft Word installed/licensed. Its environment, normal merge evidence, timeout-cleanup evidence, and pre/post process-state evidence must be reviewed together.
+
+### Remaining Release-Gate Work
+- Execute and record a real controlled Microsoft Word native merge smoke.
+- Execute and record the newly implemented real controlled Word timeout-cleanup stage.
+- Run representative private multi-document Word corpora and complete exact-version human rendering/behavior review.
+- Complete the remaining LibreOffice native multi-document, multi-gigabyte stress, accessibility, clean-machine packaged-app, filesystem/power-loss/network, signing/notarization, and stable-release gates.
+
 ## 2026-08-18 — Word native merge fidelity, page-number evidence, and exact-process cleanup
 
 ### Added
@@ -151,7 +187,7 @@ This file records meaningful DocMergeForge development changes, validation evide
 - Package Desktop artifact IDs from run `32023353227`: Windows `9286232554`, macOS `9286192114`, Linux `9286195291`. GitHub Actions also recorded artifact-container digests for all three uploads.
 - Final source/acceptance-helper checkpoint `54389ad98cb0725a78d820ca58d9fe58b331ecd5` passed Quality run `32023667004` on Python 3.12 and 3.13, including Ruff, Black, strict mypy, and full pytest with coverage.
 - The same `54389ad9…` checkpoint passed 120-Part Regression run `32023666881`, cross-platform Build Smoke run `32023666919`, and Security/CodeQL run `32023667002`.
-- Disk Full Acceptance run `32023666826` passed at `54389ad9…`: an isolated 32 MiB Ubuntu tmpfs reached a real kernel `ENOSPC`; the previous published target remained unchanged and no atomic `.part` residue remained.
+- Disk Full Acceptance run `32023666826` passed at `54389ad9…`: an isolated 32 MiB Ubuntu tmpfs reached a real kernel `ENOSPC`; the previous target remained unchanged and no atomic `.part` residue remained.
 
 ### Remaining Release-Gate Work
 - Execute and record an actual measured multi-gigabyte Stress Acceptance run. The scalable workflow exists, but the connected GitHub tooling available in this session does not expose workflow dispatch, so no multi-gigabyte result is claimed.
