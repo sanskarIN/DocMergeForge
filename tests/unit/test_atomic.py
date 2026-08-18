@@ -3,7 +3,37 @@ from pathlib import Path
 
 import pytest
 
-from docmergeforge.utilities.atomic import atomic_output, versioned_path
+from docmergeforge.utilities import atomic
+from docmergeforge.utilities.atomic import atomic_output, atomic_write_text, versioned_path
+
+
+def test_atomic_write_text_replaces_existing_file(tmp_path: Path) -> None:
+    target = tmp_path / "settings.json"
+    target.write_text("old", encoding="utf-8")
+
+    atomic_write_text(target, "new")
+
+    assert target.read_text(encoding="utf-8") == "new"
+    assert not list(tmp_path.glob(f".{target.name}.*.tmp"))
+
+
+def test_atomic_write_text_preserves_target_and_cleans_temp_on_replace_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "settings.json"
+    target.write_text("published", encoding="utf-8")
+
+    def failing_replace(source: Path | str, destination: Path | str) -> None:
+        del source, destination
+        raise OSError(errno.EIO, "simulated replacement failure")
+
+    monkeypatch.setattr(atomic.os, "replace", failing_replace)
+
+    with pytest.raises(OSError, match="simulated replacement failure"):
+        atomic_write_text(target, "new")
+
+    assert target.read_text(encoding="utf-8") == "published"
+    assert not list(tmp_path.glob(f".{target.name}.*.tmp"))
 
 
 def test_atomic_output_replaces_only_after_success(tmp_path: Path) -> None:
