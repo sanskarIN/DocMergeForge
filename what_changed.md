@@ -2,6 +2,62 @@
 
 This file records meaningful DocMergeForge development changes, validation evidence, and known limitations. An item is not treated as finished merely because code was pushed; CI, packaging, and acceptance evidence remain part of the completion gate.
 
+## 2026-08-18 — DOCX fidelity adapters, external-office acceptance, and private corpus evidence
+
+### Added
+- `src/docmergeforge/docx/native.py` as a shared fail-closed native-office execution boundary using argument-vector execution, positive timeouts, captured stdout/stderr, explicit non-zero/launch/timeout failures, post-command DOCX validation, and source-integrity verification.
+- `src/docmergeforge/docx/libreoffice.py` with an explicit source-preserving LibreOffice/`soffice` DOCX round-trip adapter. It requires a separate non-existing destination, writes through a temporary directory, validates generated OOXML before promotion, verifies the source SHA-256 before/after external processing, and runs LibreOffice with an isolated temporary user profile instead of reusing the operator's normal office profile.
+- `src/docmergeforge/docx/word.py` with an explicit Windows PowerShell/Microsoft Word COM DOCX round-trip adapter. It starts Word invisibly, disables interactive alerts, force-disables automation macros for the session, opens the source read-only without adding it to recent files, saves a separate DOCX copy, closes/releases COM objects in `finally`, validates output, and verifies source hashes.
+- `src/docmergeforge/docx/fidelity_acceptance.py` with measured one-document fidelity evidence containing source/output file hashes, structural snapshots, privacy-safe visible-text SHA-256 fingerprints, risky-OOXML findings, structure/content match status, newly introduced risk categories, and an overall acceptance result.
+- Structural fidelity evidence now measures body paragraph/table counts, inline shapes, sections, headings, header/footer paragraph counts, and header/footer table counts.
+- Content fidelity evidence now fingerprints visible body paragraph text, body table-cell text, header text, and footer text. The plain manuscript text is not serialized into the evidence; length-delimited UTF-8 records are hashed with SHA-256.
+- `src/docmergeforge/docx/fidelity_corpus.py` for deterministic local representative-corpus acceptance without committing private manuscripts. It preserves relative subdirectory layout, reports corpus-relative paths, redacts known absolute corpus/output roots from recorded per-item errors, refuses output inside the source corpus, and never treats a fail-fast partial run as accepted.
+- CLI commands `fidelity-capabilities`, `fidelity-roundtrip`, and `fidelity-corpus` with separate capability/automation/production states, explicit external-office execution, JSON evidence, timeout validation, and fail-closed exit behavior.
+- `scripts/check_docx_fidelity_acceptance.py` with a deterministic synthetic DOCX fixture covering headings, normal/formatted text, bullet paragraphs, a table, and section header/footer content.
+- `.github/workflows/fidelity-acceptance.yml` as a dedicated Ubuntu external-office lane that installs LibreOffice Writer, reports capability separation, runs fidelity-focused tests, performs a real LibreOffice round trip against the synthetic fixture, prints the measured JSON evidence, and uploads the source/output/evidence bundle.
+- Fidelity-focused tests covering native command success/non-zero/timeout behavior, LibreOffice output/source safety and isolated-profile arguments, hardened Word automation script generation, capability gates, structural/content acceptance, same-structure text mutation rejection, corpus privacy/completion behavior, CLI behavior, synthetic evidence generation, and complex OOXML risk detection.
+- `docs/docx-fidelity-acceptance.md` and `docs/docx-fidelity-corpus.md` as dedicated external-adapter acceptance and private-corpus guides.
+
+### Changed
+- `FidelityCapability` now distinguishes `available`, `automation_ready`, and `production_ready`; detecting an external executable/PowerShell host no longer risks being confused with production certification.
+- Portable OOXML remains the only production-enabled DOCX merge mode. LibreOffice and Word remain `production_ready=false` and the normal DOCX engine continues to reject those modes instead of silently falling back or enabling incomplete behavior.
+- OOXML fidelity-risk scanning was expanded to cover macros/VBA, OLE/package embeddings, ActiveX, custom XML, comments, external relationships, tracked insertions/deletions/moves, content controls, field codes, Office Math, `altChunk`, charts, SmartArt/diagram parts, and oversized XML parts skipped by the bounded scan.
+- Markup-risk detection now parses XML local names/namespaces rather than depending on the literal `w:` prefix or a particular quote style. External relationship detection parses relationship XML and treats `TargetMode` case-insensitively.
+- Round-trip acceptance now requires structural equality **and** visible-text fingerprint equality **and** no newly introduced risk category. Count-only acceptance is no longer sufficient.
+- Header/footer paragraphs/tables are now included in structural evidence, so the synthetic LibreOffice lane can detect measured header/footer loss rather than merely generating those elements.
+- `README.md`, `docs/README.md`, `docs/cli-reference.md`, `docs/docx-engine.md`, `docs/privacy.md`, `docs/testing-and-ci.md`, `docs/known-limitations.md`, and `docs/development-phases.md` were aligned with the implemented external-office acceptance boundary and remaining production gates.
+
+### Fixed / Hardened
+- LibreOffice acceptance no longer reuses the user's normal LibreOffice profile; every adapter invocation receives a temporary `UserInstallation` profile URI.
+- Microsoft Word automation now sets `AutomationSecurity = 3`, opens source DOCX read-only, and requests that it not be added to Word's recent-file list before saving a separate copy.
+- Native-office commands that time out, cannot launch, return non-zero, produce no/empty output, or produce invalid OOXML are treated as failures rather than successful acceptance.
+- Source files are SHA-256 checked before/after native-office processing so an external application cannot silently modify the original and still produce accepted evidence.
+- Acceptance can now detect body/header/footer/table text changes even when paragraph/table/section counts remain identical.
+- Alternate valid OOXML namespace prefixes, XML quote styles, and lower-case external relationship modes can no longer bypass the new risk scanner tests.
+- Private corpus report paths no longer expose absolute corpus/evidence roots in normal source/output fields, and known roots are also replaced inside recorded per-item errors.
+- A `--fail-fast` corpus run that stops before all discovered files are processed is explicitly marked `stopped_early` and can never report overall acceptance.
+
+### Verification Status
+- Focused unit/integration coverage and a real LibreOffice GitHub Actions acceptance workflow are implemented in the repository.
+- The current connected GitHub status endpoint returned no status contexts for the latest fidelity documentation checkpoint `cc721247b462a3b9c39c5af4d32045aefac4ed42`; therefore this record does **not** claim a new green Quality/Fidelity workflow run yet.
+- A local repository checkout/test run could not be used in this session because the execution container could not resolve/reach GitHub for `git clone`. No local Ruff/Black/mypy/pytest pass is fabricated.
+- The real LibreOffice workflow is configured to execute actual LibreOffice Writer on Ubuntu and upload evidence, but a specific new passing run ID is not recorded here until it is observable and verified.
+- Microsoft Word has an implemented explicit round-trip boundary, but no controlled Windows acceptance machine with Word installed/licensed was available through the connected tooling in this session. Word production fidelity is not claimed.
+- External LibreOffice/Word modes remain intentionally `production_ready=false`.
+
+### Remaining Release-Gate Work
+- Implement and certify complete **multi-document** LibreOffice merge semantics; current external LibreOffice work is source-preserving round-trip acceptance, not a certified native multi-document merge engine.
+- Implement and certify complete **multi-document** Microsoft Word merge semantics, including deterministic cleanup/cancellation/error behavior.
+- Execute controlled Microsoft Word acceptance on a Windows machine where the exact Word version/build is actually installed/licensed, recording capability output, per-document evidence, repair-prompt results, manual visual/behavior review, and hashes.
+- Run representative private real-world DOCX corpus acceptance on every claimed OS/office-suite version, including complex sections, styles/themes, numbering, tables, images/drawings, headers/footers, fields/TOC, equations, comments/tracked changes, content controls, charts/SmartArt, embedded objects, custom XML, non-Latin text/fonts, and large documents.
+- Record human rendering/behavior review for those representative corpora; structural/content fingerprints do not prove pixel-identical layout, line wrapping, floating-object placement, font substitution, field recalculation, chart appearance, or every application-specific behavior.
+- Execute and record an actual measured multi-gigabyte Stress Acceptance run.
+- Extend real disk-exhaustion acceptance to additional filesystems/platforms where those claims are required, and separately test physical power loss/storage disconnect/network-filesystem/multi-host semantics where claimed.
+- Complete human keyboard-only, screen-reader, high-contrast, reduced-motion, text-scaling, and localization-readiness acceptance.
+- Perform clean-machine interactive acceptance of packaged desktop builds beyond automated packaged smoke.
+- Complete platform-specific installer/distribution polish, production Windows signing, macOS signing/notarization/stapling, final post-signing checksums, and signature verification before production distribution claims.
+- `v1.0.0` remains gated on the full acceptance matrix; this phase does not claim complete external-office multi-document fidelity, signed/notarized binaries, or stable-release completion.
+
 ## 2026-08-17 — Cross-process locking, forced-crash recovery, packaged publication acceptance, and real ENOSPC
 
 ### Added
@@ -87,7 +143,7 @@ This file records meaningful DocMergeForge development changes, validation evide
 - `docs/installation.md` with Windows/macOS/Linux source installation, virtual environments, developer/build extras, Linux Qt prerequisites, storage/permissions guidance, updates, and uninstallation.
 - `docs/getting-started.md` with a complete first publication from source organization and numbered validation through project dry-run, merge, evidence review, comparison, audit, and interrupted-output recovery.
 - `docs/cli-reference.md` documenting every current command (`validate`, `pdf`, `docx`, `sql-preset`, `project-create`, `merge`, `recover-output`, `audit`, `compare`), exact part-range/pattern/natural-sort behavior, encrypted-PDF interaction, exit behavior, JSON evidence, and automation guidance.
-- `docs/desktop-guide.md` covering first-run onboarding, project/source setup, ordering, preflight, PDF/DOCX settings, encrypted PDFs, progress/cancellation, transactional publication, reports, audit/compare, recent projects, recovery, settings, accessibility, and SQL preset operation.
+- `docs/desktop-guide.md` covering first-run onboarding, project/source setup, ordering, preflight, PDF/DOCX settings, encrypted PDFs, progress/cancellation, transactional publication, reports, audit/compare, recent projects, recovery, settings, help/support, and SQL preset operation.
 - `docs/project-files.md` documenting the saved JSON schema, merge/PDF/DOCX defaults, lifecycle states/checkpoints, atomic saving, portability, compatibility, manual-edit risks, and privacy/version-control guidance.
 - `docs/discovery-and-ordering.md` documenting recursive scanning, exact document/archive classification, `.doc` safeguard behavior, supported part-number naming patterns, natural ordering, filtering, selected-file order, PDF inspection, and source hashing.
 - `docs/validation-and-preflight.md` documenting numbered-set validation, project dry-run evidence, expected output calculation, DOCX conflict analysis, the current storage estimate formula, output writeability probe, encrypted-PDF readiness, source-integrity validation, and post-output validation distinctions.
