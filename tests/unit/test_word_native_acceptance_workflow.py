@@ -35,6 +35,17 @@ def test_word_native_acceptance_checks_process_state_before_and_after() -> None:
     assert "Microsoft Word process cleanup acceptance failed" in workflow
 
 
+def test_word_native_acceptance_runs_controlled_timeout_cleanup() -> None:
+    workflow = _workflow_text()
+
+    assert "timeout_cleanup_seconds:" in workflow
+    assert "check_word_timeout_cleanup_acceptance.py" in workflow
+    assert "id: word_timeout_cleanup" in workflow
+    assert "word-timeout-cleanup-evidence.json" in workflow
+    assert "Microsoft Word timeout cleanup acceptance did not pass" in workflow
+    assert "steps.word_timeout_cleanup.outcome" in workflow
+
+
 def test_word_native_acceptance_preserves_evidence_on_failure() -> None:
     workflow = _workflow_text()
 
@@ -42,3 +53,4 @@ def test_word_native_acceptance_preserves_evidence_on_failure() -> None:
     assert "if: always()" in workflow
     assert "if-no-files-found: error" in workflow
     assert "word-native-merge-evidence.json" in workflow
+    assert "word-timeout-cleanup-evidence.json" in workflow
