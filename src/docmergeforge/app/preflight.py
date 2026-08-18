@@ -7,6 +7,7 @@ from docmergeforge.app.service import DryRunResult, MergeApplicationService
 from docmergeforge.core.models import DocumentKind, MergeProject
 from docmergeforge.docx.engine import DocxMergeEngine
 from docmergeforge.presets.sql_full_mastery import DOCX_FILENAME, PDF_FILENAME, PRESET_NAME
+from docmergeforge.project.selection import project_merge_documents
 from docmergeforge.utilities.output_naming import render_project_basename
 
 
@@ -28,8 +29,8 @@ def build_preflight(
     service = MergeApplicationService()
     inputs = service.discover(project)
     result = service.dry_run(project, allow_encrypted_pdf=allow_encrypted_pdf)
-    pdfs = [item for item in inputs if item.kind == DocumentKind.PDF]
-    docxs = [item for item in inputs if item.kind == DocumentKind.DOCX]
+    pdfs = project_merge_documents(project, inputs, DocumentKind.PDF)
+    docxs = project_merge_documents(project, inputs, DocumentKind.DOCX)
 
     if project.selected_files:
         ordered_pdf = [item.path for item in pdfs]
