@@ -8,17 +8,16 @@ from docmergeforge.docx import word_process
 from docmergeforge.docx.native import NativeCommandResult
 
 
-def _write_identity(path: Path) -> None:
-    path.write_text(
-        json.dumps(
-            {
-                "process_id": 4242,
-                "process_name": "WINWORD",
-                "start_time_utc_ticks": 638910000000000000,
-            }
-        ),
-        encoding="utf-8",
-    )
+def _identity_payload() -> dict[str, int | str]:
+    return {
+        "process_id": 4242,
+        "process_name": "WINWORD",
+        "start_time_utc_ticks": 638910000000000000,
+    }
+
+
+def _write_identity(path: Path, *, encoding: str = "utf-8") -> None:
+    path.write_text(json.dumps(_identity_payload()), encoding=encoding)
 
 
 def test_word_process_cleanup_is_noop_without_identity(tmp_path: Path) -> None:
@@ -63,6 +62,7 @@ def test_word_process_cleanup_uses_pid_name_and_start_time_guard(
     assert "$actualName -ne 'WINWORD'" in captured_script
     assert "$actualStartTicks -ne $expectedStartTicks" in captured_script
     assert "Stop-Process -Id $wordProcessId -Force" in captured_script
+    assert "Start-Sleep -Milliseconds 250" in captured_script
 
 
 def test_word_process_cleanup_accepts_already_exited_process(
@@ -90,18 +90,68 @@ def test_word_process_cleanup_accepts_already_exited_process(
     assert not result.terminated
 
 
+def test_word_process_cleanup_accepts_natural_exit_during_grace_period(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    identity = tmp_path / "word-process.json"
+    _write_identity(identity)
+
+    def fake_run(command: list[str], **kwargs: object) -> NativeCommandResult:
+        payload = {
+            "identity_match": True,
+            "process_found": True,
+            "terminated": False,
+        }
+        return NativeCommandResult(tuple(command), json.dumps(payload), "")
+
+    monkeypatch.setattr(word_process, "run_native_command", fake_run)
+    result = word_process.cleanup_word_process_identity(
+        identity,
+        powershell="fake-powershell",
+    )
+
+    assert result.identity_present
+    assert result.process_found
+    assert not result.terminated
+
+
+def test_word_process_cleanup_accepts_windows_powershell_utf8_bom(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    identity = tmp_path / "word-process.json"
+    _write_identity(identity, encoding="utf-8-sig")
+
+    monkeypatch.setattr(
+        word_process,
+        "run_native_command",
+        lambda command, **kwargs: NativeCommandResult(
+            tuple(command),
+            json.dumps(
+                {
+                    "identity_match": True,
+                    "process_found": False,
+                    "terminated": False,
+                }
+            ),
+            "",
+        ),
+    )
+
+    result = word_process.cleanup_word_process_identity(
+        identity,
+        powershell="fake-powershell",
+    )
+
+    assert result.identity_present
+    assert not result.process_found
+    assert not result.terminated
+
+
 def test_word_process_cleanup_rejects_unsafe_identity(tmp_path: Path) -> None:
     identity = tmp_path / "word-process.json"
-    identity.write_text(
-        json.dumps(
-            {
-                "process_id": 4242,
-                "process_name": "notepad",
-                "start_time_utc_ticks": 638910000000000000,
-            }
-        ),
-        encoding="utf-8",
-    )
+    payload = _identity_payload()
+    payload["process_name"] = "notepad"
+    identity.write_text(json.dumps(payload), encoding="utf-8")
 
     with pytest.raises(ValidationError, match="Unsafe Word process identity"):
         word_process.cleanup_word_process_identity(
