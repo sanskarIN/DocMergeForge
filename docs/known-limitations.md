@@ -10,17 +10,29 @@ Portable OOXML composition is the current production-supported DOCX mode. It can
 
 Features requiring special review can include macros/legacy macro-enabled content, OLE/embedded objects, tracked changes, content controls, custom XML, complex fields, equations, external relationships, unusual style inheritance, complex numbering restarts, section/header/footer interactions, and application-specific layout behavior.
 
-Always keep originals and perform human review in the intended office editor.
+The risk scanner now surfaces more of those categories, but detection is not equivalent to perfect preservation. Always keep originals and perform human review in the intended office editor.
 
-## LibreOffice fidelity adapter is not production-ready
+## LibreOffice fidelity adapter is implemented for round-trip acceptance, not production merge
 
-The project can expose/detect LibreOffice-related fidelity settings/capability, but the external-suite automation path is not accepted as a production-ready high-fidelity adapter yet. Installing LibreOffice does not automatically upgrade portable mode.
+DocMergeForge now has an explicit source-preserving LibreOffice DOCX round-trip adapter, capability reporting, measured structural/risk evidence, and a GitHub Actions lane that installs LibreOffice Writer and exercises a real synthetic round-trip on Ubuntu.
 
-## Microsoft Word fidelity adapter is not production-ready
+This is stronger than executable detection alone, but it still does not certify a complete native multi-document LibreOffice merge engine or universal fidelity. Installing LibreOffice does not automatically upgrade portable mode, and the normal merge gate keeps `libreoffice` non-production.
 
-Likewise, Windows Microsoft Word automation is not currently accepted as production-ready. Word installation alone does not make the mode complete.
+Production certification still requires true multi-document semantics plus representative real-world corpus acceptance on every claimed LibreOffice platform/version.
 
-A production adapter would need robust COM automation, cleanup, timeout/cancellation, dialog/macro/security handling, real-document testing, and packaged-app acceptance.
+## Microsoft Word fidelity adapter is implemented for round-trip acceptance, not production merge
+
+The Windows adapter now has explicit PowerShell/COM automation that opens the source read-only, saves a separate DOCX copy through Word, validates output, enforces a timeout, cleans up COM objects, and verifies source hashes.
+
+However, detecting a Windows PowerShell host does not prove Word is installed, licensed, or suitable for unattended automation. GitHub-hosted Windows runners are not treated as Word acceptance unless Word is actually present.
+
+Production certification still requires a controlled Windows machine with Microsoft Word, representative real-document testing, full native multi-document merge behavior, dialog/macro/security handling, cancellation/cleanup acceptance, packaged-app acceptance, and regression evidence tied to exact Word/Windows versions.
+
+## A successful DOCX round-trip is not visual equivalence
+
+`docmergeforge fidelity-roundtrip` compares selected structural counts and newly introduced risk categories. It records useful evidence, but it does not compare rendered pages pixel-for-pixel, prove font availability, recalculate every field exactly, or certify all application-specific layout decisions.
+
+A single synthetic fixture or one real manuscript is insufficient to flip an external adapter to `production_ready=true`.
 
 ## PDF human rendering acceptance is still required
 
@@ -129,7 +141,8 @@ The loader supplies defaults for missing fields, but project/settings schema is 
 Before a `v1.0.0` claim, remaining acceptance should include at least:
 
 - measured large/multi-gigabyte stress/resource testing appropriate to scale claims;
-- representative real-world PDF/DOCX fidelity corpus;
+- representative real-world PDF/DOCX fidelity corpus, including complete external-adapter multi-document semantics before those modes are claimed;
+- controlled Microsoft Word acceptance on Windows if Word fidelity support is claimed;
 - human accessibility matrix;
 - full interactive packaged-app acceptance on representative clean Windows/macOS/Linux targets;
 - additional filesystem/network/power-loss testing where those environments are claimed;
@@ -138,6 +151,6 @@ Before a `v1.0.0` claim, remaining acceptance should include at least:
 - explicit Linux distribution compatibility/signing approach;
 - final documentation/support/security review.
 
-Controlled abrupt-process recovery, native packaged publication smoke, cross-process local output locking, and Linux real `ENOSPC` acceptance now have automated evidence and are no longer listed as wholly untested gates.
+Controlled abrupt-process recovery, native packaged publication smoke, cross-process local output locking, Linux real `ENOSPC` acceptance, and explicit external-office single-document round-trip infrastructure now have automated implementation/evidence paths and are no longer listed as wholly unimplemented gates.
 
-See [Release Process](release-process.md).
+See [DOCX Fidelity Adapters and Acceptance](docx-fidelity-acceptance.md) and [Release Process](release-process.md).
