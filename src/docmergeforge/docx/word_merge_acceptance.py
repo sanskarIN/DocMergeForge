@@ -52,8 +52,8 @@ class WordMergeContentSnapshot:
     tables_sha256: str
     headers_sha256: str
     footers_sha256: str
-    section_properties_sha256: str
-    page_number_properties_sha256: str
+    section_properties_sha256: str = ""
+    page_number_properties_sha256: str = ""
 
     def to_dict(self) -> dict[str, str]:
         return {
