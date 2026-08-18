@@ -60,7 +60,9 @@ def test_fidelity_acceptance_records_matching_roundtrip(
 
     assert evidence.accepted
     assert evidence.structure_matches
+    assert evidence.content_matches
     assert evidence.source_structure == evidence.output_structure
+    assert evidence.source_content == evidence.output_content
     assert evidence.source_structure.header_paragraphs == 1
     assert evidence.source_structure.footer_paragraphs == 1
     assert evidence.to_dict()["accepted"] is True
@@ -92,6 +94,37 @@ def test_fidelity_acceptance_flags_structural_change(
 
     assert not evidence.accepted
     assert not evidence.structure_matches
+
+
+def test_fidelity_acceptance_flags_text_change_with_same_structure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "source.docx"
+    output = tmp_path / "output.docx"
+    _write_fixture(source)
+
+    monkeypatch.setattr(
+        fidelity_acceptance,
+        "require_fidelity_automation",
+        lambda mode: _capability(mode),
+    )
+
+    def changed_roundtrip(
+        source_path: Path, destination: Path, **kwargs: object
+    ) -> NativeCommandResult:
+        changed = Document(str(source_path))
+        changed.paragraphs[1].text = "Different body text"
+        changed.sections[0].header.paragraphs[0].text = "Different header text"
+        changed.save(destination)
+        return NativeCommandResult(("fake-office",), "", "")
+
+    monkeypatch.setattr(fidelity_acceptance, "word_roundtrip_copy", changed_roundtrip)
+    evidence = fidelity_acceptance.run_fidelity_roundtrip_acceptance(source, output, "word")
+
+    assert evidence.structure_matches
+    assert not evidence.content_matches
+    assert not evidence.accepted
+    assert evidence.source_content != evidence.output_content
 
 
 def test_fidelity_acceptance_rejects_portable_mode(tmp_path: Path) -> None:
