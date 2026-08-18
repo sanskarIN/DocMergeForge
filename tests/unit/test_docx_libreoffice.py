@@ -18,8 +18,10 @@ def test_libreoffice_roundtrip_copy_uses_separate_validated_output(
     document.add_paragraph("Preserve this source.")
     document.save(source)
     before = source.read_bytes()
+    captured_command: list[str] = []
 
     def fake_run(command: list[str], **kwargs: object) -> NativeCommandResult:
+        captured_command.extend(command)
         outdir = Path(command[command.index("--outdir") + 1])
         shutil.copy2(source, outdir / source.name)
         return NativeCommandResult(tuple(command), "converted", "")
@@ -34,6 +36,11 @@ def test_libreoffice_roundtrip_copy_uses_separate_validated_output(
     assert destination.exists()
     assert source.read_bytes() == before
     assert result.stdout == "converted"
+    profile_args = [
+        item for item in captured_command if item.startswith("-env:UserInstallation=file:")
+    ]
+    assert len(profile_args) == 1
+    assert "docmergeforge-lo-fidelity-" in profile_args[0]
 
 
 def test_libreoffice_roundtrip_refuses_overwrite(tmp_path: Path) -> None:
