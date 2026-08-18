@@ -10,11 +10,11 @@ from docmergeforge.core.models import DocumentKind, InputDocument, PartIdentity
 from docmergeforge.utilities.output_transaction import RecoveryResult
 
 
-def document(name: str, part: int) -> InputDocument:
+def document(name: str, part: int | None) -> InputDocument:
     return InputDocument(
         path=Path(name),
         kind=DocumentKind.PDF,
-        part=PartIdentity(part, f"Part {part}"),
+        part=PartIdentity(part, f"Part {part}" if part is not None else "Unnumbered"),
         size=1,
         sha256=name,
     )
@@ -76,16 +76,19 @@ def test_cli_password_collection_retries_without_persisting(monkeypatch) -> None
     assert passwords == {item.path: "correct"}
 
 
-def test_direct_merge_reports_engine_returned_versioned_path(
+def test_direct_merge_reports_actual_path_and_excludes_unrelated_files(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    item = document("Part 1.pdf", 1)
+    part_1 = document("Part 1.pdf", 1)
+    old_master = document("Book Master.pdf", None)
+    extra = document("Part 2.pdf", 2)
     requested = tmp_path / "Book.pdf"
     actual = tmp_path / "Book_v2.pdf"
+    captured_documents: list[InputDocument] = []
 
-    monkeypatch.setattr(cli, "scan", lambda _folders: [item])
+    monkeypatch.setattr(cli, "scan", lambda _folders: [old_master, extra, part_1])
     monkeypatch.setattr(
         cli,
         "validate_part_set",
@@ -97,8 +100,14 @@ def test_direct_merge_reports_engine_returned_versioned_path(
     )
 
     class FakePdfMergeEngine:
-        def merge(self, *args: object, **kwargs: object) -> Path:
+        def merge(
+            self,
+            documents: list[InputDocument],
+            *args: object,
+            **kwargs: object,
+        ) -> Path:
             del self, args, kwargs
+            captured_documents.extend(documents)
             return actual
 
     monkeypatch.setattr(cli, "PdfMergeEngine", FakePdfMergeEngine)
@@ -114,6 +123,7 @@ def test_direct_merge_reports_engine_returned_versioned_path(
     exit_code = cli._run_direct_merge(args)
 
     assert exit_code == 0
+    assert captured_documents == [part_1]
     assert capsys.readouterr().out.strip() == str(actual)
 
 
