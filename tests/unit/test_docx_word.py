@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from docx import Document
 
+from docmergeforge.core.exceptions import ValidationError
 from docmergeforge.docx import word
 from docmergeforge.docx.native import NativeCommandResult
 
@@ -46,5 +47,5 @@ def test_word_roundtrip_refuses_same_path(tmp_path: Path) -> None:
     source = tmp_path / "source.docx"
     Document().save(source)
 
-    with pytest.raises(Exception, match="separate output path"):
+    with pytest.raises(ValidationError, match="separate output path"):
         word.word_roundtrip_copy(source, source, powershell="fake-powershell")
