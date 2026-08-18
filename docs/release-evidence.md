@@ -58,6 +58,39 @@ Build Smoke passed on Windows, macOS, and Ubuntu, including `scripts/check_acces
 
 This is automated offscreen preference/metadata evidence. It is **not** human screen-reader, keyboard-only end-to-end, high-contrast, localization, or full accessibility acceptance.
 
+### Final persistence and automatic-input hardening checkpoint
+
+Current state is intentionally recorded at the **Implemented** level only until a current-head Quality/Regression/Build/Security result is observed and reviewed.
+
+Implemented after the source/accessibility checkpoint above:
+
+- one shared unique-temp atomic UTF-8 text writer with flush + `fsync` + atomic replacement + residue cleanup;
+- atomic persistence for project JSON, application settings, recent-project history, and diagnostics exports;
+- malformed application settings recovery with strict primitive-type filtering, safe enum defaults, and UI-supported numeric clamps;
+- malformed recent-project history recovery that skips invalid entries rather than preventing desktop use;
+- strict publication-project JSON schema/type validation, including positive part ranges and boolean validation so strings such as `"overwrite": "false"` cannot become truthy replacement behavior;
+- bounded cross-platform output basenames with a 180-byte UTF-8 ceiling and deterministic digest suffix on truncation;
+- broader diagnostic secret redaction for JSON-style secrets, API keys, access/refresh tokens, client secrets, and Basic/Bearer authorization values;
+- fail-safe privacy-filtered stream logging when a rotating log file cannot be opened;
+- removal of an unused duplicate privacy-weaker logger;
+- numbered/in-range automatic manuscript selection shared by projects, SQL preset, preflight, and direct CLI merge;
+- explicit reviewed `selected_files` as the only path that can intentionally include unnumbered/out-of-range special manuscript material;
+- merge-aware validation that warns about excluded files while binding zero-byte/encryption blocking checks to files that can actually reach the engine;
+- explicit encryption validation for selected unnumbered PDF front matter;
+- strictly nested project-output subtree exclusion from future source discovery;
+- resolved-path deduplication for overlapping source roots;
+- preflight ordering/conflict/storage evidence aligned with the same resolved merge-input set used by publication;
+- direct CLI success output bound to the engine-returned path, including versioned `_v2` destinations;
+- CLI/project password prompting limited to encrypted PDFs in the resolved merge input;
+- structured CLI validation/preflight diagnostics for unnumbered/out-of-range review files;
+- package-version synchronization regression between `pyproject.toml` and `docmergeforge.__version__`;
+- current desktop support/contact-link regression and corrected X profile link;
+- ReportLab dependency range widened to `<6` after compatibility review of the current local/generated rendering path;
+- removal of the stale self-writing development-record workflow with repository write permission;
+- `.editorconfig`, `.gitattributes`, expanded third-party redistribution guidance, strengthened code of conduct, and GitHub support routing.
+
+The repository contains focused regressions for these boundaries, but no older workflow run is reused as proof after these material changes. Until a new run is actually observed, this section remains **Implemented**, not **Source/acceptance CI verified**.
+
 ### Microsoft Word native fidelity implementation checkpoint
 
 Current state is intentionally recorded at the **Implemented** level only.
@@ -377,6 +410,7 @@ The verified stress source is approximately 9.9 MB, so this evidence remains exp
 
 The following are intentionally **not** marked complete by the evidence above:
 
+- a current-head Quality/Regression/Build/Security checkpoint for the final persistence/input-safety hardening;
 - human interactive clean-machine acceptance on representative Windows/macOS/Linux systems;
 - representative real-world PDF/DOCX fidelity review in intended viewers/editors;
 - human keyboard-only and real screen-reader accessibility acceptance;
