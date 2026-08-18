@@ -1,4 +1,6 @@
+import argparse
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -72,6 +74,47 @@ def test_cli_password_collection_retries_without_persisting(monkeypatch) -> None
     passwords = cli._collect_pdf_passwords([item])
 
     assert passwords == {item.path: "correct"}
+
+
+def test_direct_merge_reports_engine_returned_versioned_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    item = document("Part 1.pdf", 1)
+    requested = tmp_path / "Book.pdf"
+    actual = tmp_path / "Book_v2.pdf"
+
+    monkeypatch.setattr(cli, "scan", lambda _folders: [item])
+    monkeypatch.setattr(
+        cli,
+        "validate_part_set",
+        lambda *args, **kwargs: SimpleNamespace(
+            ready=True,
+            missing_parts=[],
+            duplicate_parts={},
+        ),
+    )
+
+    class FakePdfMergeEngine:
+        def merge(self, *args: object, **kwargs: object) -> Path:
+            del self, args, kwargs
+            return actual
+
+    monkeypatch.setattr(cli, "PdfMergeEngine", FakePdfMergeEngine)
+    args = argparse.Namespace(
+        command="pdf",
+        input=tmp_path,
+        parts=(1, 1),
+        output=requested,
+        pattern=None,
+        natural_sort=True,
+    )
+
+    exit_code = cli._run_direct_merge(args)
+
+    assert exit_code == 0
+    assert capsys.readouterr().out.strip() == str(actual)
 
 
 def test_cli_recover_output_reports_recovered_paths(
