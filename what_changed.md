@@ -2,6 +2,63 @@
 
 This file records meaningful DocMergeForge development changes, validation evidence, and known limitations. An item is not treated as finished merely because code was pushed; CI, packaging, and acceptance evidence remain part of the completion gate.
 
+## 2026-08-18 — Final native-office convergence, fail-closed promotion, and open-source maintenance
+
+### Added
+- Completed one authoritative supervised POSIX LibreOffice Writer/UNO multi-document acceptance path in `src/docmergeforge/docx/libreoffice_uno_merge.py` and `src/docmergeforge/docx/libreoffice_uno_acceptance.py`. Each run uses a unique temporary Writer user profile, a unique UNO pipe, a copied writable master, an explicitly UNO-capable Python interpreter, ordered Writer document insertion, and a separate validated destination.
+- Added `scripts/check_libreoffice_uno_merge_smoke.py` for deterministic two-document real-Writer smoke and `scripts/check_libreoffice_uno_merge_acceptance.py` for explicit ordered private-manuscript acceptance using repeated `--input` arguments plus separate output/evidence files.
+- Added `.github/workflows/libreoffice-uno-acceptance.yml` as the maintained real Ubuntu Writer multi-document lane. It installs `libreoffice-writer` + `python3-uno`, verifies the UNO bridge, runs the supervised boundary/evidence/command tests, performs a real two-document Writer insertion, and uploads generated synthetic evidence.
+- Added `.github/workflows/libreoffice-uno-process-cleanup.yml` plus real POSIX subprocess regressions for launcher reaping and isolated parent/child process-group termination. Process cleanup is tested independently from document fidelity.
+- Added shared `promote_validated_native_docx_output(...)` and `verify_native_sources_unchanged(...)` helpers in `src/docmergeforge/docx/native.py`. Maintained external-office paths now verify temporary output/source hashes before promotion and final output/source hashes immediately after promotion.
+- Added regression coverage proving a newly promoted native-office destination is removed if the final integrity/validation pass fails.
+- Added `.github/FUNDING.yml` for the existing Buy Me a Coffee page and `.github/CODEOWNERS` assigning default review ownership to `@sanskarIN`.
+- Added `.github/ISSUE_TEMPLATE/config.yml` so blank issues are disabled and security/support intake routes to the security policy and support documentation.
+- Expanded bug-report, feature-request, and pull-request templates with privacy-safe reproduction, affected-surface, runtime/version, source-separation, fidelity, recovery, accessibility, packaging, evidence, and production-readiness checks.
+- Expanded `pyproject.toml` with author email, conservative pre-alpha classifiers, and canonical Homepage/Repository/Documentation/Issues/Funding URLs.
+- Added `src/docmergeforge/py.typed` so the `Typing :: Typed` classifier is backed by a PEP 561 marker in the distributed package.
+- Expanded `.gitignore` with common private fidelity corpus/evidence directories plus local DocMergeForge staging/lock artifacts to reduce accidental commits of private acceptance data.
+
+### Changed
+- LibreOffice native multi-document acceptance now has one maintained implementation surface only. Documentation, CI, release evidence, privacy guidance, the root README, and the DOCX/fidelity guides all point to the supervised `libreoffice_uno_*` path.
+- The first supervised LibreOffice native pass rule remains intentionally narrow: non-empty body paragraph count, body table count, inline-shape count, heading count, privacy-safe ordered body/table-cell text fingerprints, source revision hashes, and newly introduced risky OOXML categories. Section/page geometry, headers/footers, page-number semantics, exact pagination, floating objects, advanced fields, charts/SmartArt, embedded objects, custom XML, and font substitution remain separate gates.
+- Supervised LibreOffice process cleanup now polls/reaps the launcher while checking the complete isolated process group. It escalates from `SIGTERM` to `SIGKILL` only for the group created by that acceptance run and does not target user office processes by name.
+- LibreOffice one-document round trip, Microsoft Word one-document round trip, Microsoft Word native multi-document acceptance, and supervised LibreOffice UNO multi-document acceptance now all use the same fail-closed final promotion boundary.
+- `README.md`, `docs/README.md`, `docs/docx-engine.md`, `docs/docx-fidelity-acceptance.md`, `docs/libreoffice-native-merge-acceptance.md`, `docs/testing-and-ci.md`, `docs/known-limitations.md`, `docs/development-phases.md`, `docs/privacy.md`, `docs/release-evidence.md`, and `CHANGELOG.md` now describe the current native-office implementation/certification boundary consistently.
+- `docs/release-evidence.md` records the supervised LibreOffice UNO path and native-output promotion hardening at **Implemented** level only; no unobserved workflow run is promoted into CI/external-application evidence.
+
+### Fixed / Hardened
+- Removed the superseded first-draft LibreOffice native engine, acceptance evidence module, smoke script, duplicate workflow, and draft-only tests. This eliminates two competing native Writer implementations that could diverge or confuse contributors/operators.
+- Fixed the LibreOffice launcher/process-group supervision edge where an exited launcher could remain unreaped while a child office process still existed. The supervised implementation now reaps the launcher while separately monitoring the process group.
+- Fixed a final source-integrity race across external-office acceptance paths: previously a source could change after the temporary result was promoted but before the last source-hash check, causing the operation to fail while leaving a destination that looked successful. The newly created destination is now removed on final verification failure.
+- Hardened final destination verification so a corrupt/invalid promoted DOCX is removed on failure rather than being left as a false-success artifact.
+- Kept no-overwrite behavior intact: the shared native promotion helper refuses a pre-existing destination before any promotion.
+- Removed stale active references to `libreoffice_merge.py`, `libreoffice_merge_acceptance.py`, `check_libreoffice_native_merge_smoke.py`, and `.github/workflows/libreoffice-native-acceptance.yml` from the maintained code/documentation surface.
+
+### Open-Source Project Maintenance
+- Package metadata now advertises the correct repository/documentation/issues/funding surfaces while retaining `Development Status :: 2 - Pre-Alpha` and version `0.1.0`; this work does not imply stable PyPI/release readiness.
+- GitHub contribution forms now direct security issues away from public issue content and require contributors to review private manuscripts, passwords, tokens, recovery backups, diagnostics, and external-office evidence before posting.
+- The pull-request checklist now requires source separation, quality commands, relevant regression/failure cleanup coverage, documentation/evidence updates, and explicit non-promotion of external-office modes without real acceptance.
+- Common private native-office evidence paths are ignored by default, but documentation explicitly states `.gitignore` is only a safety net and does not replace reviewing staged files.
+
+### Verification Status
+- All final hardening/documentation/open-source-maintenance changes are committed directly to `main` through the connected GitHub repository using `Sanskar <sanskarin@outlook.in>`.
+- GitHub code search returned no active references to the removed LibreOffice draft filenames/workflow after cleanup.
+- The maintained DOCX package initializer contains no stale imports of the removed files.
+- Earlier verified Quality/Regression/Build/Security/Recovery/Disk-Full/Packaging/Stress evidence remains historical evidence for its exact checkpoints only and is not reused as proof for this newer native-office head.
+- No current-head Ruff/Black/mypy/pytest pass is fabricated. The execution container's direct GitHub checkout path remained unavailable during this work, so repository-side workflows/current-head external acceptance must provide the next verification checkpoint.
+- No current passing supervised LibreOffice UNO/process-cleanup run ID and no current controlled Microsoft Word normal/timeout run ID are recorded in this phase unless they are actually observed and reviewed.
+- `libreoffice.production_ready=false` and `word.production_ready=false` remain unchanged. Portable OOXML remains the only normal production-enabled DOCX merge mode.
+- The repository remains pre-stable; commits are not represented as signed production release artifacts.
+
+### Remaining Release-Gate Work
+- Obtain and review current-head Quality, Security/CodeQL, regression/build-smoke, and documentation-link evidence after this final code/docs refactor.
+- Execute and review the supervised LibreOffice UNO multi-document workflow plus the independent real process-group cleanup workflow at the current head.
+- Expand LibreOffice native evidence to sections/page styles/headers/footers/page numbering and advanced OOXML, then run representative private multi-document corpora with exact LibreOffice/OS version evidence and human Writer/Word interoperability review where relevant.
+- Execute and review the controlled Microsoft Word native merge plus real timeout-cleanup workflow on the dedicated Windows/Word runner, then run representative private Word corpora and exact-version manual rendering/repair-prompt acceptance.
+- Execute and record an actual measured multi-gigabyte Stress Acceptance run; the existing ~9.9 MB measured baseline is not multi-gigabyte evidence.
+- Complete human keyboard-only/screen-reader/high-contrast/scaling/localization acceptance, clean-machine interactive packaged-app acceptance, additional filesystem/power-loss/network semantics where claimed, Windows production signing, macOS signing/notarization/stapling, final post-signing hashes, and any installer/container acceptance required for distribution.
+- Do not set either external-office mode to `production_ready=true` and do not claim `v1.0.0` until the corresponding full application integration and acceptance matrix are actually verified.
+
 ## 2026-08-18 — Controlled Microsoft Word timeout-cleanup acceptance harness
 
 ### Added
