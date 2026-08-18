@@ -23,17 +23,29 @@ class RecentProjectsStore:
     def load(self) -> list[RecentProject]:
         if not self.path.exists():
             return []
-        data = json.loads(self.path.read_text(encoding="utf-8"))
-        return [
-            RecentProject(
-                name=item["name"],
-                project_file=Path(item["project_file"]),
-                source_folder=Path(item["source_folder"]),
-                output_folder=Path(item["output_folder"]),
+        try:
+            data: object = json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            return []
+        if not isinstance(data, list):
+            return []
+
+        projects: list[RecentProject] = []
+        required = ("name", "project_file", "source_folder", "output_folder")
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            if not all(isinstance(item.get(key), str) for key in required):
+                continue
+            projects.append(
+                RecentProject(
+                    name=item["name"],
+                    project_file=Path(item["project_file"]),
+                    source_folder=Path(item["source_folder"]),
+                    output_folder=Path(item["output_folder"]),
+                )
             )
-            for item in data
-            if isinstance(item, dict)
-        ]
+        return projects[: self.limit]
 
     @staticmethod
     def _serialize(items: list[RecentProject]) -> str:
