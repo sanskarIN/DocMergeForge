@@ -9,6 +9,7 @@ on:
       - "src/docmergeforge/validation/ooxml.py"
       - "scripts/check_docx_fidelity_acceptance.py"
       - "tests/unit/test_docx_*.py"
+      - "tests/unit/test_cli_fidelity.py"
       - "tests/unit/test_ooxml_*.py"
       - ".github/workflows/fidelity-acceptance.yml"
 
@@ -45,6 +46,8 @@ jobs:
             tests/unit/test_docx_word.py \
             tests/unit/test_docx_fidelity.py \
             tests/unit/test_docx_fidelity_acceptance.py \
+            tests/unit/test_docx_fidelity_corpus.py \
+            tests/unit/test_cli_fidelity.py \
             tests/unit/test_ooxml_risk.py
       - name: Run real LibreOffice round-trip acceptance
         run: |
