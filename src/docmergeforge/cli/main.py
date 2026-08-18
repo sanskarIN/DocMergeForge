@@ -28,6 +28,7 @@ from docmergeforge.docx.fidelity_corpus import run_fidelity_corpus, write_fideli
 from docmergeforge.pdf.engine import PdfMergeEngine
 from docmergeforge.pdf.passwords import verify_pdf_password
 from docmergeforge.presets.sql_full_mastery import PRESET_NAME, create_sql_full_mastery_project
+from docmergeforge.project.selection import automatic_numbered_documents
 from docmergeforge.project.store import load_project, save_project
 from docmergeforge.utilities.output_transaction import recover_interrupted_output_transactions
 from docmergeforge.validation.compare import compare_docx, compare_pdf
@@ -232,14 +233,18 @@ def build_parser() -> argparse.ArgumentParser:
 def _run_direct_merge(args: argparse.Namespace) -> int:
     start, end = args.parts
     kind = DocumentKind.PDF if args.command == "pdf" else DocumentKind.DOCX
-    items = [item for item in scan([args.input]) if item.kind == kind]
-    items = _ordered_items(_filter_pattern(items, args.pattern), args.natural_sort)
-    passwords = _collect_pdf_passwords(items) if kind == DocumentKind.PDF else {}
+    discovered = [item for item in scan([args.input]) if item.kind == kind]
+    discovered = _ordered_items(
+        _filter_pattern(discovered, args.pattern),
+        args.natural_sort,
+    )
+    merge_items = automatic_numbered_documents(discovered, kind, start, end)
+    passwords = _collect_pdf_passwords(merge_items) if kind == DocumentKind.PDF else {}
     if passwords is None:
         return 130
     try:
         validation_result = validate_part_set(
-            items,
+            discovered,
             kind,
             start,
             end,
@@ -259,7 +264,7 @@ def _run_direct_merge(args: argparse.Namespace) -> int:
             return 2
         if kind == DocumentKind.PDF:
             final_output = PdfMergeEngine().merge(
-                items,
+                merge_items,
                 args.output,
                 PdfSettings(),
                 preserve_order=True,
@@ -267,7 +272,7 @@ def _run_direct_merge(args: argparse.Namespace) -> int:
             )
         else:
             final_output = DocxMergeEngine().merge(
-                items,
+                merge_items,
                 args.output,
                 DocxSettings(),
                 preserve_order=True,
