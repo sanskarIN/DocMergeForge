@@ -12,17 +12,23 @@ Features requiring special review can include macros/legacy macro-enabled conten
 
 The risk scanner and acceptance fingerprints surface more of those risks, but detection is not equivalent to perfect rendering preservation. Always keep originals and perform human review in the intended office editor.
 
-## LibreOffice fidelity adapter is implemented for round-trip acceptance, not production merge
+## LibreOffice multi-document insertion exists as a supervised acceptance prototype, not production mode
 
-DocMergeForge has an explicit source-preserving LibreOffice DOCX round-trip adapter, capability reporting, measured structural/content/risk evidence, and a GitHub Actions lane that installs LibreOffice Writer and exercises a real synthetic round trip on Ubuntu.
+DocMergeForge has an explicit source-preserving one-document LibreOffice DOCX round-trip adapter plus a separate supervised POSIX Writer/UNO multi-document acceptance prototype.
 
-This still does not certify a complete native multi-document LibreOffice merge engine or universal fidelity. Installing LibreOffice does not automatically upgrade portable mode, and the normal merge gate keeps `libreoffice` non-production.
+The supervised prototype uses a unique temporary LibreOffice profile, a unique UNO pipe, a copied writable master, ordered `insertDocumentFromURL(...)` insertion, a separate UNO-capable Python worker, source-hash checks, validated temporary output, and an isolated POSIX process group. Cleanup polls/reaps the launcher while tracking the complete group and escalates from `SIGTERM` to `SIGKILL` only for the isolated group created by that run. Real subprocess regressions exercise this cleanup independently from document fidelity.
 
-Production certification still requires true multi-document semantics plus representative real-world corpus acceptance on every claimed LibreOffice platform/version.
+The first measured native Writer gate intentionally covers body paragraph/table/inline-shape/heading structure, ordered body/table-cell text fingerprints, source revision identity, and newly introduced OOXML risk categories. It **does not yet certify** sections, page geometry, headers/footers, page-number semantics, exact pagination, floating objects, fields/TOC, advanced tracked content, charts/SmartArt, embedded objects, custom XML, or font substitution.
+
+`libreoffice.production_ready` therefore remains `false`. Installing LibreOffice or passing a narrow synthetic insertion smoke must never silently replace the portable production engine.
+
+Production certification still requires a reviewed real supervised UNO workflow run, real process-cleanup evidence, broader section/page-layout measurement, representative private multi-document corpora, exact target LibreOffice/OS version coverage, large-document behavior, complete application/project integration, and human Writer/Word interoperability review where relevant.
+
+See [LibreOffice Native Multi-Document Merge Acceptance](libreoffice-native-merge-acceptance.md).
 
 ## Microsoft Word native merge exists as an acceptance prototype, not production mode
 
-DocMergeForge now has both a source-preserving Word round-trip adapter and a separate Word-native multi-document acceptance prototype. The native prototype uses COM, ordered `Range.InsertFile(...)`, real section breaks, source hashes, validated temporary output, measured structure/text/section/page-number evidence, and exact Word-process identity cleanup boundaries.
+DocMergeForge has both a source-preserving Word round-trip adapter and a separate Word-native multi-document acceptance prototype. The native prototype uses COM, ordered `Range.InsertFile(...)`, real section breaks, source hashes, validated temporary output, measured structure/text/section/page-number evidence, and exact Word-process identity cleanup boundaries.
 
 The Word process created by native merge is identified by PID, `WINWORD` process name, and process start-time fingerprint. Failure/timeout cleanup refuses broad process termination and only acts when that exact identity still matches. A nominally successful merge is rejected if Word required forced termination instead of shutting down normally.
 
@@ -46,7 +52,7 @@ Those checks can detect important silent loss, but they do not prove identical p
 
 `docmergeforge fidelity-roundtrip` records selected structural/content/risk evidence for one source-preserving external-office round trip. It does not compare rendered pages pixel-for-pixel, prove font availability, recalculate every field exactly, or certify all application-specific layout decisions.
 
-A single synthetic fixture or one real manuscript is insufficient to flip an external adapter to `production_ready=true`.
+A single synthetic fixture, one round trip, or one native multi-document smoke is insufficient to flip an external adapter to `production_ready=true`.
 
 ## PDF human rendering acceptance is still required
 
@@ -156,17 +162,17 @@ Before a `v1.0.0` claim, remaining acceptance should include at least:
 
 - measured large/multi-gigabyte stress/resource testing appropriate to scale claims;
 - representative real-world PDF/DOCX fidelity corpus;
-- complete LibreOffice multi-document semantics before LibreOffice native mode is claimed;
+- reviewed supervised LibreOffice UNO multi-document and process-cleanup runs plus expanded section/page-layout fidelity before LibreOffice native mode is claimed;
 - controlled Microsoft Word normal and forced-timeout acceptance before Word native mode is claimed;
-- exact-version Word/Windows evidence plus human rendering/behavior review;
+- exact-version external-office/OS evidence plus human rendering/behavior review;
 - human accessibility matrix;
 - full interactive packaged-app acceptance on representative clean Windows/macOS/Linux targets;
 - additional filesystem/network/power-loss testing where those environments are claimed;
 - Windows code signing where distributed;
 - macOS signing/notarization where distributed;
-- explicit Linux distribution compatibility/signing approach;
+- explicit Linux distribution compatibility/signing approach; and
 - final documentation/support/security review.
 
-Controlled abrupt-process recovery, native packaged publication smoke, cross-process local output locking, Linux real `ENOSPC` acceptance, external-office single-document round-trip infrastructure, and the Word-native multi-document **acceptance prototype** are implemented. None of those facts alone converts an external-office mode into a production-ready merge engine.
+Controlled abrupt-process recovery, native packaged publication smoke, cross-process local output locking, Linux real `ENOSPC` acceptance, external-office single-document round-trip infrastructure, the supervised LibreOffice UNO multi-document **acceptance prototype**, and the Word-native multi-document **acceptance prototype** are implemented. None of those facts alone converts an external-office mode into a production-ready merge engine.
 
-See [DOCX Fidelity Adapters and Acceptance](docx-fidelity-acceptance.md), [Microsoft Word Native Merge Acceptance](word-native-merge-acceptance.md), and [Release Process](release-process.md).
+See [DOCX Fidelity Adapters and Acceptance](docx-fidelity-acceptance.md), [LibreOffice Native Multi-Document Merge Acceptance](libreoffice-native-merge-acceptance.md), [Microsoft Word Native Merge Acceptance](word-native-merge-acceptance.md), and [Release Process](release-process.md).
