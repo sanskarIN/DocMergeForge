@@ -18,9 +18,7 @@ _BEARER_PATTERN = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+")
 _AUTH_HEADER_PATTERN = re.compile(
     r"(?i)\bAuthorization\s*:\s*(?:Basic|Bearer)\s+[^\s,;]+"
 )
-_API_KEY_HEADER_PATTERN = re.compile(
-    r"(?i)\b(?:X-)?Api-Key\s*:\s*[^\s,;]+"
-)
+_API_KEY_HEADER_PATTERN = re.compile(r"(?i)\b(?:X-)?Api-Key\s*:\s*[^\s,;]+")
 
 
 def _redact_assignment(match: re.Match[str]) -> str:
@@ -48,8 +46,13 @@ class PrivacyFilter(logging.Filter):
         return True
 
 
+def _configure_handler(handler: logging.Handler) -> logging.Handler:
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    handler.addFilter(PrivacyFilter())
+    return handler
+
+
 def configure_logging(path: Path, level: str = "INFO") -> logging.Logger:
-    path.parent.mkdir(parents=True, exist_ok=True)
     logger = logging.getLogger(_LOGGER_NAME)
     logger.setLevel(getattr(logging, level.upper(), logging.INFO))
     logger.propagate = False
@@ -58,15 +61,18 @@ def configure_logging(path: Path, level: str = "INFO") -> logging.Logger:
         handler.close()
         logger.removeHandler(handler)
 
-    handler = RotatingFileHandler(
-        path,
-        maxBytes=5 * 1024 * 1024,
-        backupCount=3,
-        encoding="utf-8",
-    )
-    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
-    handler.addFilter(PrivacyFilter())
-    logger.addHandler(handler)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        handler: logging.Handler = RotatingFileHandler(
+            path,
+            maxBytes=5 * 1024 * 1024,
+            backupCount=3,
+            encoding="utf-8",
+        )
+    except OSError:
+        handler = logging.StreamHandler()
+
+    logger.addHandler(_configure_handler(handler))
     return logger
 
 
