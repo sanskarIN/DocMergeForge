@@ -161,29 +161,55 @@ def _risk_markup_members(names: set[str]) -> list[str]:
     )
 
 
+def _local_name(tag: str) -> str:
+    if "}" in tag:
+        return tag.rsplit("}", 1)[1]
+    return tag.rsplit(":", 1)[-1]
+
+
 def _markup_risks(archive: zipfile.ZipFile, names: set[str]) -> list[str]:
     detected: set[str] = set()
-    signatures = {
-        b"<w:ins": "Tracked insertions/revisions detected.",
-        b"<w:del": "Tracked deletions/revisions detected.",
-        b"<w:moveFrom": "Tracked move revisions detected.",
-        b"<w:moveTo": "Tracked move revisions detected.",
-        b"<w:sdt": "Content controls detected.",
-        b"<w:fldSimple": "Word field codes detected.",
-        b"<w:instrText": "Word field codes detected.",
-        b"<m:oMath": "Office Math equations detected.",
-        b"<w:altChunk": "Alternative-format imported content detected.",
+    tag_risks = {
+        "ins": "Tracked insertions/revisions detected.",
+        "del": "Tracked deletions/revisions detected.",
+        "moveFrom": "Tracked move revisions detected.",
+        "moveTo": "Tracked move revisions detected.",
+        "sdt": "Content controls detected.",
+        "fldSimple": "Word field codes detected.",
+        "instrText": "Word field codes detected.",
+        "oMath": "Office Math equations detected.",
+        "oMathPara": "Office Math equations detected.",
+        "altChunk": "Alternative-format imported content detected.",
     }
     for name in _risk_markup_members(names):
         info = archive.getinfo(name)
         if info.file_size > _MAX_RISK_SCAN_XML_BYTES:
             detected.add(f"Large OOXML markup part skipped during risk scan: {name}.")
             continue
-        payload = archive.read(name)
-        for needle, message in signatures.items():
-            if needle in payload:
+        try:
+            root = ET.fromstring(archive.read(name))
+        except ET.ParseError:
+            detected.add(f"Malformed OOXML markup part detected during risk scan: {name}.")
+            continue
+        for element in root.iter():
+            message = tag_risks.get(_local_name(element.tag))
+            if message:
                 detected.add(message)
     return sorted(detected)
+
+
+def _has_external_relationships(archive: zipfile.ZipFile, names: set[str]) -> bool:
+    for name in sorted(item for item in names if item.endswith(".rels")):
+        try:
+            root = ET.fromstring(archive.read(name))
+        except ET.ParseError:
+            continue
+        for relationship in root.iter():
+            if _local_name(relationship.tag) != "Relationship":
+                continue
+            if relationship.attrib.get("TargetMode", "Internal").casefold() == "external":
+                return True
+    return False
 
 
 def risky_docx_constructs(path: Path) -> list[str]:
@@ -206,12 +232,7 @@ def risky_docx_constructs(path: Path) -> list[str]:
             risks.append("Charts detected.")
         if any(name.startswith("word/diagrams/") for name in names):
             risks.append("SmartArt/diagram parts detected.")
-        external = [
-            name
-            for name in names
-            if name.endswith(".rels") and b'TargetMode="External"' in archive.read(name)
-        ]
-        if external:
+        if _has_external_relationships(archive, names):
             risks.append("External relationships detected.")
         risks.extend(_markup_risks(archive, names))
     return risks
