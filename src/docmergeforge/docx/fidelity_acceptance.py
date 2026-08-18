@@ -19,6 +19,10 @@ class DocxStructureSnapshot:
     inline_shapes: int
     sections: int
     headings: int
+    header_paragraphs: int = 0
+    footer_paragraphs: int = 0
+    header_tables: int = 0
+    footer_tables: int = 0
 
     def to_dict(self) -> dict[str, int]:
         return {
@@ -27,6 +31,10 @@ class DocxStructureSnapshot:
             "inline_shapes": self.inline_shapes,
             "sections": self.sections,
             "headings": self.headings,
+            "header_paragraphs": self.header_paragraphs,
+            "footer_paragraphs": self.footer_paragraphs,
+            "header_tables": self.header_tables,
+            "footer_tables": self.footer_tables,
         }
 
 
@@ -80,6 +88,14 @@ def snapshot_docx_structure(path: Path) -> DocxStructureSnapshot:
         inline_shapes=len(document.inline_shapes),
         sections=len(document.sections),
         headings=headings,
+        header_paragraphs=sum(
+            len(section.header.paragraphs) for section in document.sections
+        ),
+        footer_paragraphs=sum(
+            len(section.footer.paragraphs) for section in document.sections
+        ),
+        header_tables=sum(len(section.header.tables) for section in document.sections),
+        footer_tables=sum(len(section.footer.tables) for section in document.sections),
     )
 
 
