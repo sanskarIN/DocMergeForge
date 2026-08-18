@@ -96,6 +96,31 @@ def _is_relative_to(path: Path, parent: Path) -> bool:
     return True
 
 
+def _privacy_safe_error(
+    error: BaseException,
+    *,
+    source: Path,
+    destination: Path,
+    corpus_root: Path,
+    output_root: Path,
+    source_relative: Path,
+    output_relative: Path,
+) -> str:
+    text = str(error)
+    replacements = {
+        str(source): f"<corpus>/{source_relative.as_posix()}",
+        str(destination): f"<evidence>/{output_relative.as_posix()}",
+        str(corpus_root): "<corpus>",
+        str(output_root): "<evidence>",
+    }
+    for sensitive, replacement in sorted(
+        replacements.items(), key=lambda item: len(item[0]), reverse=True
+    ):
+        if sensitive:
+            text = text.replace(sensitive, replacement)
+    return text
+
+
 def discover_fidelity_corpus(
     corpus_dir: Path,
     *,
@@ -162,7 +187,15 @@ def run_fidelity_corpus(
                 FidelityCorpusItem(
                     relative_path=relative,
                     output_relative_path=output_relative,
-                    error=str(exc),
+                    error=_privacy_safe_error(
+                        exc,
+                        source=source,
+                        destination=destination,
+                        corpus_root=corpus_root,
+                        output_root=output_root,
+                        source_relative=relative,
+                        output_relative=output_relative,
+                    ),
                 )
             )
             if fail_fast:
