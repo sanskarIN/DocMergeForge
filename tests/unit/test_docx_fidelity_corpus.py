@@ -7,6 +7,7 @@ from docmergeforge.core.exceptions import ValidationError
 from docmergeforge.docx import fidelity_corpus
 from docmergeforge.docx.fidelity_acceptance import (
     FidelityAcceptanceEvidence,
+    snapshot_docx_content,
     snapshot_docx_structure,
 )
 from docmergeforge.utilities.hashing import sha256_file
@@ -24,6 +25,7 @@ def _accepted_evidence(source: Path, output: Path, mode: str) -> FidelityAccepta
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_bytes(source.read_bytes())
     structure = snapshot_docx_structure(source)
+    content = snapshot_docx_content(source)
     return FidelityAcceptanceEvidence(
         mode=mode,
         source=source,
@@ -32,9 +34,12 @@ def _accepted_evidence(source: Path, output: Path, mode: str) -> FidelityAccepta
         output_sha256=sha256_file(output),
         source_structure=structure,
         output_structure=structure,
+        source_content=content,
+        output_content=content,
         source_risks=(),
         output_risks=(),
         structure_matches=True,
+        content_matches=True,
         new_risks=(),
     )
 
@@ -76,6 +81,7 @@ def test_run_fidelity_corpus_keeps_report_paths_relative(
     item = payload["items"][0]
     assert item["source"] == "nested/sample.docx"
     assert item["output"] == "roundtrip/nested/sample.docx"
+    assert item["evidence"]["content_matches"] is True
     assert str(corpus.resolve()) not in str(payload)
     assert str(output.resolve()) not in str(payload)
 
