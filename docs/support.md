@@ -9,7 +9,7 @@ This guide explains how to get help with DocMergeForge while protecting private 
 - LinkedIn: https://www.linkedin.com/in/sanskarIN
 - Buy Me a Coffee: https://buymeacoffee.com/sanskarIN
 - YouTube: https://youtube.com/@Sanskar-in
-- X: https://www.x.com/Sanskar_in
+- X: https://x.com/x_sanskarIN
 
 > **Made by the Sanskar**
 
