@@ -14,13 +14,16 @@ All notable changes follow semantic versioning.
 - Expanded the root README with the complete documentation portal, recovery/build/release-status guidance, and corrected high-fidelity wording so unfinished external office-suite adapters are not represented as production-ready.
 - Expanded `CONTRIBUTING.md` with development/test/documentation/accessibility/recovery contribution requirements and linked it to the full developer documentation.
 - Expanded `SECURITY.md` with privacy-safe vulnerability-reporting guidance and links to the security/privacy/diagnostics documentation.
-- Documentation now distinguishes implemented behavior, automatically verified behavior, downloaded-artifact verification, and human/production acceptance; unsigned builds, unfinished high-fidelity adapters, measured multi-gigabyte stress, clean-machine acceptance, and human accessibility remain explicit release gates until verified.
+- Documentation distinguishes implemented behavior, automatically verified behavior, downloaded-artifact verification, external-application measured evidence, and human/production acceptance.
 - Expanded publication-recovery documentation with the persistent lock filename, OS-owned lock semantics, concurrent recovery protection, crash-release behavior, and network-filesystem caveat.
 - Expanded CI packaging documentation with packaging-relevant `main` triggers, real packaged PDF/DOCX publication smoke, native `.app` handling, archive SHA-256 sidecars, archive-bound provenance, and per-platform fresh-runner evidence requirements.
 - Expanded testing/development-phase documentation with cross-platform abrupt-process recovery acceptance and real Linux tmpfs `ENOSPC` acceptance.
 - Updated stress documentation with the first measured automated 120-part baseline, exact source/output byte evidence, and the explicit distinction between the verified ~9.9 MB baseline and still-unverified multi-gigabyte scale.
 - Expanded the Microsoft Word native-merge acceptance guide, testing/CI guide, known-limitations guide, and root README with measured section/page-number fidelity, source-revision binding, exact-process cleanup, controlled-runner policy, and explicit remaining external acceptance gates.
 - Added `docs/word-timeout-cleanup-acceptance.md` and linked it from the documentation portal/Word acceptance guide so timeout cleanup has an explicit command, evidence contract, privacy boundary, and production-policy warning.
+- Reworked `docs/libreoffice-native-merge-acceptance.md` around the single supervised UNO implementation, including the explicit ordered private-manuscript command, isolated process-group cleanup, first-gate evidence scope, real workflows, and remaining production gates.
+- Updated the root documentation portal, root README, testing/CI guide, known limitations, development phases, and release evidence ledger for the supervised LibreOffice UNO multi-document surface without claiming unobserved external acceptance.
+- Expanded GitHub bug/feature/PR templates with privacy, source-separation, fidelity, recovery, packaging, accessibility, evidence, and production-readiness checks.
 
 ### Added
 - First-run onboarding, project ordering, recent-project history, recovery checkpoints, and guided SQL preset desktop workflow.
@@ -38,7 +41,7 @@ All notable changes follow semantic versioning.
 - Explicit accessibility metadata and keyboard controls across project setup, source selection, file ordering, settings, reports, recent projects, and merge progress, with headless automated accessibility smoke coverage.
 - Cross-process output-directory publication locking shared by normal publication and interrupted-output recovery.
 - A PyInstaller-only packaged desktop entry with deterministic `--packaged-smoke` initialization for CI acceptance.
-- Packaged smoke now creates and merges a real one-part PDF and DOCX, validating manuscript artifacts, manifest, and checksum generation inside the PyInstaller binary.
+- Packaged smoke creates and merges a real one-part PDF and DOCX, validating manuscript artifacts, manifest, and checksum generation inside the PyInstaller binary.
 - `Recovery Acceptance` workflow that kills a real child process with `os._exit()` at three promotion phases on Windows, macOS, and Ubuntu and verifies deterministic rollback/re-locking.
 - `Disk Full Acceptance` workflow and safety-guarded helper that fill an isolated 32 MiB Linux tmpfs until the kernel returns real `ENOSPC`, then verify the previous target and atomic cleanup.
 - SHA-256 sidecar generation and upload for each unsigned Windows/macOS/Linux Package Desktop archive.
@@ -53,29 +56,39 @@ All notable changes follow semantic versioning.
 - Deterministic Word smoke fixtures with portrait/landscape geometry, distinct margins/header/footer distances, and decimal/upper-Roman page-number restart semantics.
 - Controlled Word timeout-cleanup acceptance harness that deliberately exceeds the native command timeout, requires exact process identity before timeout, invokes guarded cleanup, records natural-vs-forced termination, and rejects non-timeout failures.
 - Integration coverage for timeout acceptance plus unit coverage proving a native Word failure whose exact cleanup also fails is surfaced as an unsafe cleanup failure.
+- One authoritative supervised POSIX LibreOffice Writer/UNO multi-document acceptance prototype with isolated user profile, unique UNO pipe, copied writable master, ordered native insertion, source-revision binding, and privacy-safe measured evidence.
+- Explicit `scripts/check_libreoffice_uno_merge_acceptance.py` support for ordered private multi-document acceptance without enabling production mode.
+- A real Ubuntu supervised LibreOffice UNO workflow installing Writer + `python3-uno`, plus an independent process-group cleanup workflow using real POSIX subprocess regressions.
+- Shared native-office final-promotion verification that removes a newly promoted output if final DOCX/source-integrity validation fails.
+- GitHub Funding metadata for the existing Buy Me a Coffee page.
+- Canonical package metadata links/classifiers plus `src/docmergeforge/py.typed` for the declared PEP 561 typed package.
+- `.gitignore` coverage for common private fidelity evidence/corpus directories and local DocMergeForge transaction/lock artifacts.
 
 ### Changed
 - Centralized desktop packaging argument generation inside the installable `docmergeforge.packaging` package so builds and tests share the same configuration.
 - Strengthened ordering, source-integrity, formatting, strict typing, documentation-link integrity, provenance, and CI validation paths.
-- PDF and DOCX engines now check cancellation through later finalization stages instead of only between source documents.
-- Project merge completion now has one publication boundary: document outputs and generated evidence are promoted only after all staged work succeeds and source integrity is revalidated.
-- Publication promotion now writes a `promoting` journal before final-path mutation and a `committed` marker only after the complete batch succeeds; incomplete rollback evidence is preserved instead of silently deleted.
+- PDF and DOCX engines check cancellation through later finalization stages instead of only between source documents.
+- Project merge completion has one publication boundary: document outputs and generated evidence are promoted only after all staged work succeeds and source integrity is revalidated.
+- Publication promotion writes a `promoting` journal before final-path mutation and a `committed` marker only after the complete batch succeeds; incomplete rollback evidence is preserved instead of silently deleted.
 - New journaled output transactions refuse to start while interrupted recovery evidence is pending.
-- Publication and recovery now hold the same OS-level non-blocking output-directory lock for the complete critical section.
-- Build Smoke now runs on `main` pushes as well as pull requests/manual dispatch and validates desktop packaging configuration on Ubuntu, Windows, and macOS runners.
+- Publication and recovery hold the same OS-level non-blocking output-directory lock for the complete critical section.
+- Build Smoke runs on `main` pushes as well as pull requests/manual dispatch and validates desktop packaging configuration on Ubuntu, Windows, and macOS runners.
 - Build Smoke also runs the headless desktop accessibility smoke check on each configured desktop runner.
-- The 120-Part Regression workflow now runs on `main` pushes in addition to pull requests/manual dispatch.
+- The 120-Part Regression workflow runs on `main` pushes in addition to pull requests/manual dispatch.
 - Package Desktop installs the declared `build` extra and validates packaging configuration before invoking PyInstaller.
-- Package Desktop now launch-tests the freshly built native application, executes a tiny mixed PDF+DOCX publication, archives it, records checksum/provenance, and independently re-verifies the downloaded artifact on a fresh native runner.
-- Onefile Acceptance now independently applies the same build-host plus fresh-runner verification model to `--one-file` packages.
+- Package Desktop launch-tests the freshly built native application, executes a tiny mixed PDF+DOCX publication, archives it, records checksum/provenance, and independently re-verifies the downloaded artifact on a fresh native runner.
+- Onefile Acceptance independently applies the same build-host plus fresh-runner verification model to `--one-file` packages.
 - Package Desktop runs on packaging/UI changes to `main`, while retaining manual and `v*` tag triggers.
 - Linux package jobs install the required Qt/EGL runtime and macOS archiving handles the native `DocMergeForge.app` layout.
-- The shared PyInstaller entry now uses `src/docmergeforge/ui/packaged_entry.py` while normal `docmergeforge-gui` behavior continues to use the existing desktop main entry point.
+- The shared PyInstaller entry uses `src/docmergeforge/ui/packaged_entry.py` while normal `docmergeforge-gui` behavior continues to use the existing desktop main entry point.
 - GitHub Actions workflows were migrated to the current Node 24-era major generations: checkout/setup-python v7, upload-artifact v7, download-artifact v8, dependency-review v5, and CodeQL v4.
-- Stress Acceptance now automatically exercises the default 120-part profile when stress infrastructure changes on `main` while retaining configurable manual dispatch for larger workloads.
-- Word native merge acceptance now binds expected/output evidence to one global section sequence, compares section/page-number fingerprints, rechecks source hashes across evidence construction and native execution, and rejects a nominal success when Word required forced process termination.
-- The Linux fidelity workflow now executes the complete Word boundary and timeout-harness regression surface without claiming Word execution.
-- The manual Word workflow now requires capability-policy evidence, clean pre/post Word process state, a passing normal Word merge smoke, and a passing real timeout-cleanup stage before the controlled job can pass.
+- Stress Acceptance automatically exercises the default 120-part profile when stress infrastructure changes on `main` while retaining configurable manual dispatch for larger workloads.
+- Word native merge acceptance binds expected/output evidence to one global section sequence, compares section/page-number fingerprints, rechecks source hashes across evidence construction/native execution, and rejects a nominal success when Word required forced process termination.
+- The Linux fidelity workflow executes the complete Word boundary and timeout-harness regression surface without claiming Word execution.
+- The manual Word workflow requires capability-policy evidence, clean pre/post Word process state, a passing normal Word merge smoke, and a passing real timeout-cleanup stage before the controlled job can pass.
+- LibreOffice native multi-document acceptance now has one maintained supervised implementation/workflow; the earlier duplicate draft code, smoke, workflow, and draft-only tests were removed.
+- All maintained native-office adapters/prototypes now share the same fail-closed final promotion boundary.
+- Package metadata now exposes homepage/repository/documentation/issues/funding URLs and identifies the project as pre-alpha rather than implying stable distribution status.
 
 ### Fixed
 - CLI lint/type issues found by Ruff and mypy.
@@ -92,11 +105,14 @@ All notable changes follow semantic versioning.
 - Linux-only mypy incompatibility with direct Windows `msvcrt.locking` references by introducing a typed platform adapter.
 - Strict Ruff `SIM117`, line-length, and python-docx path typing issues found while adding new acceptance harnesses, without weakening repository rules.
 - Two Ruff E501 failures in the Markdown-link checker that previously prevented Quality from reaching Black, mypy, link validation, and pytest.
-- Word native multi-document insertion no longer uses a plain page-break constant; later sources now receive explicit Word section boundaries so section-specific properties have a preservation boundary.
+- Word native multi-document insertion no longer uses a plain page-break constant; later sources receive explicit Word section boundaries so section-specific properties have a preservation boundary.
 - Page-number evidence no longer encodes source-document indices that cannot exist in the single merged output; it uses global section order instead.
-- Word process cleanup now accepts Windows PowerShell UTF-8 BOM identity files, rechecks exact identity after a natural-exit grace period, and never broad-kills unrelated Word sessions.
+- Word process cleanup accepts Windows PowerShell UTF-8 BOM identity files, rechecks exact identity after a natural-exit grace period, and never broad-kills unrelated Word sessions.
 - A broken acceptance-test contract where page-number regression tests referenced section/page-number evidence fields that the implementation did not yet provide.
 - Word timeout acceptance cannot pass on an arbitrary pre-timeout COM/PowerShell error, cannot pass without a recorded process identity, and does not suppress an exact-cleanup failure behind the original native timeout.
+- Removed the duplicate first-draft LibreOffice native engine/evidence/smoke/workflow/tests that could otherwise diverge from the corrected supervised UNO implementation.
+- Supervised LibreOffice process cleanup now polls/reaps the launcher while checking the complete isolated process group, so an exited launcher cannot mask a surviving office child or remain an unreaped zombie.
+- External-office acceptance no longer leaves a newly promoted DOCX behind when final destination validation or the last source-integrity check fails after promotion.
 
 ### Validation
 - Commit `8cc96d714c43922b0effcbb16400fb2952f056b1` passed Quality run `31948936694`, 120-Part Regression `31948936615`, Build Smoke `31948936667`, and Security `31948936651`.
@@ -112,7 +128,7 @@ All notable changes follow semantic versioning.
 - Node 24-era action migration Onefile Acceptance run `32030487166` at checkpoint `24674b776216e6da73c257b30149f46605eb1b77` passed all Windows/macOS/Ubuntu build-host and fresh-runner jobs.
 - Measured Stress Acceptance run `32030895119` at checkpoint `ad5d8e354efefc745a454b799632359fafd29658` passed generation, Parts 1–120 validation, preflight, mixed merge, and compare using 120 PDF + 120 DOCX parts, 600 PDF pages, `9,881,006` measured source bytes, and `5,421,739` measured output bytes before evidence files. Artifact ID `9288923591`; container digest `sha256:f552c3007dc6121f77145e9335f4ca39a7a3809bb4a97eb98c4118f2f2529189`.
 - The measured stress baseline is approximately 9.9 MB and is deliberately **not** represented as multi-gigabyte acceptance.
-- No new passing Quality/Fidelity/controlled-Word run is recorded for the current Word-native and timeout-cleanup hardening until such a run is actually observable. The controlled Word workflow/harness exists, but implementation is not acceptance evidence.
+- No new passing Quality, supervised LibreOffice UNO/process-cleanup, or controlled-Word run is recorded for the current native-office hardening until such a run is actually observable and reviewed. Workflow definitions and committed regressions are implementation evidence, not external acceptance evidence.
 - These checks do not claim signed installers, macOS notarization, full human clean-machine interactive package acceptance, physical power-loss/device-removal recovery, network-filesystem locking semantics, full human accessibility acceptance, universal high-fidelity DOCX support, or `v1.0.0` readiness.
 
 ## [0.1.0] - 2026-08-16
