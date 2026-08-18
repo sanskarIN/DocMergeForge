@@ -5,6 +5,7 @@ import pytest
 from docmergeforge.cli import main as cli
 from docmergeforge.docx.fidelity import FidelityCapability
 from docmergeforge.docx.fidelity_acceptance import (
+    DocxContentSnapshot,
     DocxStructureSnapshot,
     FidelityAcceptanceEvidence,
 )
@@ -13,6 +14,7 @@ from docmergeforge.docx.fidelity_corpus import FidelityCorpusItem, FidelityCorpu
 
 def _accepted_evidence() -> FidelityAcceptanceEvidence:
     structure = DocxStructureSnapshot(2, 1, 0, 1, 1)
+    content = DocxContentSnapshot("c" * 64, "d" * 64, "e" * 64, "f" * 64)
     return FidelityAcceptanceEvidence(
         mode="libreoffice",
         source=Path("input.docx"),
@@ -21,9 +23,12 @@ def _accepted_evidence() -> FidelityAcceptanceEvidence:
         output_sha256="b" * 64,
         source_structure=structure,
         output_structure=structure,
+        source_content=content,
+        output_content=content,
         source_risks=(),
         output_risks=(),
         structure_matches=True,
+        content_matches=True,
         new_risks=(),
     )
 
@@ -83,6 +88,7 @@ def test_cli_fidelity_roundtrip_returns_acceptance_status(
 
     assert exit_code == 0
     assert '"accepted": true' in output
+    assert '"content_matches": true' in output
     assert '"mode": "libreoffice"' in output
 
 
