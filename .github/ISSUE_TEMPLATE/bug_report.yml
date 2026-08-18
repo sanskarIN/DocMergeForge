@@ -3,28 +3,86 @@ description: Report a reproducible DocMergeForge defect without uploading sensit
 title: "[Bug] "
 labels: ["bug"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a defect. Use a synthetic/minimized document whenever possible. Never post passwords, tokens, signing keys, private manuscripts, confidential recovery backups, or unreviewed diagnostics.
   - type: textarea
     id: summary
     attributes:
       label: Summary
+      description: What failed, and what impact did it have?
+      placeholder: A short, specific description of the defect.
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Affected surface
+      options:
+        - CLI
+        - Desktop GUI
+        - PDF merge/publication
+        - DOCX portable merge
+        - LibreOffice fidelity/UNO acceptance
+        - Microsoft Word fidelity/native acceptance
+        - Project transaction/recovery
+        - Packaging/executable
+        - Accessibility
+        - Documentation
+        - Other
     validations:
       required: true
   - type: input
     id: version
     attributes:
-      label: Version
+      label: Version or commit
+      description: Provide the DocMergeForge version, tag, or exact commit SHA when known.
+    validations:
+      required: true
   - type: input
     id: os
     attributes:
       label: Operating system
+      description: Include OS version and architecture when relevant.
+    validations:
+      required: true
+  - type: input
+    id: runtime
+    attributes:
+      label: Runtime / external application
+      description: Python version and, when relevant, Microsoft Word or LibreOffice version/build.
   - type: textarea
     id: steps
     attributes:
       label: Reproduction steps
+      description: Give the smallest deterministic sequence that reproduces the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include the exit code or failure stage when available.
     validations:
       required: true
   - type: textarea
     id: diagnostics
     attributes:
       label: Privacy-safe diagnostics
-      description: Do not paste manuscript body text, passwords, or secrets.
+      description: Redact private paths/names and review logs/evidence before posting. Do not paste manuscript body text, passwords, credentials, or secrets.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: I reviewed this report and removed passwords, tokens, private manuscripts, confidential backups, and other sensitive data.
+          required: true
+        - label: If this involves document fidelity, I identified the smallest relevant construct or supplied a synthetic reproduction when possible.
+          required: false
