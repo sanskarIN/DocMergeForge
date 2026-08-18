@@ -6,6 +6,7 @@ import pytest
 
 from docmergeforge.docx.fidelity_acceptance import (
     FidelityAcceptanceEvidence,
+    snapshot_docx_content,
     snapshot_docx_structure,
 )
 from docmergeforge.utilities.hashing import sha256_file
@@ -28,6 +29,7 @@ def test_fidelity_acceptance_script_writes_reviewable_evidence(
         assert timeout_seconds == 30
         shutil.copy2(source, output)
         structure = snapshot_docx_structure(source)
+        content = snapshot_docx_content(source)
         return FidelityAcceptanceEvidence(
             mode=mode,
             source=source,
@@ -36,9 +38,12 @@ def test_fidelity_acceptance_script_writes_reviewable_evidence(
             output_sha256=sha256_file(output),
             source_structure=structure,
             output_structure=structure,
+            source_content=content,
+            output_content=content,
             source_risks=(),
             output_risks=(),
             structure_matches=True,
+            content_matches=True,
             new_risks=(),
         )
 
@@ -58,6 +63,7 @@ def test_fidelity_acceptance_script_writes_reviewable_evidence(
     payload = json.loads(evidence_path.read_text(encoding="utf-8"))
     assert exit_code == 0
     assert payload["accepted"] is True
+    assert payload["content_matches"] is True
     assert payload["mode"] == "libreoffice"
     assert (output_dir / "fidelity-source.docx").exists()
     assert (output_dir / "fidelity-libreoffice-roundtrip.docx").exists()
