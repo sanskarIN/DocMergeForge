@@ -19,6 +19,32 @@ def versioned_path(path: Path) -> Path:
         index += 1
 
 
+def atomic_write_text(path: Path, text: str, *, encoding: str = "utf-8") -> None:
+    """Atomically replace a text file using a unique temporary file beside it.
+
+    The temporary file is flushed and fsynced before replacement so a caller never
+    observes a partially written settings/project/diagnostics file after normal
+    process failure. Temporary residue is removed when writing or promotion fails.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=path.parent,
+        text=True,
+    )
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding=encoding) as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp_path, path)
+    except Exception:
+        tmp_path.unlink(missing_ok=True)
+        raise
+
+
 @contextmanager
 def atomic_output(final_path: Path, overwrite: bool = False) -> Iterator[Path]:
     final_path.parent.mkdir(parents=True, exist_ok=True)
