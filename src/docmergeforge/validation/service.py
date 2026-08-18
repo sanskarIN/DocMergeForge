@@ -21,9 +21,11 @@ def validate_part_set(
     merge_documents: list[InputDocument] | None = None,
 ) -> ValidationResult:
     selected = [item for item in documents if item.kind == kind]
-    merge_selected = selected if merge_documents is None else [
-        item for item in merge_documents if item.kind == kind
-    ]
+    merge_selected = (
+        selected
+        if merge_documents is None
+        else [item for item in merge_documents if item.kind == kind]
+    )
     merge_ids = {id(item) for item in merge_selected}
     expected = list(range(expected_start, expected_end + 1))
     expected_set = set(expected)
