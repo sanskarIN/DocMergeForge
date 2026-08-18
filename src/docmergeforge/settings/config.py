@@ -42,9 +42,41 @@ class AppSettings:
             return cls()
         if not isinstance(raw, dict):
             return cls()
-        known = {field.name for field in fields(cls)}
-        values: dict[str, Any] = {key: value for key, value in raw.items() if key in known}
-        try:
-            return cls(**values)
-        except (TypeError, ValueError):
-            return cls()
+
+        defaults = cls()
+        values: dict[str, Any] = {}
+        for field in fields(cls):
+            if field.name not in raw:
+                continue
+            value = raw[field.name]
+            default = getattr(defaults, field.name)
+            if isinstance(default, bool):
+                if isinstance(value, bool):
+                    values[field.name] = value
+            elif isinstance(default, int):
+                if isinstance(value, int) and not isinstance(value, bool):
+                    values[field.name] = value
+            elif isinstance(default, str) and isinstance(value, str):
+                values[field.name] = value
+
+        loaded = cls(**values)
+        loaded.worker_count = max(1, min(64, loaded.worker_count))
+        loaded.text_scale_percent = max(80, min(200, loaded.text_scale_percent))
+
+        allowed_strings = {
+            "theme": {"system", "light", "dark"},
+            "logging_level": {"DEBUG", "INFO", "WARNING", "ERROR"},
+            "pdf_optimization": {"preserve", "balanced", "archive"},
+            "docx_fidelity_mode": {"portable", "libreoffice", "word"},
+            "merge_profile": {
+                "Exact Preservation",
+                "Master eBook",
+                "Print Draft",
+                "Archive",
+                "Custom",
+            },
+        }
+        for name, allowed in allowed_strings.items():
+            if getattr(loaded, name) not in allowed:
+                setattr(loaded, name, getattr(defaults, name))
+        return loaded
