@@ -5,7 +5,7 @@ from docmergeforge.validation.service import duplicate_hashes, validate_part_set
 
 
 def item(
-    part: int,
+    part: int | None,
     name: str,
     digest: str | None = None,
     *,
@@ -15,7 +15,7 @@ def item(
     return InputDocument(
         path=Path(name),
         kind=DocumentKind.PDF,
-        part=PartIdentity(part, f"Part {part}"),
+        part=PartIdentity(part, f"Part {part}" if part is not None else "Unnumbered"),
         size=size,
         sha256=digest or str(part),
         page_count=1,
@@ -81,6 +81,25 @@ def test_selected_encrypted_file_still_blocks_without_password() -> None:
 
     assert not result.ready
     assert any("password protected" in diagnostic.message for diagnostic in result.diagnostics)
+
+
+def test_selected_unnumbered_encrypted_file_still_blocks_without_password() -> None:
+    encrypted_front_matter = item(None, "Front Matter.pdf", encrypted=True)
+    part_1 = item(1, "Part 1.pdf")
+
+    result = validate_part_set(
+        [encrypted_front_matter, part_1],
+        DocumentKind.PDF,
+        1,
+        1,
+        merge_documents=[encrypted_front_matter, part_1],
+    )
+
+    assert not result.ready
+    assert any(
+        diagnostic.message == "Selected PDF is password protected."
+        for diagnostic in result.diagnostics
+    )
 
 
 def test_duplicate_file_hashes() -> None:
