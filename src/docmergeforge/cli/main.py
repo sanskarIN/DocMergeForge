@@ -24,6 +24,7 @@ from docmergeforge.discovery.scanner import scan
 from docmergeforge.docx.engine import DocxMergeEngine
 from docmergeforge.docx.fidelity import fidelity_capabilities
 from docmergeforge.docx.fidelity_acceptance import run_fidelity_roundtrip_acceptance
+from docmergeforge.docx.fidelity_corpus import run_fidelity_corpus, write_fidelity_corpus_report
 from docmergeforge.pdf.engine import PdfMergeEngine
 from docmergeforge.pdf.passwords import verify_pdf_password
 from docmergeforge.presets.sql_full_mastery import PRESET_NAME, create_sql_full_mastery_project
@@ -171,6 +172,26 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("libreoffice", "word"),
     )
     fidelity_roundtrip.add_argument("--timeout", default=300, type=_positive_seconds)
+
+    fidelity_corpus = sub.add_parser(
+        "fidelity-corpus",
+        help="Run external-office DOCX acceptance across a private local corpus.",
+    )
+    fidelity_corpus.add_argument("--input-dir", required=True, type=Path)
+    fidelity_corpus.add_argument("--output-dir", required=True, type=Path)
+    fidelity_corpus.add_argument(
+        "--mode",
+        required=True,
+        choices=("libreoffice", "word"),
+    )
+    fidelity_corpus.add_argument("--pattern", default="*.docx")
+    fidelity_corpus.add_argument(
+        "--recursive",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+    )
+    fidelity_corpus.add_argument("--timeout", default=300, type=_positive_seconds)
+    fidelity_corpus.add_argument("--fail-fast", action="store_true")
 
     preset = sub.add_parser(
         "sql-preset",
@@ -360,6 +381,25 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(json.dumps(evidence.to_dict(), indent=2))
         return 0 if evidence.accepted else 2
+
+    if args.command == "fidelity-corpus":
+        report = run_fidelity_corpus(
+            args.input_dir,
+            args.output_dir,
+            args.mode,
+            pattern=args.pattern,
+            recursive=args.recursive,
+            timeout_seconds=args.timeout,
+            fail_fast=args.fail_fast,
+        )
+        report_path = write_fidelity_corpus_report(
+            report,
+            args.output_dir / f"fidelity-corpus-{args.mode}-report.json",
+        )
+        payload = report.to_dict()
+        payload["report"] = str(report_path)
+        print(json.dumps(payload, indent=2))
+        return 0 if report.accepted else 2
 
     if args.command == "project-create":
         if args.sql_preset:
