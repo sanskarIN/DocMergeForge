@@ -41,8 +41,11 @@ def _required_string(data: dict[str, Any], key: str) -> str:
 
 
 def _path_list(value: object, label: str, *, allow_empty: bool) -> list[Path]:
-    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
-        raise ValueError(f"Project field '{label}' must be a JSON array of path strings.")
+    if (
+        not isinstance(value, list)
+        or not all(isinstance(item, str) and item.strip() for item in value)
+    ):
+        raise ValueError(f"Project field '{label}' must be a JSON array of non-empty path strings.")
     if not allow_empty and not value:
         raise ValueError(f"Project field '{label}' must contain at least one path.")
     return [Path(item) for item in value]
@@ -63,6 +66,110 @@ def _positive_range(settings_data: dict[str, Any]) -> tuple[int, int]:
     return start, end
 
 
+def _bool_value(data: dict[str, Any], key: str, default: bool, label: str) -> bool:
+    value = data.get(key, default)
+    if not isinstance(value, bool):
+        raise ValueError(f"Project field '{label}.{key}' must be a boolean.")
+    return value
+
+
+def _string_value(data: dict[str, Any], key: str, default: str, label: str) -> str:
+    value = data.get(key, default)
+    if not isinstance(value, str):
+        raise ValueError(f"Project field '{label}.{key}' must be a string.")
+    return value
+
+
+def _optional_string(data: dict[str, Any], key: str, label: str) -> str | None:
+    value = data.get(key)
+    if value is not None and not isinstance(value, str):
+        raise ValueError(f"Project field '{label}.{key}' must be a string or null.")
+    return value
+
+
+def _positive_int(data: dict[str, Any], key: str, default: int, label: str) -> int:
+    value = data.get(key, default)
+    if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+        raise ValueError(f"Project field '{label}.{key}' must be a positive integer.")
+    return value
+
+
+def _choice(
+    data: dict[str, Any],
+    key: str,
+    default: str,
+    choices: set[str],
+    label: str,
+) -> str:
+    value = _string_value(data, key, default, label)
+    if value not in choices:
+        allowed = ", ".join(sorted(choices))
+        raise ValueError(f"Project field '{label}.{key}' must be one of: {allowed}.")
+    return value
+
+
+def _pdf_settings(data: dict[str, Any]) -> PdfSettings:
+    label = "settings.pdf"
+    return PdfSettings(
+        add_part_bookmarks=_bool_value(data, "add_part_bookmarks", True, label),
+        title=_optional_string(data, "title", label),
+        author=_optional_string(data, "author", label),
+        edition=_optional_string(data, "edition", label),
+        include_title_page=_bool_value(data, "include_title_page", False, label),
+        visible_toc=_bool_value(data, "visible_toc", False, label),
+        page_numbers=_bool_value(data, "page_numbers", False, label),
+        page_number_start=_positive_int(data, "page_number_start", 1, label),
+        header_text=_optional_string(data, "header_text", label),
+        footer_text=_optional_string(data, "footer_text", label),
+        watermark_text=_optional_string(data, "watermark_text", label),
+        optimization=_choice(
+            data,
+            "optimization",
+            "preserve",
+            {"preserve", "balanced", "archive"},
+            label,
+        ),
+    )
+
+
+def _docx_settings(data: dict[str, Any]) -> DocxSettings:
+    label = "settings.docx"
+    return DocxSettings(
+        start_each_part_on_new_page=_bool_value(
+            data, "start_each_part_on_new_page", True, label
+        ),
+        preserve_sections=_bool_value(data, "preserve_sections", True, label),
+        fidelity_mode=_choice(
+            data,
+            "fidelity_mode",
+            "portable",
+            {"portable", "libreoffice", "word"},
+            label,
+        ),
+        add_part_headings=_bool_value(data, "add_part_headings", True, label),
+        create_toc_field=_bool_value(data, "create_toc_field", True, label),
+        style_conflict_policy=_choice(
+            data,
+            "style_conflict_policy",
+            "prefer_master",
+            {"prefer_master", "error"},
+            label,
+        ),
+        numbering_conflict_policy=_choice(
+            data,
+            "numbering_conflict_policy",
+            "remap",
+            {"remap", "error"},
+            label,
+        ),
+        header_text=_optional_string(data, "header_text", label),
+        footer_text=_optional_string(data, "footer_text", label),
+        continuous_page_numbering=_bool_value(
+            data, "continuous_page_numbering", True, label
+        ),
+    )
+
+
 def load_project(path: Path) -> MergeProject:
     raw: object = json.loads(path.read_text(encoding="utf-8"))
     data = _mapping(raw, "root")
@@ -79,17 +186,25 @@ def load_project(path: Path) -> MergeProject:
     warnings = cast(list[str], warnings_raw)
 
     settings_data = _mapping(data.get("settings", {}), "settings")
-    pdf = PdfSettings(**_mapping(settings_data.get("pdf", {}), "settings.pdf"))
-    docx = DocxSettings(**_mapping(settings_data.get("docx", {}), "settings.docx"))
+    pdf = _pdf_settings(_mapping(settings_data.get("pdf", {}), "settings.pdf"))
+    docx = _docx_settings(_mapping(settings_data.get("docx", {}), "settings.docx"))
     expected_start, expected_end = _positive_range(settings_data)
     settings = MergeSettings(
         expected_start=expected_start,
         expected_end=expected_end,
-        checksum_generation=settings_data.get("checksum_generation", True),
-        automatic_validation=settings_data.get("automatic_validation", True),
-        overwrite=settings_data.get("overwrite", False),
-        profile_name=settings_data.get("profile_name", "Exact Preservation"),
-        filename_template=settings_data.get("filename_template", "{series}_Master"),
+        checksum_generation=_bool_value(
+            settings_data, "checksum_generation", True, "settings"
+        ),
+        automatic_validation=_bool_value(
+            settings_data, "automatic_validation", True, "settings"
+        ),
+        overwrite=_bool_value(settings_data, "overwrite", False, "settings"),
+        profile_name=_string_value(
+            settings_data, "profile_name", "Exact Preservation", "settings"
+        ),
+        filename_template=_string_value(
+            settings_data, "filename_template", "{series}_Master", "settings"
+        ),
         pdf=pdf,
         docx=docx,
     )
