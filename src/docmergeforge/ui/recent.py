@@ -4,6 +4,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from docmergeforge.utilities.atomic import atomic_write_text
+
 
 @dataclass(slots=True, frozen=True)
 class RecentProject:
@@ -33,33 +35,25 @@ class RecentProjectsStore:
             if isinstance(item, dict)
         ]
 
+    @staticmethod
+    def _serialize(items: list[RecentProject]) -> str:
+        payload = [
+            {
+                "name": item.name,
+                "project_file": str(item.project_file),
+                "source_folder": str(item.source_folder),
+                "output_folder": str(item.output_folder),
+            }
+            for item in items
+        ]
+        return json.dumps(payload, indent=2)
+
     def add(self, project: RecentProject) -> None:
         items = [item for item in self.load() if item.project_file != project.project_file]
         items.insert(0, project)
-        items = items[: self.limit]
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        payload = [
-            {
-                "name": item.name,
-                "project_file": str(item.project_file),
-                "source_folder": str(item.source_folder),
-                "output_folder": str(item.output_folder),
-            }
-            for item in items
-        ]
-        self.path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        atomic_write_text(self.path, self._serialize(items[: self.limit]))
 
     def remove_missing(self) -> list[RecentProject]:
         items = [item for item in self.load() if item.project_file.exists()]
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        payload = [
-            {
-                "name": item.name,
-                "project_file": str(item.project_file),
-                "source_folder": str(item.source_folder),
-                "output_folder": str(item.output_folder),
-            }
-            for item in items
-        ]
-        self.path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        atomic_write_text(self.path, self._serialize(items))
         return items
