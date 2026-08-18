@@ -36,7 +36,15 @@ class AppSettings:
     def load(cls, path: Path) -> AppSettings:
         if not path.exists():
             return cls()
-        raw: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+        try:
+            raw: object = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            return cls()
+        if not isinstance(raw, dict):
+            return cls()
         known = {field.name for field in fields(cls)}
-        values = {key: value for key, value in raw.items() if key in known}
-        return cls(**values)
+        values: dict[str, Any] = {key: value for key, value in raw.items() if key in known}
+        try:
+            return cls(**values)
+        except (TypeError, ValueError):
+            return cls()
