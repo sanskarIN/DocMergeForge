@@ -30,6 +30,17 @@ def test_duplicate_part_48() -> None:
     assert not result.ready
 
 
+def test_out_of_range_part_warns_without_satisfying_expected_range() -> None:
+    docs = [item(1, "Part 1.pdf"), item(121, "Part 121.pdf")]
+
+    result = validate_part_set(docs, DocumentKind.PDF, 1, 1)
+
+    assert result.ready
+    assert result.found_parts == [1]
+    warning_messages = [diagnostic.message for diagnostic in result.diagnostics]
+    assert "Part 121 is outside the configured expected range." in warning_messages
+
+
 def test_duplicate_file_hashes() -> None:
     docs = [item(1, "Part 1.pdf", "same"), item(2, "Part 2.pdf", "same")]
     assert "same" in duplicate_hashes(docs)
