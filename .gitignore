@@ -22,3 +22,16 @@ Thumbs.db
 recovery/
 output/
 fixtures/generated/
+
+# Local fidelity / external-office acceptance evidence
+fidelity-evidence/
+word-merge-evidence/
+libreoffice-uno-evidence/
+private-corpus/
+private-fidelity-evidence/
+private-word-evidence/
+private-libreoffice-evidence/
+
+# Local publication transaction/recovery state
+**/.docmergeforge-staging-*/
+**/.docmergeforge-output.lock
