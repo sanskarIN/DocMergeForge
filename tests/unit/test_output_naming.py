@@ -12,6 +12,20 @@ def test_safe_basename_removes_cross_platform_invalid_characters() -> None:
     assert safe_basename("  ") == "DocMergeForge_Master"
 
 
+def test_safe_basename_bounds_long_unicode_names_with_stable_hash_suffix() -> None:
+    original = "पुस्तक" * 80
+
+    first = safe_basename(original)
+    second = safe_basename(original)
+    different = safe_basename(original + "x")
+
+    assert len(first.encode("utf-8")) <= 180
+    assert first == second
+    assert first != different
+    assert first.rsplit("_", 1)[-1].isalnum()
+    assert len(first.rsplit("_", 1)[-1]) == 12
+
+
 def test_project_filename_template_uses_project_metadata() -> None:
     project = MergeProject(
         name="SQL Full Mastery",
