@@ -47,7 +47,9 @@ def test_fidelity_acceptance_records_matching_roundtrip(
         lambda mode: _capability(mode),
     )
 
-    def fake_roundtrip(source_path: Path, destination: Path, **kwargs: object) -> NativeCommandResult:
+    def fake_roundtrip(
+        source_path: Path, destination: Path, **kwargs: object
+    ) -> NativeCommandResult:
         shutil.copy2(source_path, destination)
         return NativeCommandResult(("fake-office",), "", "")
 
