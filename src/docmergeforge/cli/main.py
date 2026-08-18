@@ -28,7 +28,7 @@ from docmergeforge.docx.fidelity_corpus import run_fidelity_corpus, write_fideli
 from docmergeforge.pdf.engine import PdfMergeEngine
 from docmergeforge.pdf.passwords import verify_pdf_password
 from docmergeforge.presets.sql_full_mastery import PRESET_NAME, create_sql_full_mastery_project
-from docmergeforge.project.selection import automatic_numbered_documents
+from docmergeforge.project.selection import automatic_numbered_documents, project_merge_documents
 from docmergeforge.project.store import load_project, save_project
 from docmergeforge.utilities.output_transaction import recover_interrupted_output_transactions
 from docmergeforge.validation.compare import compare_docx, compare_pdf
@@ -83,6 +83,8 @@ def _preflight_payload(project: MergeProject, allow_encrypted_pdf: bool) -> dict
             "ordered_docx": [str(path) for path in evidence.ordered_docx],
             "expected_outputs": [str(path) for path in evidence.expected_outputs],
             "docx_conflict_count": evidence.docx_conflict_count,
+            "pdf_diagnostics": [item.to_dict() for item in evidence.result.pdf.diagnostics],
+            "docx_diagnostics": [item.to_dict() for item in evidence.result.docx.diagnostics],
         }
     )
     return payload
@@ -249,6 +251,7 @@ def _run_direct_merge(args: argparse.Namespace) -> int:
             start,
             end,
             allow_encrypted_pdf=bool(passwords),
+            merge_documents=merge_items,
         )
         if not validation_result.ready:
             print(
@@ -257,6 +260,9 @@ def _run_direct_merge(args: argparse.Namespace) -> int:
                         "ready": False,
                         "missing": validation_result.missing_parts,
                         "duplicates": validation_result.duplicate_parts,
+                        "diagnostics": [
+                            item.to_dict() for item in validation_result.diagnostics
+                        ],
                     },
                     indent=2,
                 )
@@ -286,7 +292,8 @@ def _run_direct_merge(args: argparse.Namespace) -> int:
 def _run_project(project: MergeProject, dry_run: bool) -> int:
     service = MergeApplicationService()
     inputs = service.discover(project)
-    passwords = _collect_pdf_passwords(inputs)
+    pdf_merge_inputs = project_merge_documents(project, inputs, DocumentKind.PDF)
+    passwords = _collect_pdf_passwords(pdf_merge_inputs)
     if passwords is None:
         return 130
     try:
@@ -358,12 +365,20 @@ def main(argv: list[str] | None = None) -> int:
         payload: dict[str, object] = {}
         exit_code = 0
         for kind in (DocumentKind.PDF, DocumentKind.DOCX):
-            validation_result = validate_part_set(items, kind, start, end)
+            merge_items = automatic_numbered_documents(items, kind, start, end)
+            validation_result = validate_part_set(
+                items,
+                kind,
+                start,
+                end,
+                merge_documents=merge_items,
+            )
             payload[kind.value] = {
                 "ready": validation_result.ready,
                 "missing": validation_result.missing_parts,
                 "duplicates": validation_result.duplicate_parts,
                 "found": validation_result.found_parts,
+                "diagnostics": [item.to_dict() for item in validation_result.diagnostics],
             }
             if not validation_result.ready:
                 exit_code = 2
