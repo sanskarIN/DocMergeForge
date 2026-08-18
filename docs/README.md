@@ -34,6 +34,7 @@ This directory is the canonical documentation set for DocMergeForge. It covers e
 - [PDF Engine](pdf-engine.md)
 - [DOCX Engine](docx-engine.md)
 - [DOCX Fidelity Adapters and Acceptance](docx-fidelity-acceptance.md)
+- [Private DOCX Fidelity Corpus Testing](docx-fidelity-corpus.md)
 - [SQL Full Mastery 120-Part Preset](sql-full-mastery-preset.md)
 
 ## Safety, privacy, and accessibility
@@ -110,7 +111,7 @@ DocMergeForge currently exposes:
 
 ## Documentation accuracy policy
 
-Documentation should describe implemented behavior, not aspirational behavior. External LibreOffice and Microsoft Word round-trip adapters may be implementation-ready or locally detectable without being production-ready. They must remain clearly separated from the production merge gate until complete native merge semantics and representative target-platform acceptance are verified. See [DOCX Fidelity Adapters and Acceptance](docx-fidelity-acceptance.md).
+Documentation should describe implemented behavior, not aspirational behavior. External LibreOffice and Microsoft Word round-trip adapters may be implementation-ready or locally detectable without being production-ready. They must remain clearly separated from the production merge gate until complete native merge semantics and representative target-platform acceptance are verified. See [DOCX Fidelity Adapters and Acceptance](docx-fidelity-acceptance.md) and [Private DOCX Fidelity Corpus Testing](docx-fidelity-corpus.md).
 
 Executable documentation follows the same rule: current PyInstaller and unsigned CI packaging are documented as implemented and independently smoke-tested, while code signing, notarization, native installer formats, human clean-machine QA, and production distribution remain explicit gates until corresponding acceptance exists.
 
