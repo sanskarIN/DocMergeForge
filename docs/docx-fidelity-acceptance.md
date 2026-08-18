@@ -44,13 +44,17 @@ The explicit round-trip operation:
 1. requires separate `.docx` source and destination paths;
 2. refuses to overwrite an existing destination;
 3. snapshots the source SHA-256;
-4. invokes LibreOffice without a shell using headless/no-startup UI options;
-5. writes the converted document into a temporary directory beside the destination;
-6. validates the temporary OOXML package;
-7. verifies the source hash is unchanged;
-8. promotes the validated copy to the requested destination;
-9. validates the final destination again;
-10. verifies the source hash again.
+4. creates a temporary LibreOffice user profile for the acceptance run instead of reusing the user's normal profile;
+5. invokes LibreOffice without a shell using headless/no-startup UI options;
+6. writes the converted document into a temporary directory beside the destination;
+7. validates the temporary OOXML package;
+8. verifies the source hash is unchanged;
+9. promotes the validated copy to the requested destination;
+10. validates the final destination again;
+11. verifies the source hash again;
+12. removes the temporary automation profile/directory during normal cleanup.
+
+The isolated user profile reduces interference from an already-running user profile and avoids making the acceptance run depend on the user's normal LibreOffice state. It does not make claims about every LibreOffice extension, enterprise policy, or telemetry configuration.
 
 LibreOffice automation is an **acceptance tool**, not an implicit replacement for the portable merge engine.
 
@@ -62,11 +66,13 @@ The generated PowerShell automation:
 
 - starts Word invisibly;
 - disables interactive alerts;
+- sets Word automation security to force-disable macros for the automation session;
 - opens the source read-only;
-- saves a DOCX copy with Word's DOCX format identifier;
+- requests that the source not be added to Word's recent-file list;
+- saves a separate DOCX copy with Word's DOCX format identifier;
 - closes the document;
 - quits Word in a `finally` block;
-- releases COM objects;
+- releases COM objects and requests pending finalization;
 - writes only to a temporary destination before DocMergeForge validates/promotes it.
 
 The Python boundary applies the same timeout, source-hash, no-overwrite, separate-output, and OOXML validation rules used by the LibreOffice adapter.
@@ -140,7 +146,7 @@ docmergeforge fidelity-roundtrip `
 
 The command exits with:
 
-- `0` when the measured structural acceptance passes;
+- `0` when the measured structural/content acceptance passes;
 - `2` when the produced document is valid but the measured acceptance criteria do not match;
 - an error when the adapter cannot run safely or output validation fails.
 
@@ -152,28 +158,47 @@ Round-trip evidence contains:
 
 - selected adapter mode;
 - source/output paths;
-- source/output SHA-256;
+- source/output file SHA-256;
 - source/output structural counts;
+- source/output privacy-safe content fingerprints;
 - source/output risky-construct findings;
 - whether measured structural counts match;
+- whether measured visible-text fingerprints match;
 - newly introduced risky constructs;
 - overall `accepted` status.
 
 Measured structural counts currently include:
 
-- paragraphs;
-- tables;
+- body paragraphs;
+- body tables;
 - inline shapes;
 - sections;
-- headings.
+- headings;
+- header paragraphs;
+- footer paragraphs;
+- header tables;
+- footer tables.
 
-`accepted=true` requires the selected structural snapshot to match and no new risk categories to appear.
+Measured content fingerprints currently include SHA-256 values for:
 
-This is deliberately narrower than a claim of visual/layout identity.
+- visible body paragraph text;
+- body table-cell text;
+- header paragraph/table-cell text;
+- footer paragraph/table-cell text.
+
+The text itself is not serialized into the acceptance report. The implementation hashes length-delimited UTF-8 text records so the report can detect measured content changes without storing manuscript body/header/footer text.
+
+`accepted=true` currently requires all of the following:
+
+1. the measured structural snapshot matches;
+2. the measured content fingerprints match; and
+3. no new risky-construct category appears in the round-tripped output.
+
+This is deliberately narrower than a claim of visual/layout identity. For example, it does not prove identical line wrapping, floating-object coordinates, font substitution, field recalculation, chart rendering, or page breaks.
 
 ## Risky OOXML construct review
 
-The OOXML risk scanner now reports categories including:
+The OOXML risk scanner reports categories including:
 
 - VBA/macros;
 - embedded OLE/package objects;
@@ -189,6 +214,8 @@ The OOXML risk scanner now reports categories including:
 - charts;
 - SmartArt/diagram parts;
 - unusually large markup parts skipped by the bounded risk scan.
+
+Markup scanning uses XML namespace/local-name parsing rather than depending on one specific prefix such as `w:` or one XML quote style. External relationship detection also parses relationship XML and handles `TargetMode` case-insensitively.
 
 Risk detection is a review signal. A finding does not automatically mean the document is corrupt, and absence of findings does not prove universal fidelity.
 
@@ -222,6 +249,8 @@ fidelity-<mode>-evidence.json
 
 Existing artifacts are never overwritten.
 
+Because header/footer paragraphs are part of the structural snapshot and header/footer visible text is part of the content fingerprints, losing or changing those measured elements can now make the smoke acceptance fail instead of being ignored.
+
 ## GitHub Actions acceptance
 
 `.github/workflows/fidelity-acceptance.yml` runs the LibreOffice path on an Ubuntu GitHub-hosted runner when fidelity-related code changes or when manually dispatched.
@@ -236,7 +265,39 @@ The workflow:
 6. prints the JSON evidence;
 7. uploads the source, round-trip output, and evidence JSON as a workflow artifact.
 
-This provides real LibreOffice process evidence on Linux. It is not Windows/macOS LibreOffice acceptance and it is not Microsoft Word acceptance.
+The workflow exists as an executable acceptance lane. A specific run must be recorded as passing before it is cited as release evidence for a commit.
+
+Even a passing run provides LibreOffice process evidence for the tested Linux runner/build only. It is not Windows/macOS LibreOffice acceptance and it is not Microsoft Word acceptance.
+
+## Private representative corpus acceptance
+
+For representative documents that cannot be committed to a public repository, run:
+
+```bash
+docmergeforge fidelity-corpus \
+  --input-dir "./private-corpus" \
+  --output-dir "./private-fidelity-evidence" \
+  --mode libreoffice
+```
+
+On a controlled Windows machine with Microsoft Word installed, use `--mode word`.
+
+The corpus runner:
+
+- discovers matching DOCX files deterministically;
+- preserves source-relative subdirectory layout below `roundtrip/`;
+- applies the same structural/content/risk acceptance to each source;
+- records source/output file hashes and content fingerprints without serializing visible manuscript text;
+- rewrites source/output paths to corpus-relative paths in the JSON report;
+- redacts the absolute corpus/output roots from recorded per-item errors when those paths occur;
+- refuses to place its output inside the source corpus;
+- fails closed if no DOCX matches;
+- never treats a fail-fast partial run as fully accepted;
+- does not automatically upload the corpus/evidence.
+
+Generated round-trip DOCX files still contain manuscript content and must be treated according to the manuscript's confidentiality requirements.
+
+See [Private DOCX Fidelity Corpus Testing](docx-fidelity-corpus.md).
 
 ## Microsoft Word acceptance requirement
 
@@ -284,7 +345,7 @@ For each supported construct, record both automated evidence and manual renderin
 
 ## Why round-trip before native merge certification
 
-A native office-suite merge adapter can change document semantics even when the process exits successfully. The round-trip stage isolates one variable: whether the external application can safely open and re-save representative source material while preserving the measured structure.
+A native office-suite merge adapter can change document semantics even when the process exits successfully. The round-trip stage isolates one variable: whether the external application can safely open and re-save representative source material while preserving the measured structure and visible textual content.
 
 Only after representative round-trip evidence is trustworthy should full native multi-document merge semantics be certified.
 
@@ -297,11 +358,12 @@ Changing that flag requires, at minimum:
 1. a complete multi-document adapter for the target application;
 2. deterministic source-preserving behavior;
 3. cancellation/timeout/error cleanup;
-4. structural/package validation;
+4. structural/package/content validation appropriate to the support claim;
 5. representative corpus automation;
-6. target-platform acceptance;
+6. target-platform/application-version acceptance;
 7. documented manual rendering review;
 8. regression coverage for discovered fidelity defects;
-9. release-evidence records tied to exact commits and tool versions.
+9. packaged-app acceptance where the external mode is distributed;
+10. release-evidence records tied to exact commits and tool versions.
 
 Until then, portable mode remains the only production-enabled merge path.
