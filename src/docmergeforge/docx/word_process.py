@@ -46,7 +46,42 @@ if ($actualStartTicks -ne $expectedStartTicks) {
     throw "Refusing to terminate PID $wordProcessId because its start-time fingerprint changed."
 }
 
-Stop-Process -Id $wordProcessId -Force -ErrorAction Stop
+# COM Quit() can leave the exact process visible briefly while finalizers drain.
+for ($attempt = 0; $attempt -lt 8; $attempt++) {
+    Start-Sleep -Milliseconds 250
+    if ($null -eq (Get-Process -Id $wordProcessId -ErrorAction SilentlyContinue)) {
+        [ordered]@{
+            identity_match = $true
+            process_found = $true
+            terminated = $false
+        } | ConvertTo-Json -Compress
+        exit 0
+    }
+}
+
+$process = Get-Process -Id $wordProcessId -ErrorAction SilentlyContinue
+if ($null -eq $process) {
+    [ordered]@{
+        identity_match = $true
+        process_found = $true
+        terminated = $false
+    } | ConvertTo-Json -Compress
+    exit 0
+}
+$actualName = [string]$process.ProcessName
+$actualStartTicks = [long]$process.StartTime.ToUniversalTime().Ticks
+if ($actualName -ne 'WINWORD' -or $actualStartTicks -ne $expectedStartTicks) {
+    throw 'Recorded Word process identity changed during cleanup grace period.'
+}
+
+try {
+    Stop-Process -Id $wordProcessId -Force -ErrorAction Stop
+}
+catch {
+    if ($null -ne (Get-Process -Id $wordProcessId -ErrorAction SilentlyContinue)) {
+        throw
+    }
+}
 for ($attempt = 0; $attempt -lt 40; $attempt++) {
     Start-Sleep -Milliseconds 250
     if ($null -eq (Get-Process -Id $wordProcessId -ErrorAction SilentlyContinue)) {
@@ -75,11 +110,11 @@ def cleanup_word_process_identity(
     powershell: str,
     timeout_seconds: int = 15,
 ) -> WordProcessCleanupResult:
-    """Terminate only the exact WINWORD process recorded by controlled automation.
+    """Clean only the exact WINWORD process recorded by controlled automation.
 
-    The identity includes both PID and process start time to prevent PID reuse from turning
-    timeout cleanup into a broad or unsafe process kill. If the process is already gone,
-    cleanup succeeds without terminating anything.
+    PID, process name, and process start time are all required so PID reuse cannot turn
+    recovery into a broad process kill. A natural exit during the grace period is accepted
+    without reporting forced termination.
     """
     if timeout_seconds < 1:
         raise ValidationError("Word process cleanup timeout must be at least one second.")
@@ -93,7 +128,7 @@ def cleanup_word_process_identity(
         raise ValidationError(f"Word process identity is not a file: {identity_file}")
 
     try:
-        identity = json.loads(identity_file.read_text(encoding="utf-8"))
+        identity = json.loads(identity_file.read_text(encoding="utf-8-sig"))
         process_id = int(identity["process_id"])
         process_name = str(identity["process_name"])
         start_ticks = int(identity["start_time_utc_ticks"])
@@ -129,8 +164,6 @@ def cleanup_word_process_identity(
         raise ValidationError("Word process cleanup returned invalid evidence.") from exc
     if not identity_match:
         raise ValidationError("Word process cleanup could not verify the recorded identity.")
-    if process_found and not terminated:
-        raise ValidationError("Word process cleanup found Word but did not terminate it.")
 
     return WordProcessCleanupResult(
         identity_present=True,
