@@ -17,11 +17,11 @@ pytest --cov=docmergeforge --cov-report=term-missing
 
 ### Unit tests
 
-Focused coverage includes part detection/natural sorting, output naming, settings/project serialization, storage/writeability, transaction recovery, cross-process locking, PDF/DOCX helpers, native DOCX command safety, external-office round-trip adapters, fidelity capability gates/evidence, OOXML risk scanning, Microsoft Word native-merge boundaries, page-number section evidence, exact Word process cleanup, cleanup-failure escalation, packaging arguments, build provenance, and documentation-link resolution.
+Focused coverage includes part detection/natural sorting, output naming, settings/project serialization, storage/writeability, transaction recovery, cross-process locking, PDF/DOCX helpers, native DOCX command/promotion safety, external-office round-trip adapters, supervised LibreOffice UNO insertion/evidence/process policy, fidelity capability gates/evidence, OOXML risk scanning, Microsoft Word native-merge boundaries, page-number section evidence, exact Word process cleanup, cleanup-failure escalation, packaging arguments, build provenance, and documentation-link resolution.
 
 ### Integration tests
 
-Marked `integration`. They exercise multiple components together, including real PDF/DOCX fixtures, merge flows, CLI behavior, fidelity evidence generation, Word merge/timeout acceptance harness behavior through mocked external-process boundaries, UI metadata, provenance command execution, packaged-entry smoke behavior, abrupt child-process recovery, and privacy-safe resource evidence.
+Marked `integration`. They exercise multiple components together, including real PDF/DOCX fixtures, merge flows, CLI behavior, fidelity evidence generation, supervised LibreOffice UNO smoke/explicit-command boundaries, real POSIX process-group cleanup, Word merge/timeout acceptance harness behavior through mocked external-process boundaries, UI metadata, provenance command execution, packaged-entry smoke behavior, abrupt child-process recovery, and privacy-safe resource evidence.
 
 ```bash
 pytest -m integration
@@ -51,7 +51,7 @@ Python 3.12: PASS
 Python 3.13: PASS
 ```
 
-That checkpoint predates the current Word-native/page-number/process-cleanup/timeout-harness work and must not be reused as proof for the current head. Record a new run only after it actually passes.
+That checkpoint predates the current native-office hardening and must not be reused as proof for the current head. Record a new run only after it actually passes.
 
 ## Documentation link integrity
 
@@ -107,16 +107,56 @@ The Ubuntu lane:
 1. installs LibreOffice Writer;
 2. installs DocMergeForge development dependencies;
 3. reports `fidelity-capabilities` so availability/automation/production states stay distinct;
-4. runs native-command, LibreOffice, Word round-trip, Word native-merge, exact-process-cleanup, cleanup-failure, section/page-number, source-revision, timeout-harness, corpus, workflow-policy, environment/process-script, CLI, and OOXML-risk tests;
-5. executes a **real LibreOffice Writer** synthetic DOCX round trip;
+4. runs native-command/promotion, LibreOffice round-trip, Word round-trip/native-merge/process/section/page-number/source-revision/timeout/corpus/workflow-policy/CLI/OOXML-risk tests;
+5. executes a **real LibreOffice Writer one-document** synthetic DOCX round trip;
 6. prints measured JSON evidence; and
 7. uploads source/output/evidence artifacts.
 
 The Word-related tests in this Linux lane validate Python, OOXML parsing, generated PowerShell, process policy, timeout-harness behavior, and acceptance logic with mocked external execution. They do **not** claim Microsoft Word ran on Linux.
 
-A passing LibreOffice lane still does not certify complete native multi-document LibreOffice behavior or universal visual equivalence.
+This general fidelity lane is intentionally distinct from the true multi-document Writer/UNO lane below.
 
 See [DOCX Fidelity Adapters and Acceptance](docx-fidelity-acceptance.md).
+
+## Supervised LibreOffice UNO Multi-Document Acceptance
+
+`.github/workflows/libreoffice-uno-acceptance.yml` is the single authoritative native LibreOffice multi-document acceptance workflow. It runs on relevant `main` changes and manual dispatch using Ubuntu.
+
+The job:
+
+1. installs LibreOffice Writer and the system `python3-uno` bridge;
+2. installs DocMergeForge development dependencies;
+3. reports `fidelity-capabilities` to keep automation and production readiness separate;
+4. explicitly verifies `/usr/bin/python3` can import `uno`;
+5. runs supervised merge, evidence, workflow-policy, smoke, and explicit acceptance-command regressions;
+6. starts Writer with a unique temporary user profile and unique UNO pipe;
+7. performs a **real two-document Writer insertion** through the supervised UNO path;
+8. measures body structure/text/source revision/risk evidence;
+9. displays measured JSON evidence when available; and
+10. uploads the generated synthetic source/output/evidence bundle.
+
+The maintained implementation is:
+
+```text
+src/docmergeforge/docx/libreoffice_uno_merge.py
+src/docmergeforge/docx/libreoffice_uno_acceptance.py
+scripts/check_libreoffice_uno_merge_smoke.py
+scripts/check_libreoffice_uno_merge_acceptance.py
+```
+
+The older duplicate prototype/workflow was removed; contributors should not add a second native LibreOffice path when extending this gate.
+
+The first pass rule intentionally does not certify section/page-style/header/footer/page-number/rendering behavior. A passing smoke therefore remains acceptance for the measured source set and dimensions only.
+
+See [LibreOffice Native Multi-Document Merge Acceptance](libreoffice-native-merge-acceptance.md).
+
+## LibreOffice UNO Process Cleanup Acceptance
+
+`.github/workflows/libreoffice-uno-process-cleanup.yml` exercises process supervision separately from document fidelity. It runs real POSIX subprocess tests that cover an already-exited/reaped launcher and an isolated parent+child process group requiring targeted termination.
+
+This lane exists so a process cleanup defect cannot be masked by a document merge result. Cleanup only targets the unique process group created by the acceptance test; it does not kill office processes by name.
+
+A workflow definition is not passing evidence. Record a concrete completed run before claiming this cleanup boundary externally verified at the current head.
 
 ## Microsoft Word Native Acceptance
 
@@ -195,6 +235,12 @@ Defining the workflow is not proof it ran. Do not cite Word normal or timeout ac
 
 See [Microsoft Word Native Merge Acceptance](word-native-merge-acceptance.md).
 
+## Native-office final promotion safety
+
+All maintained external-office paths use the shared native DOCX promotion boundary. Temporary output and source hashes are verified before promotion and verified again immediately afterward. If final destination validation or the post-promotion source-integrity check fails, the newly created destination is removed rather than being left behind as a false-success artifact.
+
+The destination must be non-existing before native acceptance begins; these adapters do not overwrite a prior accepted file.
+
 ## Security workflow
 
 `.github/workflows/security.yml` uses `actions/dependency-review-action@v5` for pull requests and `github/codeql-action@v4` for CodeQL. Historical action-generation migration evidence: Security run `32030403035` passed CodeQL v4; dependency review skipped on its push event.
@@ -268,7 +314,7 @@ Current workflow generations include checkout/setup-python v7, upload-artifact v
 
 ## Fidelity testing
 
-PDF/DOCX tests cover structural/package behavior, ordering, encryption, sections/styles/numbering/media/relationships/fields, cancellation, source immutability, output validation, external-office command failures/timeouts, capability gating, measured round-trip evidence, Word native-merge boundaries, section/linkage fingerprints, page-number section semantics, source-revision binding, exact-process cleanup, controlled timeout cleanup, cleanup-failure escalation, private-corpus behavior, and risky OOXML constructs where practical.
+PDF/DOCX tests cover structural/package behavior, ordering, encryption, sections/styles/numbering/media/relationships/fields, cancellation, source immutability, output validation, external-office command failures/timeouts, fail-closed final promotion, capability gating, measured round-trip evidence, supervised LibreOffice UNO insertion/evidence/process cleanup, Word native-merge boundaries, section/linkage fingerprints, page-number section semantics, source-revision binding, exact-process cleanup, controlled timeout cleanup, cleanup-failure escalation, private-corpus behavior, and risky OOXML constructs where practical.
 
 Automated tests still cannot prove every Microsoft Word/LibreOffice/PDF viewer rendering decision. Representative real-world human fidelity review remains separate.
 
@@ -276,7 +322,11 @@ Automated tests still cannot prove every Microsoft Word/LibreOffice/PDF viewer r
 
 Use synthetic fixtures whenever possible. Never commit private manuscripts, passwords, tokens, signing keys, or confidential diagnostics. Reduce private-document regressions to the smallest privacy-safe synthetic structure that reproduces the defect.
 
+The repository `.gitignore` excludes the common local fidelity evidence directories, private corpus directories, and transaction/lock artifacts. This is a safety net, not permission to skip reviewing files before committing.
+
 The controlled Word workflow uploads generated synthetic DOCX/evidence/environment/capability/process-state/timeout-cleanup data. Exact Word process identity files contain process-control values, not manuscript text, but should still be treated as technical acceptance evidence rather than publication output.
+
+The supervised LibreOffice workflow uploads only its generated synthetic source/output/evidence bundle. Private manuscript acceptance should be run locally and its output reviewed before any deliberate upload.
 
 ## CI debugging policy
 
@@ -284,7 +334,7 @@ When a gate fails, inspect the exact failed step, distinguish environment from a
 
 ## Release CI acceptance matrix
 
-Before a stable release candidate, obtain current evidence appropriate to each support statement for Quality, documentation-link integrity, 120-Part Regression, Build Smoke, Recovery Acceptance, filesystem exhaustion, Security/CodeQL, measured Stress, external-office fidelity, controlled Microsoft Word native merge acceptance where claimed, controlled Word timeout-cleanup acceptance where claimed, Package Desktop/Onefile where distributed, checksums/provenance/attestations, fresh-runner execution, representative fidelity, human accessibility/clean-machine QA, and signing/notarization where claimed.
+Before a stable release candidate, obtain current evidence appropriate to each support statement for Quality, documentation-link integrity, 120-Part Regression, Build Smoke, Recovery Acceptance, filesystem exhaustion, Security/CodeQL, measured Stress, one-document external-office fidelity, supervised LibreOffice UNO multi-document and process-cleanup acceptance where claimed, controlled Microsoft Word native merge and timeout-cleanup acceptance where claimed, Package Desktop/Onefile where distributed, checksums/provenance/attestations, fresh-runner execution, representative fidelity, human accessibility/clean-machine QA, and signing/notarization where claimed.
 
 Do not reuse older run IDs as proof after materially changing the behavior they validated.
 
