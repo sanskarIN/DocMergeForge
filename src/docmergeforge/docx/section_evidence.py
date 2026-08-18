@@ -12,7 +12,6 @@ from docmergeforge.core.exceptions import ValidationError
 _W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 _SECT_PR = f"{{{_W_NS}}}sectPr"
 _PG_NUM_TYPE = f"{{{_W_NS}}}pgNumType"
-_W_VAL = f"{{{_W_NS}}}val"
 _W_START = f"{{{_W_NS}}}start"
 _W_FMT = f"{{{_W_NS}}}fmt"
 _W_CHAP_STYLE = f"{{{_W_NS}}}chapStyle"
@@ -107,14 +106,20 @@ def _digest_records(records: Iterable[str]) -> str:
 
 
 def page_number_properties_sha256(paths: Sequence[Path]) -> str:
-    """Fingerprint ordered page-number section properties across source documents."""
+    """Fingerprint page-number properties using the merged global section sequence.
+
+    Multiple source DOCX files become one output DOCX, so source-document boundaries are
+    intentionally not encoded in the digest. Section order remains significant.
+    """
     if not paths:
         raise ValidationError("Page-number evidence requires at least one DOCX source.")
 
     canonical_records: list[str] = []
-    for document_index, path in enumerate(paths):
-        for section_index, record in enumerate(page_number_section_records(path)):
+    global_section_index = 0
+    for path in paths:
+        for record in page_number_section_records(path):
             canonical_records.append(
-                f"document={document_index}|section={section_index}|{record.canonical()}"
+                f"section={global_section_index}|{record.canonical()}"
             )
+            global_section_index += 1
     return _digest_records(canonical_records)
