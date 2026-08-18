@@ -14,7 +14,7 @@ DocMergeForge is a local-first cross-platform desktop and CLI application for as
 [GitHub](https://www.github.com/sanskarIN) ·
 [LinkedIn](https://www.linkedin.com/in/sanskarIN) ·
 [YouTube](https://youtube.com/@Sanskar-in) ·
-[X](https://www.x.com/Sanskar_in)
+[X](https://x.com/x_sanskarIN)
 
 ## Documentation
 
@@ -37,6 +37,7 @@ Technical/safety/release references include:
 - [PDF Engine](docs/pdf-engine.md)
 - [DOCX Engine](docs/docx-engine.md)
 - [DOCX Fidelity Adapters and Acceptance](docs/docx-fidelity-acceptance.md)
+- [Microsoft Word Native Merge Acceptance](docs/word-native-merge-acceptance.md)
 - [Private DOCX Fidelity Corpus Testing](docs/docx-fidelity-corpus.md)
 - [Project Files](docs/project-files.md)
 - [Validation and Preflight](docs/validation-and-preflight.md)
@@ -218,13 +219,13 @@ See [Validation and Preflight](docs/validation-and-preflight.md).
 
 Portable DOCX composition is the current production-supported multi-document path. It supports many normal Word structures but cannot prove perfect preservation for every advanced Microsoft Word construct. Macros, OLE objects, tracked changes, complex fields, custom XML, equations, content controls, external relationships, charts/SmartArt, and complex style/numbering/section behavior require special review.
 
-DocMergeForge now includes explicit source-preserving LibreOffice and Windows Microsoft Word round-trip adapters for fidelity acceptance. Capability reporting separates local detection/automation readiness from production readiness. The external modes remain `production_ready=false` and are deliberately prevented from silently replacing portable merge mode.
+DocMergeForge includes explicit source-preserving LibreOffice and Windows Microsoft Word round-trip adapters for fidelity acceptance. It also includes a **non-production Microsoft Word native multi-document acceptance prototype** using real section boundaries, measured structure/text/section/page-number evidence, source-revision binding, and exact Word-process cleanup safeguards.
 
-The acceptance path validates generated OOXML, rechecks source hashes, records structural/risk evidence, and supports a private local corpus whose report uses relative source/output paths. The LibreOffice adapter uses an isolated temporary office profile; Word automation opens DOCX input read-only, excludes it from recent files, and forces automation macro security off for the session.
+Capability reporting separates local detection/automation readiness from production readiness. LibreOffice and Word remain `production_ready=false`; neither can silently replace portable merge mode.
 
-A successful round trip or corpus result is evidence, not certification of a complete external-office multi-document merge engine or pixel-identical rendering.
+The controlled Word acceptance workflow is manual-only on a dedicated self-hosted Windows runner with Microsoft Word actually installed. Defining that workflow does not constitute a passing Word run. Real normal-operation and forced-timeout Word evidence, representative private corpora, and human rendering review remain required before any production Word claim.
 
-See [DOCX Engine](docs/docx-engine.md), [DOCX Fidelity Adapters and Acceptance](docs/docx-fidelity-acceptance.md), [Private DOCX Fidelity Corpus Testing](docs/docx-fidelity-corpus.md), and [Known Limitations](docs/known-limitations.md).
+See [DOCX Engine](docs/docx-engine.md), [DOCX Fidelity Adapters and Acceptance](docs/docx-fidelity-acceptance.md), [Microsoft Word Native Merge Acceptance](docs/word-native-merge-acceptance.md), [Private DOCX Fidelity Corpus Testing](docs/docx-fidelity-corpus.md), and [Known Limitations](docs/known-limitations.md).
 
 ## Repository structure
 
@@ -248,7 +249,7 @@ mypy src/docmergeforge
 pytest
 ```
 
-CI also exercises the generated 120-part regression, cross-platform desktop build/accessibility smoke, CodeQL security analysis, package building, a dedicated LibreOffice fidelity-acceptance lane, and manually triggered stress acceptance.
+CI also exercises the generated 120-part regression, cross-platform desktop build/accessibility smoke, CodeQL security analysis, package building, a real LibreOffice fidelity lane, and a manual controlled Microsoft Word native acceptance workflow.
 
 See [Testing and CI](docs/testing-and-ci.md).
 
@@ -307,7 +308,7 @@ See [Accessibility](docs/accessibility.md).
 
 DocMergeForge remains pre-stable. Green source CI and unsigned PyInstaller archives do not by themselves justify a `v1.0.0` production-ready claim.
 
-Open acceptance areas include actual multi-gigabyte measured stress, representative real-world fidelity, complete external-office multi-document adapter certification where claimed, Microsoft Word acceptance on a controlled Windows host with Word installed, human accessibility, clean-machine interactive packaged-app acceptance, additional physical/filesystem/network failure modes where claimed, and platform signing/notarization where distributed.
+Open acceptance areas include measured multi-gigabyte stress, representative real-world fidelity, complete LibreOffice multi-document certification where claimed, controlled Microsoft Word normal/forced-timeout/corpus/manual acceptance before Word native mode is claimed, human accessibility, clean-machine interactive packaged-app acceptance, additional physical/filesystem/network failure modes where claimed, and platform signing/notarization where distributed.
 
 Controlled abrupt-process recovery and Linux real-`ENOSPC` acceptance already have recorded evidence; they are not reused as proof for the separate open environments above.
 
@@ -328,7 +329,7 @@ MIT — see [LICENSE](LICENSE).
 - LinkedIn: https://www.linkedin.com/in/sanskarIN
 - **Buy Me a Coffee:** https://buymeacoffee.com/sanskarIN
 - YouTube: https://youtube.com/@Sanskar-in
-- X: https://www.x.com/Sanskar_in
+- X: https://x.com/x_sanskarIN
 - Business: `sanskarin@outlook.in`
 - Business: `sanskarin.business@gmail.com`
 - Support: `supportramsandesh@gmail.com`
