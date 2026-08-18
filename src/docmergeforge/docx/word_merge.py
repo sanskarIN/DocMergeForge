@@ -20,7 +20,7 @@ _WORD_MERGE_SCRIPT = r"""
 param(
     [Parameter(Mandatory=$true)][string]$Manifest,
     [Parameter(Mandatory=$true)][string]$Destination,
-    [Parameter(Mandatory=$true)][bool]$StartEachOnNewPage
+    [Parameter(Mandatory=$true)][ValidateSet(0, 1)][int]$StartEachOnNewPage
 )
 $ErrorActionPreference = 'Stop'
 $word = $null
@@ -50,7 +50,7 @@ try {
         $range = $master.Content
         try {
             $range.Collapse(0)
-            if ($StartEachOnNewPage) {
+            if ($StartEachOnNewPage -eq 1) {
                 $range.InsertBreak(7)
                 $range.Collapse(0)
             }
@@ -161,7 +161,7 @@ def word_merge_documents(
                 "-Destination",
                 str(temporary_output.resolve()),
                 "-StartEachOnNewPage",
-                "$true" if start_each_on_new_page else "$false",
+                "1" if start_each_on_new_page else "0",
             ],
             timeout_seconds=timeout_seconds,
         )
