@@ -2,7 +2,7 @@
 
 DOCX is an OOXML ZIP package rather than a flat text format. DocMergeForge's current production-supported DOCX merge path uses `python-docx` and `docxcompose`, plus package-level analysis/validation, to compose ordered Word documents while surfacing fidelity risks instead of claiming universal perfect preservation.
 
-External LibreOffice and Microsoft Word automation now exists as an explicit round-trip acceptance subsystem. That subsystem is intentionally separate from the production multi-document merge engine until native merge semantics and representative target-platform acceptance are complete.
+External-office work is intentionally separated from that production engine. LibreOffice currently provides source-preserving round-trip acceptance. Microsoft Word provides both source-preserving round-trip acceptance and a separate native multi-document **acceptance prototype**. Neither external mode is production-enabled.
 
 ## Responsibilities
 
@@ -24,16 +24,18 @@ The production DOCX merge engine handles:
 
 A full project wraps this inside the outer multi-file publication transaction.
 
-The separate fidelity-acceptance subsystem handles:
+The external fidelity subsystem handles:
 
-- LibreOffice/`soffice` detection;
-- Windows PowerShell host detection for Microsoft Word COM automation;
-- fail-closed native command execution with timeout/captured diagnostics;
-- source-preserving one-document round trips;
-- temporary-output validation before promotion;
-- source SHA-256 verification before/after external processing;
-- structural/risk evidence for one document;
-- privacy-safe local corpus execution across representative DOCX files.
+- LibreOffice/`soffice` detection and source-preserving one-document round trips;
+- Windows PowerShell discovery for Microsoft Word COM automation;
+- fail-closed native command execution with positive timeout/captured diagnostics;
+- separate temporary output plus output package validation;
+- source SHA-256 protection around external processing;
+- structural/content/risk evidence;
+- privacy-safe representative corpus execution for round trips;
+- a separate Word-native multi-document acceptance prototype;
+- Word-native section/page-number/source-revision evidence; and
+- exact Word process identity/cleanup safeguards.
 
 ## DOCX settings
 
@@ -56,35 +58,29 @@ Project JSON can persist these settings. Review them before production publicati
 
 ## Fidelity mode gate
 
-Before doing document merge work, the engine calls `require_production_fidelity(settings.fidelity_mode)`.
+Before doing normal document merge work, the engine calls `require_production_fidelity(settings.fidelity_mode)`.
 
-This prevents a fidelity mode from being selected merely because an external application appears installed. A mode must be marked production-ready by the fidelity capability layer.
+This prevents a fidelity mode from being selected merely because an external application appears installed. A mode must be explicitly production-ready.
 
-In the current repository:
+Current state:
 
 - `portable` is available, automation-ready, and production-ready for the normal merge engine;
-- `libreoffice` can become locally available/automation-ready when LibreOffice is detected, but remains `production_ready=false`;
-- `word` can become locally available/automation-ready on Windows when a PowerShell host is detected, but remains `production_ready=false`; actual Word COM availability is proven only by running the adapter.
+- `libreoffice` may be locally available/automation-ready but remains `production_ready=false`;
+- `word` may be locally available/automation-ready on Windows but remains `production_ready=false`.
 
-The external adapters therefore support acceptance evidence without silently replacing the portable production merge path.
+Microsoft Word's native multi-document acceptance prototype does **not** bypass this gate. It is reached only through explicit acceptance tooling/scripts, not through the normal `docmergeforge docx` production path.
 
-Inspect the state directly with:
+Inspect capability state with:
 
 ```bash
 docmergeforge fidelity-capabilities
 ```
 
-See [DOCX Fidelity Adapters and Acceptance](docx-fidelity-acceptance.md) for the certification boundary.
+See [DOCX Fidelity Adapters and Acceptance](docx-fidelity-acceptance.md) and [Microsoft Word Native Merge Acceptance](word-native-merge-acceptance.md).
 
 ## Input order
 
-Unless `preserve_order=True`, DOCX inputs sort by:
-
-1. whether a detected part number exists;
-2. numeric part number;
-3. case-insensitive filename.
-
-With a saved/reviewed project `selected_files` order, the application requests order preservation.
+Unless `preserve_order=True`, DOCX inputs sort by detected part number and case-insensitive filename. Saved/reviewed project `selected_files` order is preserved when requested.
 
 ## Empty input
 
@@ -92,226 +88,101 @@ An empty DOCX list raises `ValidationError`; no empty master document is accepte
 
 ## Source-integrity snapshot
 
-The engine snapshots SHA-256 for all ordered source DOCX files before processing and verifies those hashes again after writing/validating the temporary output.
+The production engine snapshots SHA-256 for all ordered source DOCX files before processing and verifies those hashes after writing/validating temporary output. Any changed source causes validation failure before atomic promotion.
 
-Any changed source causes a validation failure before atomic promotion.
-
-The full application service also tracks companion/PDF sources for a broader project-integrity guarantee.
-
-External fidelity round trips apply a second, independent source-hash check around native office automation. Their destination must be a separate path; originals are not used as in-place save targets.
+External round trips apply independent source checks around native office automation. Word-native multi-document acceptance strengthens this further by capturing source hashes before expected evidence construction and rechecking them after expected evidence, after Word execution, and after output evidence.
 
 ## Input OOXML validation
 
-Every source DOCX is validated before composition.
+Every production source DOCX is validated before composition. `ERROR`/`FATAL` package diagnostics stop the merge rather than using composition as an implicit repair mechanism.
 
-If package diagnostics contain `ERROR` or `FATAL`, the merge stops with an invalid-input error. This prevents `docxcompose` from being used as an implicit repair mechanism for structurally unacceptable source packages.
-
-Package validation checks are documented/tested in the validation layer and include ZIP/XML/package correctness rather than only checking the `.docx` extension.
-
-External round-trip output is also validated as a non-empty OOXML package before it can be promoted from the adapter's temporary location.
+External-office outputs are likewise required to be non-empty and structurally valid OOXML before acceptance/promotion.
 
 ## OOXML fidelity risk review
 
-The risk scanner is separate from basic package validity. It identifies constructs that deserve additional fidelity review, including where detected:
+The risk scanner is separate from basic package validity. It identifies constructs that deserve additional fidelity review, including macros/VBA, OLE/package embeddings, ActiveX, custom XML, comments, external relationships, tracked changes/moves, content controls, fields, Office Math, `altChunk`, charts, SmartArt/diagram parts, and oversized XML parts skipped by the bounded scanner.
 
-- macros/VBA;
-- OLE/package embeddings;
-- ActiveX;
-- custom XML;
-- comments;
-- external relationships;
-- tracked insertions/deletions/moves;
-- content controls;
-- field codes;
-- Office Math;
-- `altChunk` content;
-- charts;
-- SmartArt/diagram parts;
-- markup parts skipped because they exceed the bounded risk-scan size.
-
-Markup risk detection is namespace-aware rather than depending on a specific XML prefix or quote style.
-
-A risk finding does not mean a document is invalid, and a clean risk list does not prove universal visual fidelity.
+A risk finding does not mean the document is invalid, and a clean risk list does not prove universal visual fidelity.
 
 ## Conflict analysis
 
-Before composition, the engine detects package collisions and classifies relevant style/numbering conflicts.
+Portable mode analyzes package collisions and relevant style/numbering conflicts.
 
 ### Style policy
-
-Portable mode currently supports:
 
 ```text
 prefer_master
 error
 ```
 
-`prefer_master` uses the first/master document as the style authority where collisions occur according to the current portable composition strategy.
-
-`error` makes detected style collisions blocking so an operator can review them before continuing.
-
-Other style policies are rejected in portable mode rather than silently approximated.
+`prefer_master` uses the first/master document as the style authority where collisions occur according to the current portable strategy. `error` makes detected style collisions blocking.
 
 ### Numbering policy
-
-Portable mode currently supports:
 
 ```text
 remap
 error
 ```
 
-`remap` allows the portable composition strategy to remap numbering identifiers where supported.
+`remap` allows supported numbering-ID remapping; `error` blocks detected numbering collisions.
 
-`error` makes detected numbering collisions blocking.
-
-Unsupported policies raise validation errors.
+Unsupported policies raise validation errors instead of being silently approximated.
 
 ## Master-document strategy
 
-The first ordered DOCX becomes the master `python-docx` document.
+The first ordered DOCX becomes the portable master `python-docx` document. Base styles/theme/section behavior can therefore originate from the first document, and the intended master must be placed first.
 
-This matters because:
+## Part headings and TOC
 
-- base styles/theme/section behavior can originate from the first document;
-- `prefer_master` style policy is meaningful only when the intended master really is first;
-- manually reviewed ordering should place the correct source first.
+When enabled, DocMergeForge adds generated part headings. A TOC field can also be inserted. Word/office applications may still need to update that field after opening the final document; field presence is not proof of final displayed page-number correctness.
 
-## Part headings
+## Portable part page breaks
 
-When `add_part_headings` is enabled, DocMergeForge adds a generated heading for each part.
+For later documents, the portable production engine can add a page break before generated part headings/source append when `start_each_part_on_new_page` is enabled. This is publication structure added by DocMergeForge.
 
-For the first document it uses the publication helper; for later parts it adds a level-1 heading before appending the source.
-
-Heading text combines:
-
-```text
-Part label — detected title/filename stem
-```
-
-This intentionally changes paragraph/heading counts relative to raw source sums; interpret `compare docx` evidence accordingly.
-
-## TOC field
-
-When `create_toc_field` is enabled, a Word table-of-contents field is inserted into the master.
-
-Word/office applications may require the TOC field to be updated after opening the final document to calculate final page numbers/entries according to the target renderer.
-
-Do not treat presence of the field as proof that every displayed TOC entry/page number is already recalculated by `python-docx`.
-
-## Part page breaks
-
-For later documents, when `start_each_part_on_new_page` is enabled, a page break is added before the generated part heading/source append.
-
-This is publication structure added by DocMergeForge, not copied from the source.
+Do not confuse that portable publication page-break behavior with the Word-native acceptance prototype: the Word prototype uses **real Word section breaks** between source documents so section-specific properties have an explicit boundary.
 
 ## Composition with `docxcompose`
 
-The engine creates:
+The portable engine creates `Composer(master)` and appends later `Document` objects in order. `docxcompose` is used because DOCX relationships/styles/numbering/media cannot safely be handled by naïve XML/body concatenation.
 
-```python
-Composer(master)
-```
+Advanced OOXML fidelity still requires real acceptance testing.
 
-and appends later `Document` objects in order.
+## Portable section behavior
 
-`docxcompose` is used because DOCX package composition involves relationships/styles/numbering/media that cannot safely be handled by naïve XML/body concatenation.
+If `preserve_sections` is false, the portable engine normalizes sections to the first/master section model through publication helpers. If true, section preservation is left to the supported composition/package behavior.
 
-Even so, advanced OOXML fidelity requires real acceptance testing.
-
-## Section behavior
-
-If `preserve_sections` is false, DocMergeForge normalizes sections to the first/master document's section model through a publication helper.
-
-If it is true, the engine leaves section-preservation behavior to the composition/package logic as supported.
-
-Changing this option can materially affect:
-
-- margins;
-- page size/orientation;
-- headers/footers;
-- page numbering;
-- section breaks.
-
-Always test the chosen policy on representative manuscripts.
+This setting can materially affect margins, page size/orientation, headers/footers, page numbering, and section breaks.
 
 ## Continuous page numbering
 
-When `continuous_page_numbering` is enabled, the publication helper adjusts section page-numbering configuration so the book is prepared for continuous numbering.
-
-Final behavior should be inspected in the target Word/LibreOffice renderer because page layout/fields are application-resolved.
+When `continuous_page_numbering` is enabled, publication helpers prepare section numbering for continuity. Final behavior should be inspected in the target renderer because page layout/fields are application-resolved.
 
 ## Headers and footers
 
-The engine applies configured book-level header/footer text after composition/section policy and before saving.
+Configured book-level header/footer text is applied after composition/section policy and before saving. These settings can intentionally replace/standardize source running content.
 
-These settings can intentionally replace/standardize visible running content. Review interaction with source-specific section headers/footers.
+## Progress and cancellation
 
-## Progress reporting
+The portable engine can emit progress for each accepted/appended source. Cancellation is checked through validation, conflict analysis, master setup, append/finalization/save/source revalidation and raises `MergeCancelled("DOCX merge cancelled safely.")`.
 
-The engine can emit progress after each input document is accepted/appended:
+The outer transaction prevents cancelled DOCX work from partially publishing a mixed-format bundle.
 
-```text
-current index
-total count
-source path
-```
-
-The application service exposes this as a `merging-docx` stage.
-
-## Cancellation
-
-Cancellation is checked:
-
-- before input validation steps;
-- while iterating sources;
-- before/after conflict analysis;
-- before master setup;
-- before appending each later source;
-- before section/page-number/header/footer finalization;
-- before/after save;
-- before source revalidation.
-
-Cancellation raises `MergeCancelled("DOCX merge cancelled safely.")`.
-
-The outer project transaction then prevents a cancelled DOCX stage from publishing a partially updated mixed-format bundle.
-
-The external round-trip acceptance adapters have their own native-command timeout. That timeout is a fail-closed process boundary and is not currently exposed as the normal merge engine's cancellation mechanism.
+External-office acceptance has its own native command timeout. Word-native acceptance additionally has exact Word-process cleanup logic; this remains separate from normal portable-engine cancellation.
 
 ## Atomic output
 
-Direct engine output is written through an atomic temporary path, then promoted after validation/source-integrity checks.
+Direct production output is written through an atomic temporary path and promoted only after validation/source-integrity checks. In a full project, that path itself lives inside outer transaction staging.
 
-When overwrite is false, a versioned final path can be selected.
-
-Inside a full project, this atomic path is itself located inside the outer transaction staging directory.
-
-External fidelity adapters similarly write to a separate temporary directory beside the requested acceptance destination, validate the produced DOCX, verify the original source hash, and only then move the copy into the requested destination. They refuse to overwrite an existing acceptance destination.
+External fidelity tools also write separate temporary outputs and refuse to overwrite existing acceptance destinations.
 
 ## Output validation
 
-After `composer.save(temporary)`, the production engine:
-
-1. checks cancellation;
-2. runs package validation on the temporary `.docx`;
-3. rejects any `ERROR`/`FATAL` diagnostic;
-4. opens it through `python-docx.Document`;
-5. checks cancellation again;
-6. verifies source hashes unchanged.
-
-Only then can the atomic-output context promote the temporary engine result.
+After portable `composer.save(temporary)`, the engine checks cancellation, validates the package, reopens it through `python-docx`, checks cancellation again, and verifies source hashes before atomic promotion.
 
 ## Conflict preflight
 
-Project preflight calls:
-
-```text
-DocxMergeEngine.analyze_conflicts(...)
-```
-
-and reports `docx_conflict_count` before the merge.
-
-Use this as a review signal for complex books. For high-value publications, inspect representative collisions rather than accepting a large non-zero count without understanding it.
+Project preflight calls `DocxMergeEngine.analyze_conflicts(...)` and reports `docx_conflict_count` before merge. Treat non-zero counts as review signals for complex books.
 
 ## Direct CLI DOCX merge
 
@@ -322,13 +193,11 @@ docmergeforge docx \
   --output "./Master/Book.docx"
 ```
 
-The CLI validates numbered completeness before calling the engine with default portable settings.
-
-Direct mode does not generate the full project evidence bundle and does not silently select LibreOffice/Word.
+Direct mode validates numbered completeness and calls the normal portable engine. It does not silently select LibreOffice or Word.
 
 ## External-office one-document acceptance
 
-Run LibreOffice acceptance on one representative document:
+LibreOffice example:
 
 ```bash
 docmergeforge fidelity-roundtrip \
@@ -337,7 +206,7 @@ docmergeforge fidelity-roundtrip \
   --mode libreoffice
 ```
 
-On Windows with Microsoft Word actually installed:
+Microsoft Word example on Windows with Word actually installed:
 
 ```powershell
 docmergeforge fidelity-roundtrip `
@@ -346,13 +215,39 @@ docmergeforge fidelity-roundtrip `
   --mode word
 ```
 
-The evidence records source/output hashes, structural snapshots, source/output risk categories, newly introduced risks, and overall measured acceptance.
+Passing one-document round-trip evidence is not multi-document certification.
 
-Passing this command is not a multi-document merge certification.
+## Microsoft Word native multi-document acceptance
+
+The explicit Word acceptance prototype is implemented in:
+
+```text
+src/docmergeforge/docx/word_merge.py
+src/docmergeforge/docx/word_merge_acceptance.py
+src/docmergeforge/docx/section_evidence.py
+src/docmergeforge/docx/word_process.py
+```
+
+It uses ordered `Range.InsertFile(...)` plus `wdSectionBreakNextPage` or `wdSectionBreakContinuous`, writes a separate validated output, and measures:
+
+- aggregate structure;
+- privacy-safe body/table/header/footer visible text;
+- ordered section start/layout/header-footer linkage;
+- ordered page-number section semantics (`w:start`, `w:fmt`, `w:chapStyle`, `w:chapSep`);
+- source revision hashes; and
+- risky OOXML categories.
+
+Page-number and section fingerprints use a **global merged section sequence**, not source-document indices, so multiple source documents can compare correctly with one output document while order remains significant.
+
+The Word merge records the exact COM-created Word process as PID + `WINWORD` name + process start-time fingerprint. Failure/timeout cleanup may terminate only that still-matching process; unrelated Word processes are not broad-killed. If nominal success still requires forced Word termination, the merge is rejected.
+
+The deterministic Word smoke uses different portrait/landscape geometry, margins/header/footer distances, and page-number restart/format rules so those signals are actually exercised.
+
+See [Microsoft Word Native Merge Acceptance](word-native-merge-acceptance.md) for the controlled self-hosted workflow and remaining gates.
 
 ## Private representative corpus acceptance
 
-For local real-world acceptance without committing manuscripts to the repository:
+For local round-trip corpus acceptance without committing manuscripts:
 
 ```bash
 docmergeforge fidelity-corpus \
@@ -361,118 +256,44 @@ docmergeforge fidelity-corpus \
   --mode libreoffice
 ```
 
-The corpus runner preserves relative subdirectories below `roundtrip/`, records a JSON report with relative source/output paths, and returns success only when every discovered file is processed and accepted. `--fail-fast` partial runs remain failed rather than appearing complete.
+The corpus runner preserves relative subdirectories, records relative source/output paths, and returns success only when every discovered file is processed and accepted. `--fail-fast` partial runs remain failed.
 
-See [Private DOCX Fidelity Corpus Testing](docx-fidelity-corpus.md).
+Representative multi-document Word corpus work remains a separate controlled acceptance task using the native Word acceptance command/workflow.
 
 ## Project DOCX merge
 
-A full project:
+A full normal project validates numbered sources, checks storage/writeability, snapshots tracked sources, creates transaction staging, invokes the **portable** DOCX engine, stages evidence, rechecks project integrity, and promotes the complete bundle together.
 
-1. validates the DOCX numbered set;
-2. checks storage/writeability;
-3. snapshots tracked project sources;
-4. creates transaction staging path;
-5. invokes the portable DOCX engine;
-6. stages reports/manifest/checksums/index/checklist;
-7. rechecks project source integrity;
-8. promotes the complete bundle together.
-
-If PDF was staged first and DOCX fails, the staged PDF is not promoted as a new final publication.
+The Word native acceptance prototype is not inserted into this production project path.
 
 ## DOCX comparison
 
-After publication:
+`docmergeforge compare` reports aggregate source/output paragraph, table, inline-shape, section, and heading counts. Generated publication structure can legitimately change counts, so comparison is evidence for review rather than exact semantic equality.
 
-```bash
-docmergeforge compare --input "./Book" --docx-output "./Master/Book.docx"
-```
-
-Comparison reports aggregate source/output counts for:
-
-- paragraphs;
-- tables;
-- inline shapes;
-- sections;
-- headings.
-
-Generated headings/page structure can legitimately change counts, so comparison is evidence for review rather than exact semantic equality.
-
-The same structural dimensions are used by current external-office round-trip acceptance. They are intentionally narrower than pixel-perfect/rendered-page equivalence.
+Word-native acceptance uses a separate stricter evidence model described above.
 
 ## Known fidelity limits
 
-Advanced constructs that may require special/manual review or future certified native multi-document adapter handling include:
+Advanced constructs that can require special/manual review include macros, OLE/embedded objects, tracked changes/comments, complex fields, custom XML, equations, content controls, external relationships, theme/style inheritance, complex numbering/list restarts, linked section headers/footers, floating drawings/text boxes/charts/SmartArt, and application-specific layout behavior.
 
-- macros/legacy macro-enabled packages;
-- OLE/embedded objects;
-- tracked changes/comments behavior;
-- complex fields;
-- custom XML;
-- equations;
-- content controls;
-- unusual external relationships;
-- theme/style inheritance edge cases;
-- complex numbering/list restarts;
-- section-linked headers/footers;
-- floating drawings/text boxes/charts/SmartArt;
-- application-specific rendering/layout behavior.
-
-The risk scanner identifies many of these categories but does not prove how every construct renders after a merge or external round trip.
+The risk scanner identifies many categories but cannot prove how every construct renders after merge or round trip.
 
 ## External adapter certification boundary
 
-LibreOffice and Word remain `production_ready=false` until all required external-adapter release gates are satisfied. Those gates include at least:
+LibreOffice and Word remain `production_ready=false`.
 
-- complete true multi-document merge semantics in the target application;
-- deterministic source-preserving behavior;
-- cleanup/timeout/cancellation failure handling;
-- representative corpus automation;
-- target operating-system and office-suite version coverage;
-- manual render/behavior review;
-- regression tests for discovered defects;
-- packaged-app acceptance where that external mode is claimed;
-- release evidence tied to exact commits/tool versions.
+LibreOffice still requires complete native multi-document semantics plus representative target-platform acceptance before any native production claim.
 
-The Ubuntu LibreOffice Actions lane provides useful real external-process smoke evidence once a run passes, but it cannot certify Microsoft Word or every LibreOffice platform/version.
+Word now has multi-document **prototype semantics**, but production certification still requires real controlled Word normal and forced-timeout runs, representative real-document corpora, manual render/behavior review, exact Word/Windows version coverage, packaged-app integration where claimed, cancellation/cleanup acceptance, and regression evidence for discovered defects.
+
+The Ubuntu fidelity lane provides real LibreOffice Writer evidence and Word boundary regression coverage; it cannot certify Microsoft Word execution.
 
 ## Human acceptance
 
-For production/high-value output, open the final DOCX in the intended application and inspect:
+For production/high-value output, open the final DOCX in the intended application and inspect repair prompts, headings/TOC, styles/numbering, tables/images, section/page setup, headers/footers, page numbering, fields/equations/content controls, and representative boundaries.
 
-- repair prompts (there should be none);
-- headings/TOC;
-- styles/numbering;
-- tables/images;
-- section/page setup;
-- headers/footers;
-- page numbering;
-- fields/equations/content controls;
-- first/last/part boundaries.
-
-For external-adapter acceptance, also compare the source and generated round-trip/merged output in the exact application/version being claimed.
-
-Keep originals until acceptance is complete.
+For external-office acceptance, compare source and generated output in the exact application/version being claimed. Keep originals until acceptance is complete.
 
 ## Safety checklist for DOCX changes
 
-Engine/fidelity changes should preserve tests for:
-
-- production-fidelity gating;
-- input package rejection;
-- automatic/manual ordering;
-- style/numbering policies;
-- headings/page breaks/TOC;
-- section policies;
-- headers/footers/page numbering;
-- relationship/media/package validity;
-- namespace-aware fidelity risk detection;
-- native command timeout/error handling;
-- external-adapter source immutability;
-- external-adapter output validation/no-overwrite behavior;
-- corpus completion/privacy accounting;
-- cancellation through production finalization;
-- source-integrity changes;
-- atomic cleanup;
-- project transaction rollback/recovery;
-- real-world fidelity corpus where relevant.
+Engine/fidelity changes should preserve tests for production-fidelity gating, package rejection, ordering, style/numbering policies, headings/page breaks/TOC, section policies, headers/footers/page numbering, relationships/media/package validity, risk detection, native timeout/error behavior, source immutability, output validation/no-overwrite behavior, corpus privacy/completion, Word section/page-number evidence, exact Word process cleanup, source-revision binding, cancellation, atomic cleanup, project recovery, and real-world fidelity where relevant.
