@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from docx import Document
 
+from docmergeforge.core.exceptions import ValidationError
 from docmergeforge.docx import fidelity_acceptance
 from docmergeforge.docx.fidelity import FidelityCapability
 from docmergeforge.docx.native import NativeCommandResult
