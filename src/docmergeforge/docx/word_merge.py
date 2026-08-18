@@ -9,9 +9,9 @@ from pathlib import Path
 from docmergeforge.core.exceptions import UnsupportedDocumentError, ValidationError
 from docmergeforge.docx.native import (
     NativeCommandResult,
+    promote_validated_native_docx_output,
     run_native_command,
     validate_native_docx_output,
-    verify_native_source_unchanged,
 )
 from docmergeforge.docx.word import find_word_powershell_host
 from docmergeforge.docx.word_process import cleanup_word_process_identity
@@ -246,14 +246,12 @@ def word_merge_documents(
                 "the exact recorded Word process was forcibly terminated."
             )
 
-        validate_native_docx_output(temporary_output)
-        for source, expected_hash in source_hashes.items():
-            verify_native_source_unchanged(source, expected_hash)
-        temporary_output.replace(destination)
+        promote_validated_native_docx_output(
+            temporary_output,
+            destination,
+            source_hashes,
+        )
 
-    validate_native_docx_output(destination)
-    for source, expected_hash in source_hashes.items():
-        verify_native_source_unchanged(source, expected_hash)
     return WordNativeMergeResult(
         source_count=len(ordered_sources),
         output=destination,
