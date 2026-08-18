@@ -34,6 +34,7 @@ This directory is the canonical documentation set for DocMergeForge. It covers e
 - [PDF Engine](pdf-engine.md)
 - [DOCX Engine](docx-engine.md)
 - [DOCX Fidelity Adapters and Acceptance](docx-fidelity-acceptance.md)
+- [Microsoft Word Native Merge Acceptance](word-native-merge-acceptance.md)
 - [Private DOCX Fidelity Corpus Testing](docx-fidelity-corpus.md)
 - [SQL Full Mastery 120-Part Preset](sql-full-mastery-preset.md)
 
@@ -107,11 +108,14 @@ DocMergeForge currently exposes:
 - the SQL Full Mastery 120-part guided preset;
 - PyInstaller-based desktop packaging helpers;
 - automated Quality, Regression, Build Smoke, Security, Recovery Acceptance, Disk Full Acceptance, DOCX Fidelity Acceptance, Package Desktop, and Onefile Acceptance workflows;
-- a manually dispatchable Stress Acceptance workflow.
+- a manually dispatchable Stress Acceptance workflow; and
+- a manual controlled self-hosted Microsoft Word Native Acceptance workflow.
 
 ## Documentation accuracy policy
 
-Documentation should describe implemented behavior, not aspirational behavior. External LibreOffice and Microsoft Word round-trip adapters may be implementation-ready or locally detectable without being production-ready. They must remain clearly separated from the production merge gate until complete native merge semantics and representative target-platform acceptance are verified. See [DOCX Fidelity Adapters and Acceptance](docx-fidelity-acceptance.md) and [Private DOCX Fidelity Corpus Testing](docx-fidelity-corpus.md).
+Documentation should describe implemented behavior, not aspirational behavior. LibreOffice has a source-preserving round-trip acceptance adapter but not a certified native multi-document production engine. Microsoft Word has a source-preserving round-trip adapter plus a native multi-document **acceptance prototype** with measured section/page-number/source-revision/process-cleanup safeguards, but its production mode remains disabled until real controlled Word execution, forced-timeout cleanup, representative corpus, packaged integration, and human rendering/behavior acceptance are verified.
+
+Availability or automation readiness must never be treated as production readiness. See [DOCX Fidelity Adapters and Acceptance](docx-fidelity-acceptance.md), [Microsoft Word Native Merge Acceptance](word-native-merge-acceptance.md), and [Private DOCX Fidelity Corpus Testing](docx-fidelity-corpus.md).
 
 Executable documentation follows the same rule: current PyInstaller and unsigned CI packaging are documented as implemented and independently smoke-tested, while code signing, notarization, native installer formats, human clean-machine QA, and production distribution remain explicit gates until corresponding acceptance exists.
 
