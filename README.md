@@ -36,6 +36,8 @@ Technical/safety/release references include:
 - [Merge Pipeline](docs/merge-pipeline.md)
 - [PDF Engine](docs/pdf-engine.md)
 - [DOCX Engine](docs/docx-engine.md)
+- [DOCX Fidelity Adapters and Acceptance](docs/docx-fidelity-acceptance.md)
+- [Private DOCX Fidelity Corpus Testing](docs/docx-fidelity-corpus.md)
 - [Project Files](docs/project-files.md)
 - [Validation and Preflight](docs/validation-and-preflight.md)
 - [Publication Recovery](docs/recovery.md)
@@ -63,6 +65,7 @@ Technical/safety/release references include:
 - No manuscript content is uploaded by the normal local-first workflow.
 - No DocMergeForge account is required.
 - Encrypted-PDF passwords are not persisted by the application.
+- External DOCX fidelity acceptance writes separate validated copies and never silently changes the production merge mode.
 
 ## SQL Full Mastery preset
 
@@ -137,6 +140,30 @@ docmergeforge docx \
   --output "./Master/SQL_Full_Mastery_Complete_120_Part_Master_Edition.docx"
 ```
 
+Inspect DOCX fidelity capabilities:
+
+```bash
+docmergeforge fidelity-capabilities
+```
+
+Run one explicit LibreOffice acceptance round trip:
+
+```bash
+docmergeforge fidelity-roundtrip \
+  --input "./samples/representative.docx" \
+  --output "./evidence/representative-libreoffice.docx" \
+  --mode libreoffice
+```
+
+Run a private local fidelity corpus:
+
+```bash
+docmergeforge fidelity-corpus \
+  --input-dir "./private-corpus" \
+  --output-dir "./private-fidelity-evidence" \
+  --mode libreoffice
+```
+
 SQL preset dry run:
 
 ```bash
@@ -189,11 +216,15 @@ See [Validation and Preflight](docs/validation-and-preflight.md).
 
 ## DOCX fidelity policy
 
-Portable DOCX composition is the current production-supported path. It supports many normal Word structures but cannot prove perfect preservation for every advanced Microsoft Word construct. Macros, OLE objects, tracked changes, complex fields, custom XML, some equations, content controls, external relationships, and complex style/numbering/section behavior require special review.
+Portable DOCX composition is the current production-supported multi-document path. It supports many normal Word structures but cannot prove perfect preservation for every advanced Microsoft Word construct. Macros, OLE objects, tracked changes, complex fields, custom XML, equations, content controls, external relationships, charts/SmartArt, and complex style/numbering/section behavior require special review.
 
-LibreOffice and Microsoft Word high-fidelity modes are not currently accepted as production-ready adapters and are deliberately prevented from silently replacing portable mode.
+DocMergeForge now includes explicit source-preserving LibreOffice and Windows Microsoft Word round-trip adapters for fidelity acceptance. Capability reporting separates local detection/automation readiness from production readiness. The external modes remain `production_ready=false` and are deliberately prevented from silently replacing portable merge mode.
 
-See [DOCX Engine](docs/docx-engine.md) and [Known Limitations](docs/known-limitations.md).
+The acceptance path validates generated OOXML, rechecks source hashes, records structural/risk evidence, and supports a private local corpus whose report uses relative source/output paths. The LibreOffice adapter uses an isolated temporary office profile; Word automation opens DOCX input read-only, excludes it from recent files, and forces automation macro security off for the session.
+
+A successful round trip or corpus result is evidence, not certification of a complete external-office multi-document merge engine or pixel-identical rendering.
+
+See [DOCX Engine](docs/docx-engine.md), [DOCX Fidelity Adapters and Acceptance](docs/docx-fidelity-acceptance.md), [Private DOCX Fidelity Corpus Testing](docs/docx-fidelity-corpus.md), and [Known Limitations](docs/known-limitations.md).
 
 ## Repository structure
 
@@ -203,7 +234,7 @@ tests/                unit, integration, regression
 scripts/              build, fixture, stress, accessibility tools
 docs/                 complete user/operator/developer documentation
 assets/branding/      original SVG branding
-.github/workflows/    quality, regression, build, security, package, stress automation
+.github/workflows/    quality, regression, build, security, package, stress, fidelity automation
 ```
 
 Architecture details: [docs/architecture.md](docs/architecture.md).
@@ -217,7 +248,7 @@ mypy src/docmergeforge
 pytest
 ```
 
-CI also exercises the generated 120-part regression, cross-platform desktop build/accessibility smoke, CodeQL security analysis, package building, and manually triggered stress acceptance.
+CI also exercises the generated 120-part regression, cross-platform desktop build/accessibility smoke, CodeQL security analysis, package building, a dedicated LibreOffice fidelity-acceptance lane, and manually triggered stress acceptance.
 
 See [Testing and CI](docs/testing-and-ci.md).
 
@@ -253,9 +284,11 @@ See [Building Executables](docs/building-executables.md) and [Release Packaging]
 
 ## Privacy and security
 
-Documents stay local under the normal workflow, passwords are not persisted, diagnostics are designed to exclude manuscript body text/passwords, and companion archives are not auto-extracted.
+Documents stay local under the normal workflow, passwords are not persisted, diagnostics are designed to exclude manuscript body text/passwords, companion archives are not auto-extracted, and private fidelity corpus execution does not upload source documents.
 
-Review paths/filenames in project files, reports, manifests, diagnostics, and audit output before sharing them publicly.
+Fidelity corpus reports replace corpus/output roots with relative/placeheld paths, but generated DOCX copies, hashes, filenames, and third-party office errors can still be sensitive and should be reviewed before sharing.
+
+Review paths/filenames in project files, reports, manifests, diagnostics, audit output, and fidelity evidence before sharing them publicly.
 
 - [Privacy](docs/privacy.md)
 - [Security Model](docs/security.md)
@@ -274,7 +307,9 @@ See [Accessibility](docs/accessibility.md).
 
 DocMergeForge remains pre-stable. Green source CI and unsigned PyInstaller archives do not by themselves justify a `v1.0.0` production-ready claim.
 
-Open acceptance areas include representative real-world fidelity, large measured stress workloads, real abrupt-process recovery, human accessibility, packaged-app clean-machine acceptance, and platform signing/notarization where distributed.
+Open acceptance areas include actual multi-gigabyte measured stress, representative real-world fidelity, complete external-office multi-document adapter certification where claimed, Microsoft Word acceptance on a controlled Windows host with Word installed, human accessibility, clean-machine interactive packaged-app acceptance, additional physical/filesystem/network failure modes where claimed, and platform signing/notarization where distributed.
+
+Controlled abrupt-process recovery and Linux real-`ENOSPC` acceptance already have recorded evidence; they are not reused as proof for the separate open environments above.
 
 See [Release Process](docs/release-process.md), [Known Limitations](docs/known-limitations.md), and [what_changed.md](what_changed.md).
 
