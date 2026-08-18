@@ -21,6 +21,7 @@ def validate_part_set(
 ) -> ValidationResult:
     selected = [item for item in documents if item.kind == kind]
     expected = list(range(expected_start, expected_end + 1))
+    expected_set = set(expected)
     by_part: dict[int, list[InputDocument]] = defaultdict(list)
     diagnostics: list[Diagnostic] = []
 
@@ -45,6 +46,15 @@ def validate_part_set(
             )
             continue
         by_part[item.part.number].append(item)
+        if item.part.number not in expected_set:
+            diagnostics.append(
+                Diagnostic(
+                    DiagnosticLevel.WARNING,
+                    f"Part {item.part.number} is outside the configured expected range.",
+                    item.path,
+                    "Automatic merges exclude it unless it is explicitly selected in a project.",
+                )
+            )
         if kind == DocumentKind.PDF and item.encrypted:
             if allow_encrypted_pdf:
                 diagnostics.append(
@@ -74,12 +84,12 @@ def validate_part_set(
                 )
             )
 
-    found = sorted(part for part in by_part if part in expected)
+    found = sorted(part for part in by_part if part in expected_set)
     missing = [part for part in expected if part not in by_part]
     duplicates = {
         part: [str(item.path) for item in items]
         for part, items in by_part.items()
-        if len(items) > 1 and part in expected
+        if len(items) > 1 and part in expected_set
     }
 
     for part in missing:
