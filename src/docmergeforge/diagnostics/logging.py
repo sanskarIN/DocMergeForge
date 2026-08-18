@@ -7,13 +7,31 @@ from pathlib import Path
 
 _LOGGER_NAME = "docmergeforge"
 _SECRET_PATTERN = re.compile(
-    r"(?i)\b(password|passwd|secret|token|authorization)\b\s*[:=]\s*([^\s,;]+)"
+    r"(?ix)"
+    r"(?P<key>[\"']?(?:password|passwd|secret|token|authorization|api[_-]?key|"
+    r"access[_-]?token|refresh[_-]?token|client[_-]?secret)[\"']?\s*[:=]\s*)"
+    r"(?P<quote>[\"']?)"
+    r"(?P<value>[^\s,;}\]\"']+)"
+    r"(?P=quote)?"
 )
 _BEARER_PATTERN = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+")
+_AUTH_HEADER_PATTERN = re.compile(
+    r"(?i)\bAuthorization\s*:\s*(?:Basic|Bearer)\s+[^\s,;]+"
+)
+_API_KEY_HEADER_PATTERN = re.compile(
+    r"(?i)\b(?:X-)?Api-Key\s*:\s*[^\s,;]+"
+)
+
+
+def _redact_assignment(match: re.Match[str]) -> str:
+    quote = match.group("quote")
+    return f"{match.group('key')}{quote}[REDACTED]{quote}"
 
 
 def redact_sensitive_text(value: str) -> str:
-    value = _SECRET_PATTERN.sub(lambda match: f"{match.group(1)}=[REDACTED]", value)
+    value = _AUTH_HEADER_PATTERN.sub("Authorization: [REDACTED]", value)
+    value = _API_KEY_HEADER_PATTERN.sub("Api-Key: [REDACTED]", value)
+    value = _SECRET_PATTERN.sub(_redact_assignment, value)
     return _BEARER_PATTERN.sub("Bearer [REDACTED]", value)
 
 
