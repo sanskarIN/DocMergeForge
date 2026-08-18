@@ -96,6 +96,7 @@ def test_cli_fidelity_corpus_writes_summary_report(
         mode="libreoffice",
         pattern="*.docx",
         recursive=True,
+        discovered_count=1,
         items=(
             FidelityCorpusItem(
                 relative_path=Path("sample.docx"),
@@ -121,6 +122,7 @@ def test_cli_fidelity_corpus_writes_summary_report(
 
     assert exit_code == 0
     assert '"accepted_count": 1' in output
+    assert '"processed_count": 1' in output
     assert (tmp_path / "evidence" / "fidelity-corpus-libreoffice-report.json").exists()
 
 
