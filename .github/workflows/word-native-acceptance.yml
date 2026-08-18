@@ -4,9 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       timeout_seconds:
-        description: Per-run Word automation timeout in seconds
+        description: Per-run Word native merge timeout in seconds
         required: false
         default: "900"
+      timeout_cleanup_seconds:
+        description: Seconds before the controlled Word cleanup test must time out
+        required: false
+        default: "20"
 
 permissions:
   contents: read
@@ -73,7 +77,8 @@ jobs:
             tests/unit/test_word_acceptance_environment_script.py `
             tests/unit/test_word_process_state_script.py `
             tests/integration/test_word_native_merge_acceptance_script.py `
-            tests/integration/test_word_native_merge_smoke_script.py
+            tests/integration/test_word_native_merge_smoke_script.py `
+            tests/integration/test_word_timeout_cleanup_acceptance_script.py
       - name: Run real Microsoft Word native merge smoke
         id: word_smoke
         if: steps.word_process_before.outcome == 'success'
@@ -83,6 +88,18 @@ jobs:
           python scripts/check_word_native_merge_smoke.py `
             --output-dir word-merge-evidence `
             --timeout "${{ inputs.timeout_seconds }}"
+      - name: Run real Microsoft Word timeout cleanup acceptance
+        id: word_timeout_cleanup
+        if: steps.word_process_before.outcome == 'success' && steps.word_smoke.outcome == 'success'
+        continue-on-error: true
+        shell: powershell
+        run: |
+          $timeout = [int]"${{ inputs.timeout_cleanup_seconds }}"
+          $holdSeconds = $timeout + 120
+          python scripts/check_word_timeout_cleanup_acceptance.py `
+            --output-dir word-merge-evidence `
+            --timeout $timeout `
+            --hold-seconds $holdSeconds
       - name: Require clean Word process state after acceptance
         id: word_process_after
         if: always() && steps.word_process_before.outcome == 'success'
@@ -135,6 +152,16 @@ jobs:
           else {
             Write-Warning "Word native merge evidence was not produced."
           }
+      - name: Display timeout cleanup evidence
+        if: always()
+        shell: powershell
+        run: |
+          if (Test-Path word-merge-evidence\word-timeout-cleanup-evidence.json) {
+            Get-Content word-merge-evidence\word-timeout-cleanup-evidence.json
+          }
+          else {
+            Write-Warning "Word timeout cleanup evidence was not produced."
+          }
       - name: Upload Word acceptance evidence
         if: always()
         uses: actions/upload-artifact@v7
@@ -153,6 +180,10 @@ jobs:
           }
           if ("${{ steps.word_smoke.outcome }}" -ne "success") {
             Write-Error "Microsoft Word native merge smoke did not pass measured acceptance."
+            exit 1
+          }
+          if ("${{ steps.word_timeout_cleanup.outcome }}" -ne "success") {
+            Write-Error "Microsoft Word timeout cleanup acceptance did not pass."
             exit 1
           }
           if ("${{ steps.word_process_after.outcome }}" -ne "success") {
