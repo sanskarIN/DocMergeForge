@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -21,7 +21,13 @@ class DocxStructureSnapshot:
     headings: int
 
     def to_dict(self) -> dict[str, int]:
-        return asdict(self)
+        return {
+            "paragraphs": self.paragraphs,
+            "tables": self.tables,
+            "inline_shapes": self.inline_shapes,
+            "sections": self.sections,
+            "headings": self.headings,
+        }
 
 
 @dataclass(slots=True, frozen=True)
