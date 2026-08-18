@@ -58,3 +58,38 @@ def test_risky_docx_constructs_reports_complex_ooxml(tmp_path: Path) -> None:
     assert "Content controls detected." in risks
     assert "Word field codes detected." in risks
     assert "Office Math equations detected." in risks
+
+
+def test_risk_detection_does_not_depend_on_prefix_or_xml_quote_style(tmp_path: Path) -> None:
+    path = tmp_path / "alternate-prefixes.docx"
+    document = """<?xml version='1.0' encoding='UTF-8'?>
+<x:document
+  xmlns:x='http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+  xmlns:math='http://schemas.openxmlformats.org/officeDocument/2006/math'>
+  <x:body>
+    <x:del><x:r><x:t>deleted</x:t></x:r></x:del>
+    <x:moveTo><x:r><x:t>moved</x:t></x:r></x:moveTo>
+    <x:instrText>PAGE</x:instrText>
+    <math:oMathPara><math:oMath/></math:oMathPara>
+    <x:altChunk x:id='chunk1'/>
+  </x:body>
+</x:document>
+"""
+    relationships = """<?xml version='1.0' encoding='UTF-8'?>
+<Relationships xmlns='http://schemas.openxmlformats.org/package/2006/relationships'>
+  <Relationship Id='rId9' Type='hyperlink' Target='https://example.com' TargetMode='external'/>
+</Relationships>
+"""
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("[Content_Types].xml", _CONTENT_TYPES)
+        archive.writestr("_rels/.rels", _ROOT_RELS)
+        archive.writestr("word/document.xml", document)
+        archive.writestr("word/_rels/document.xml.rels", relationships)
+
+    risks = set(risky_docx_constructs(path))
+    assert "Tracked deletions/revisions detected." in risks
+    assert "Tracked move revisions detected." in risks
+    assert "Word field codes detected." in risks
+    assert "Office Math equations detected." in risks
+    assert "Alternative-format imported content detected." in risks
+    assert "External relationships detected." in risks
