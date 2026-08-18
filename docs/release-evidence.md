@@ -32,7 +32,7 @@ Verified runs:
 | Build Smoke | `32014319394` | PASS on Windows/macOS/Ubuntu |
 | Security / CodeQL | `32014319291` | PASS |
 
-This checkpoint predates later publication-locking, packaged-artifact, provenance, documentation-link, accessibility-preference, SBOM, and Word-native fidelity hardening. Use the more specific evidence below for those behaviors.
+This checkpoint predates later publication-locking, packaged-artifact, provenance, documentation-link, accessibility-preference, SBOM, and native-office fidelity hardening. Use the more specific evidence below for those behaviors.
 
 ### Documentation-link integrity
 
@@ -58,7 +58,7 @@ Build Smoke passed on Windows, macOS, and Ubuntu, including `scripts/check_acces
 
 This is automated offscreen preference/metadata evidence. It is **not** human screen-reader, keyboard-only end-to-end, high-contrast, localization, or full accessibility acceptance.
 
-### Word native fidelity implementation checkpoint
+### Microsoft Word native fidelity implementation checkpoint
 
 Current state is intentionally recorded at the **Implemented** level only.
 
@@ -71,14 +71,56 @@ Implemented after the source checkpoint above:
 - page-number evidence for `w:start`, `w:fmt`, `w:chapStyle`, and `w:chapSep` in one global merged section sequence;
 - source-revision binding before/after expected evidence, Word automation, and output evidence;
 - deterministic Word smoke sources with portrait/landscape geometry, distinct margins/header/footer distances, and decimal/upper-Roman numbering restarts;
+- a controlled forced-timeout cleanup harness using the same exact Word process identity boundary;
 - a dedicated manual self-hosted Windows Word workflow with capability-policy and clean pre/post `WINWORD` checks; and
-- expanded Ubuntu fidelity regressions for Word parser/process/acceptance boundaries while LibreOffice remains the real external application in that Linux job.
+- expanded Ubuntu fidelity regressions for Word parser/process/acceptance boundaries while LibreOffice remains the real external application in that general Linux fidelity job.
 
-No new run ID is recorded here for these changes. The connected status surface returned no current status contexts and no matching workflow run through the available commit-run lookup, while the execution container cannot resolve GitHub for a local checkout. Therefore older Quality runs are **not** reused as proof of this newer implementation.
+No new run ID is recorded here for these changes. Older Quality runs are **not** reused as proof of this newer implementation.
 
 No real controlled Microsoft Word run is recorded either. The self-hosted workflow definition is not itself acceptance evidence. `word.production_ready=false` remains required.
 
-See [Microsoft Word Native Merge Acceptance](word-native-merge-acceptance.md).
+See [Microsoft Word Native Merge Acceptance](word-native-merge-acceptance.md) and [Microsoft Word Timeout Cleanup Acceptance](word-timeout-cleanup-acceptance.md).
+
+### Supervised LibreOffice UNO native fidelity implementation checkpoint
+
+Current state is also intentionally recorded at the **Implemented** level only.
+
+Implemented at the current development head:
+
+- one authoritative supervised POSIX Writer/UNO multi-document acceptance engine in `libreoffice_uno_merge.py`;
+- a unique temporary LibreOffice user profile and unique UNO pipe for every run;
+- a copied writable master so the first source is never edited in place;
+- ordered Writer `insertDocumentFromURL(...)` insertion for later sources;
+- an independently selected Python interpreter that must actually import the LibreOffice `uno` bridge;
+- source SHA-256 binding before/after native processing and evidence construction;
+- privacy-safe body paragraph/table text fingerprints plus body structure and risky-OOXML evidence;
+- an explicit ordered private-manuscript acceptance command with no-overwrite evidence behavior;
+- process supervision that polls/reaps the launcher while tracking the complete isolated POSIX process group;
+- targeted `SIGTERM`→`SIGKILL` escalation only for that isolated group;
+- real subprocess process-group regression coverage in a separate cleanup workflow;
+- a real Ubuntu Writer multi-document acceptance workflow that installs `libreoffice-writer` and `python3-uno`; and
+- removal of the earlier duplicate native LibreOffice prototype/workflow/tests so only the supervised UNO path remains maintained.
+
+The first native Writer pass rule intentionally covers body structure/text/source revision/new-risk categories only. Section/page geometry, headers/footers, page numbering, floating objects, field behavior, advanced OOXML, and rendered equivalence remain later gates.
+
+No passing current supervised UNO workflow ID or process-cleanup workflow ID is recorded here yet. A workflow definition is not external-application evidence. `libreoffice.production_ready=false` remains required.
+
+See [LibreOffice Native Multi-Document Merge Acceptance](libreoffice-native-merge-acceptance.md).
+
+### Native-office final promotion hardening
+
+Current state: **Implemented**, awaiting current-head CI verification.
+
+All maintained external-office adapters/prototypes now use one shared fail-closed promotion boundary. The temporary DOCX and tracked source hashes are verified before promotion and verified again immediately afterward. If the final destination fails package validation or a source revision changes in the final verification window, the newly created destination is removed rather than being left behind after the operation reports failure.
+
+This applies to:
+
+- LibreOffice one-document round trip;
+- Microsoft Word one-document round trip;
+- Microsoft Word native multi-document acceptance; and
+- supervised LibreOffice UNO multi-document acceptance.
+
+A regression specifically exercises removal of a promoted destination when final integrity verification fails.
 
 ## Publication locking and recovery evidence
 
@@ -346,6 +388,8 @@ The following are intentionally **not** marked complete by the evidence above:
 - final post-signing/post-notarization distribution hashes;
 - physical power-loss/storage-disconnect recovery acceptance;
 - network/shared-filesystem multi-host lock semantics;
+- current-head supervised LibreOffice UNO multi-document workflow evidence and process-cleanup workflow evidence;
+- representative private LibreOffice multi-document corpora, expanded section/page-layout fidelity, target-version coverage, and human interoperability review;
 - real controlled Microsoft Word native normal and forced-timeout acceptance;
 - representative private multi-document Word corpus plus manual rendering/behavior review;
 - production-ready Microsoft Word or LibreOffice high-fidelity modes;
