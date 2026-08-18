@@ -1,0 +1,73 @@
+name: Supervised LibreOffice UNO Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      timeout_seconds:
+        description: Per-run supervised LibreOffice UNO merge timeout in seconds
+        required: false
+        default: "300"
+  push:
+    branches: [main]
+    paths:
+      - "src/docmergeforge/docx/libreoffice_uno_merge.py"
+      - "src/docmergeforge/docx/libreoffice_uno_acceptance.py"
+      - "scripts/check_libreoffice_uno_merge_smoke.py"
+      - "tests/unit/test_lo_uno_*.py"
+      - "tests/integration/test_lo_uno_*.py"
+      - ".github/workflows/libreoffice-uno-acceptance.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  libreoffice-uno-merge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install LibreOffice Writer and system UNO bridge
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libreoffice-writer python3-uno
+      - run: python -m pip install --upgrade pip
+      - run: pip install -e ".[dev]"
+      - name: Verify capability separation
+        run: docmergeforge fidelity-capabilities
+      - name: Verify system Python UNO bridge
+        run: /usr/bin/python3 -c "import uno; print(uno.__file__)"
+      - name: Run supervised UNO boundary tests
+        run: |
+          pytest \
+            tests/unit/test_lo_uno_supervised_merge.py \
+            tests/unit/test_lo_uno_supervised_acceptance.py \
+            tests/integration/test_lo_uno_supervised_smoke.py
+      - name: Run real supervised LibreOffice UNO multi-document smoke
+        run: |
+          python scripts/check_libreoffice_uno_merge_smoke.py \
+            --output-dir libreoffice-uno-evidence \
+            --timeout "${{ inputs.timeout_seconds || '300' }}"
+      - name: Display supervised UNO evidence
+        if: always()
+        run: |
+          if [ -f libreoffice-uno-evidence/libreoffice-uno-merge-evidence.json ]; then
+            cat libreoffice-uno-evidence/libreoffice-uno-merge-evidence.json
+          else
+            echo "Supervised LibreOffice UNO evidence was not produced."
+          fi
+      - name: Upload supervised UNO acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: supervised-libreoffice-uno-acceptance-evidence
+          path: libreoffice-uno-evidence/
+          if-no-files-found: error
+          retention-days: 14
