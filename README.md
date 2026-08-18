@@ -37,7 +37,9 @@ Technical/safety/release references include:
 - [PDF Engine](docs/pdf-engine.md)
 - [DOCX Engine](docs/docx-engine.md)
 - [DOCX Fidelity Adapters and Acceptance](docs/docx-fidelity-acceptance.md)
+- [LibreOffice Native Multi-Document Merge Acceptance](docs/libreoffice-native-merge-acceptance.md)
 - [Microsoft Word Native Merge Acceptance](docs/word-native-merge-acceptance.md)
+- [Microsoft Word Timeout Cleanup Acceptance](docs/word-timeout-cleanup-acceptance.md)
 - [Private DOCX Fidelity Corpus Testing](docs/docx-fidelity-corpus.md)
 - [Project Files](docs/project-files.md)
 - [Validation and Preflight](docs/validation-and-preflight.md)
@@ -67,6 +69,7 @@ Technical/safety/release references include:
 - No DocMergeForge account is required.
 - Encrypted-PDF passwords are not persisted by the application.
 - External DOCX fidelity acceptance writes separate validated copies and never silently changes the production merge mode.
+- Maintained native-office acceptance paths remove a newly promoted result if final destination/source verification fails.
 
 ## SQL Full Mastery preset
 
@@ -165,6 +168,18 @@ docmergeforge fidelity-corpus \
   --mode libreoffice
 ```
 
+For **non-production native LibreOffice multi-document acceptance** on a POSIX host with Writer + Python UNO installed, use the explicit ordered acceptance script:
+
+```bash
+python scripts/check_libreoffice_uno_merge_acceptance.py \
+  --input "./private-corpus/Part 1.docx" \
+  --input "./private-corpus/Part 2.docx" \
+  --output "./private-libreoffice-evidence/merged.docx" \
+  --evidence "./private-libreoffice-evidence/evidence.json"
+```
+
+This does not change the normal `docmergeforge docx` engine or mark LibreOffice production-ready.
+
 SQL preset dry run:
 
 ```bash
@@ -219,20 +234,26 @@ See [Validation and Preflight](docs/validation-and-preflight.md).
 
 Portable DOCX composition is the current production-supported multi-document path. It supports many normal Word structures but cannot prove perfect preservation for every advanced Microsoft Word construct. Macros, OLE objects, tracked changes, complex fields, custom XML, equations, content controls, external relationships, charts/SmartArt, and complex style/numbering/section behavior require special review.
 
-DocMergeForge includes explicit source-preserving LibreOffice and Windows Microsoft Word round-trip adapters for fidelity acceptance. It also includes a **non-production Microsoft Word native multi-document acceptance prototype** using real section boundaries, measured structure/text/section/page-number evidence, source-revision binding, and exact Word-process cleanup safeguards.
+DocMergeForge includes explicit source-preserving LibreOffice and Windows Microsoft Word round-trip adapters for fidelity acceptance.
+
+LibreOffice also has a **non-production supervised POSIX Writer/UNO multi-document acceptance prototype**. It uses an isolated user profile, unique UNO pipe, copied master, ordered native document insertion, source-revision checks, privacy-safe body structure/text evidence, risky-OOXML evidence, and isolated process-group cleanup with separate real subprocess regression coverage. Its first pass rule deliberately does not certify section/page-layout/header/footer/page-number/rendering fidelity.
+
+Microsoft Word has a separate **non-production native multi-document acceptance prototype** using real section boundaries, measured structure/text/section/page-number evidence, source-revision binding, exact Word-process cleanup safeguards, and a dedicated controlled timeout-cleanup harness.
 
 Capability reporting separates local detection/automation readiness from production readiness. LibreOffice and Word remain `production_ready=false`; neither can silently replace portable merge mode.
 
+The LibreOffice UNO workflow runs only on the maintained supervised implementation; the older duplicate native draft was removed. A workflow definition is not proof of a passing external application run.
+
 The controlled Word acceptance workflow is manual-only on a dedicated self-hosted Windows runner with Microsoft Word actually installed. Defining that workflow does not constitute a passing Word run. Real normal-operation and forced-timeout Word evidence, representative private corpora, and human rendering review remain required before any production Word claim.
 
-See [DOCX Engine](docs/docx-engine.md), [DOCX Fidelity Adapters and Acceptance](docs/docx-fidelity-acceptance.md), [Microsoft Word Native Merge Acceptance](docs/word-native-merge-acceptance.md), [Private DOCX Fidelity Corpus Testing](docs/docx-fidelity-corpus.md), and [Known Limitations](docs/known-limitations.md).
+See [DOCX Engine](docs/docx-engine.md), [DOCX Fidelity Adapters and Acceptance](docs/docx-fidelity-acceptance.md), [LibreOffice Native Multi-Document Merge Acceptance](docs/libreoffice-native-merge-acceptance.md), [Microsoft Word Native Merge Acceptance](docs/word-native-merge-acceptance.md), [Microsoft Word Timeout Cleanup Acceptance](docs/word-timeout-cleanup-acceptance.md), [Private DOCX Fidelity Corpus Testing](docs/docx-fidelity-corpus.md), and [Known Limitations](docs/known-limitations.md).
 
 ## Repository structure
 
 ```text
 src/docmergeforge/    application source
 tests/                unit, integration, regression
-scripts/              build, fixture, stress, accessibility tools
+scripts/              build, fixture, stress, accessibility, acceptance tools
 docs/                 complete user/operator/developer documentation
 assets/branding/      original SVG branding
 .github/workflows/    quality, regression, build, security, package, stress, fidelity automation
@@ -246,10 +267,11 @@ Architecture details: [docs/architecture.md](docs/architecture.md).
 ruff check .
 black --check --diff .
 mypy src/docmergeforge
+python scripts/check_docs_links.py
 pytest
 ```
 
-CI also exercises the generated 120-part regression, cross-platform desktop build/accessibility smoke, CodeQL security analysis, package building, a real LibreOffice fidelity lane, and a manual controlled Microsoft Word native acceptance workflow.
+CI also exercises the generated 120-part regression, cross-platform desktop build/accessibility smoke, CodeQL security analysis, package building, a real LibreOffice one-document fidelity lane, supervised real Writer multi-document insertion and process cleanup lanes, and a manual controlled Microsoft Word native acceptance workflow.
 
 See [Testing and CI](docs/testing-and-ci.md).
 
@@ -287,7 +309,9 @@ See [Building Executables](docs/building-executables.md) and [Release Packaging]
 
 Documents stay local under the normal workflow, passwords are not persisted, diagnostics are designed to exclude manuscript body text/passwords, companion archives are not auto-extracted, and private fidelity corpus execution does not upload source documents.
 
-Fidelity corpus reports replace corpus/output roots with relative/placeheld paths, but generated DOCX copies, hashes, filenames, and third-party office errors can still be sensitive and should be reviewed before sharing.
+Common private corpus/evidence directories plus local transaction state are ignored by default, but `.gitignore` is only a safety net. Review every staged file before committing or uploading artifacts.
+
+Fidelity corpus reports replace corpus/output roots with relative/placeheld paths, but generated DOCX copies, hashes, filenames, process/environment evidence, and third-party office errors can still be sensitive and should be reviewed before sharing.
 
 Review paths/filenames in project files, reports, manifests, diagnostics, audit output, and fidelity evidence before sharing them publicly.
 
@@ -308,15 +332,15 @@ See [Accessibility](docs/accessibility.md).
 
 DocMergeForge remains pre-stable. Green source CI and unsigned PyInstaller archives do not by themselves justify a `v1.0.0` production-ready claim.
 
-Open acceptance areas include measured multi-gigabyte stress, representative real-world fidelity, complete LibreOffice multi-document certification where claimed, controlled Microsoft Word normal/forced-timeout/corpus/manual acceptance before Word native mode is claimed, human accessibility, clean-machine interactive packaged-app acceptance, additional physical/filesystem/network failure modes where claimed, and platform signing/notarization where distributed.
+Open acceptance areas include measured multi-gigabyte stress, representative real-world fidelity, reviewed supervised LibreOffice UNO multi-document/process-cleanup runs plus broader section/page-layout fidelity before LibreOffice native mode is claimed, controlled Microsoft Word normal/forced-timeout/corpus/manual acceptance before Word native mode is claimed, human accessibility, clean-machine interactive packaged-app acceptance, additional physical/filesystem/network failure modes where claimed, and platform signing/notarization where distributed.
 
 Controlled abrupt-process recovery and Linux real-`ENOSPC` acceptance already have recorded evidence; they are not reused as proof for the separate open environments above.
 
-See [Release Process](docs/release-process.md), [Known Limitations](docs/known-limitations.md), and [what_changed.md](what_changed.md).
+See [Release Process](docs/release-process.md), [Known Limitations](docs/known-limitations.md), [Release Evidence Ledger](docs/release-evidence.md), and [what_changed.md](what_changed.md).
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md), [Development Guide](docs/development.md), and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md), [Development Guide](docs/development.md), and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). GitHub issue/PR templates require privacy-safe reproductions and explicit validation/evidence boundaries for document-engine, recovery, packaging, and fidelity changes.
 
 ## License
 
