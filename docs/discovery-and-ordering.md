@@ -19,6 +19,24 @@ For every discovered file, DocMergeForge records evidence including:
 
 The SHA-256 captured during discovery contributes to later source-integrity checks.
 
+## Project output-subtree exclusion
+
+If a project's output folder is **strictly nested inside** one of its source folders, project discovery excludes that output subtree before selection/merge processing.
+
+Example:
+
+```text
+Book/
+  Part 1.docx
+  Part 2.docx
+  Master/          <- project output folder
+    old-output.docx
+```
+
+`Book/Master/**` is not rediscovered as source material on the next project run. This prevents prior publications, reports, transaction residue, or even an old output whose filename resembles a valid numbered part from feeding back into a future merge.
+
+When source and output are exactly the same directory, the directory cannot be excluded wholesale because that would hide the real source documents. The automatic numbered-input rule below therefore remains essential in same-directory workflows. A separate output directory is still the clearest recommended layout.
+
 ## File classification
 
 Current classification rules are extension/name based.
@@ -96,7 +114,37 @@ Part 001 -> part number 1
 Part 010 -> part number 10
 ```
 
-If no supported pattern is found, the file gets no numeric part number. It may still be discovered, but a numbered-part validation workflow cannot treat it as satisfying an expected number.
+If no supported pattern is found, the file gets no numeric part number. It may still be discovered and shown as a warning/review item, but automatic numbered-part merge workflows do not silently append it.
+
+## Automatic merge-input rule
+
+For automatic folder-based PDF/DOCX merging, a manuscript file becomes an engine input only when all of the following are true:
+
+1. its document kind matches the requested engine (`PDF` or `DOCX`);
+2. a part number was detected; and
+3. that part number is inside the configured inclusive expected range.
+
+Therefore, with expected Parts 1–120:
+
+```text
+Part 1.pdf       -> automatic merge input
+Part 120.pdf     -> automatic merge input
+Part 121.pdf     -> discovered + warning, not automatically merged
+Book Master.pdf  -> discovered + warning, not automatically merged
+notes.pdf        -> discovered + warning, not automatically merged
+```
+
+This rule is shared by generic projects, the SQL preset, project preflight ordering/conflict analysis, and direct `pdf`/`docx` CLI merges.
+
+Validation still sees the broader discovered set so users can be warned about unnumbered or out-of-range PDF/DOCX files. Out-of-range numbered files do not satisfy the configured expected range and are excluded from automatic merge input.
+
+## Explicit selected-file exception
+
+A project with populated `selected_files` represents a persisted manual selection/order that the user reviewed explicitly.
+
+In that mode, selected PDF/DOCX files can intentionally include unnumbered front/back matter or special material outside the normal numbered range. Validation still reports the configured numbered-range state, but the selected order remains authoritative for the merge candidates.
+
+This exception is deliberately **not** applied to ordinary automatic folder scanning. If special material must participate, select/review it explicitly instead of relying on an ambiguous filename.
 
 ## Clean titles
 
@@ -140,9 +188,11 @@ Supported on `validate`, `pdf`, and `docx`:
 
 `--natural-sort` is the default.
 
-The CLI natural-order key prioritizes files with detected part numbers and then uses numeric part identity plus a natural filename key. Files without detected numbers sort after numbered parts in this direct CLI ordering path.
+The CLI natural-order key prioritizes files with detected part numbers and then uses numeric part identity plus a natural filename key. Files without detected numbers can still appear in discovery/validation diagnostics, but direct automatic merge commands pass only numbered in-range files to the engine.
 
 Use `--no-natural-sort` only when a deliberate filename order is required and verified.
+
+For direct `pdf`/`docx` merge commands, the printed success path is the **actual path returned by the engine**. If the requested destination already exists and overwrite/version policy creates a path such as `Book_v2.pdf`, the CLI reports `Book_v2.pdf` rather than the original requested filename.
 
 ## Filename filtering
 
@@ -199,6 +249,16 @@ Part 5
 
 Part 3 is missing even if four source files exist. File count alone is insufficient evidence.
 
+## Out-of-range part numbers
+
+A numbered document outside the configured range produces a warning such as:
+
+```text
+Part 121 is outside the configured expected range.
+```
+
+It is not automatically merged. Either move it outside the scanned source, change the configured range if it truly belongs to the edition, or include it only through a deliberately reviewed selected-file workflow.
+
 ## PDF inspection during discovery
 
 For an unencrypted PDF, the scanner attempts to read its page count with `pypdf` in non-strict mode.
@@ -215,7 +275,9 @@ If PDF inspection raises an exception, discovery retains the file and attaches a
 
 Every discovered file is SHA-256 hashed. This is intentionally more expensive than trusting filename/size alone because a source can change without its name changing.
 
-During full project publication, source-integrity verification is performed again before final promotion. If a source changes during the run, final publication is refused instead of silently mixing versions.
+During full project publication, source-integrity verification is performed again before final promotion. If a tracked source changes during the run, final publication is refused instead of silently mixing versions.
+
+Only files actually used as merge inputs (plus companion references where relevant) are tracked for the publication operation; automatically excluded unrelated manuscript-like files are not treated as publication sources.
 
 ## Recommended naming convention
 
@@ -236,6 +298,21 @@ Benefits:
 - less risk when moving between filesystems;
 - easier pattern filtering.
 
+## Recommended source/output layout
+
+Prefer a clearly separate output directory:
+
+```text
+Project/
+  source/
+    Part 001.pdf
+    Part 001.docx
+    ...
+  output/
+```
+
+If `output/` is nested under a configured source root, project discovery excludes that subtree. Keeping source and output conceptually separate still makes manual review, backups, and external tools easier to reason about.
+
 ## Discovery checklist
 
 Before merging:
@@ -244,9 +321,11 @@ Before merging:
 - inspect discovered file kinds;
 - inspect scanner warnings;
 - verify detected part numbers;
+- verify out-of-range files are intentional or relocated;
 - resolve `.doc` legacy files deliberately;
 - remove/relocate obsolete duplicates;
 - check missing parts;
-- confirm natural/manual order;
-- keep companion code independent;
+- confirm automatic numbered input or explicit selected-file order;
+- keep output material separate from source material;
+- keep companion code independent; and
 - run project dry-run/preflight after any filename or folder change.
