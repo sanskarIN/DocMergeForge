@@ -61,7 +61,7 @@ Default:
 2
 ```
 
-Desktop/application concurrency preference. Actual document engine work can include inherently sequential stages because source order, Word composition, and final transaction promotion must remain deterministic.
+Desktop/application concurrency preference. The settings UI and loader constrain this value to `1–64`. Actual document engine work can include inherently sequential stages because source order, Word composition, and final transaction promotion must remain deterministic.
 
 Increasing worker count is not a guarantee of faster large merges and should be stress-tested before changing performance claims.
 
@@ -75,17 +75,16 @@ INFO
 
 Controls diagnostic log threshold where connected to logging configuration.
 
-Typical Python logging levels include:
+Supported persisted values are:
 
 ```text
 DEBUG
 INFO
 WARNING
 ERROR
-CRITICAL
 ```
 
-The logging configuration falls back to `INFO` for an unrecognized level string.
+An invalid stored value is reset to `INFO` during settings loading.
 
 Higher verbosity can expose more local paths/technical details, so review diagnostics before sharing.
 
@@ -121,7 +120,7 @@ Default:
 preserve
 ```
 
-Preferred PDF optimization mode for project creation/settings UI. PDF engine settings currently recognize behavior including:
+Preferred PDF optimization mode for project creation/settings UI. Supported persisted values are `preserve`, `balanced`, and `archive`; an unknown stored value falls back to `preserve`.
 
 - `preserve` — avoid the extra content-stream compression pass;
 - `balanced` — compress output page content streams;
@@ -137,7 +136,7 @@ Default:
 portable
 ```
 
-Portable OOXML is the current production-supported mode.
+Portable OOXML is the current production-supported mode. Supported persisted values are `portable`, `libreoffice`, and `word`; an unknown stored value falls back to `portable`.
 
 The UI may expose capability choices, but the DOCX engine calls a production-readiness gate. An external mode cannot become production-ready merely through this setting or because Word/LibreOffice is installed.
 
@@ -161,7 +160,7 @@ Default:
 Exact Preservation
 ```
 
-Preferred merge profile name for new/configured work.
+Preferred merge profile name for new/configured work. Supported stored profile names are the same values exposed by the desktop settings dialog; an unknown stored profile name falls back to `Exact Preservation`.
 
 A project persists its own `settings.profile_name`, which is recorded in publication evidence/manifests.
 
@@ -211,6 +210,8 @@ Enables recent-project convenience behavior in the desktop application.
 
 Recent entries can reveal project names/local paths on a shared machine. Disable/clear them according to local privacy policy when necessary.
 
+Malformed recent-history JSON and incomplete/non-string history entries are treated as invalid convenience metadata and skipped rather than preventing the desktop from opening. This tolerance does **not** apply to an explicitly opened merge-project file, which remains strict because inventing missing publication configuration would be unsafe.
+
 ## `reduced_motion`
 
 Default:
@@ -229,7 +230,7 @@ Default:
 100
 ```
 
-Desktop text-size preference. Human accessibility acceptance should test increased values together with OS display scaling and long path/project strings.
+Desktop text-size preference. The settings UI and loader constrain the value to `80–200` percent. Human accessibility acceptance should test increased values together with OS display scaling and long path/project strings.
 
 ## `first_run_completed`
 
@@ -245,25 +246,27 @@ This flag is convenience state, not evidence that a user has accepted a release 
 
 ## Settings persistence
 
-`AppSettings.save()` writes JSON through a sibling temporary file and then replaces the final settings file:
+`AppSettings.save()` uses the shared atomic text writer. It creates a **unique sibling temporary file**, writes UTF-8 JSON, flushes and `fsync`s the temporary file, and then promotes it with `os.replace(...)`.
 
-```text
-<settings-path>.tmp -> <settings-path>
-```
+If writing or replacement fails, the temporary file is removed and the previously published settings file is left intact. The application does not rely on one predictable `settings.json.tmp` filename shared by concurrent writers.
 
-This reduces partial-file risk during a normal settings write.
+Project JSON, recent-project history, and diagnostics export use the same unique atomic text-persistence primitive. Publication manuscript transactions remain a separate, stronger multi-file transaction system.
 
 ## Settings loading and forward/backward tolerance
 
 `AppSettings.load()`:
 
 - returns default settings if the file does not exist;
-- reads JSON when present;
+- returns safe defaults if the settings file cannot be decoded/read as valid JSON;
+- requires the top-level JSON value to be an object;
 - keeps only keys known by the current `AppSettings` dataclass;
 - ignores unknown keys;
-- supplies dataclass defaults for missing keys.
+- rejects stored values whose primitive type does not match the setting's default type;
+- clamps `worker_count` to `1–64` and `text_scale_percent` to `80–200`;
+- resets invalid theme/logging/PDF-optimization/DOCX-fidelity/profile values to their safe defaults; and
+- supplies dataclass defaults for missing or rejected keys.
 
-This provides some tolerance when settings evolve, though malformed JSON or invalid value types can still cause errors.
+Application settings and recent history are recoverable convenience metadata, so a damaged local preference file must not make the GUI unusable. Saved merge-project files are different: their loader remains strict and surfaces malformed project JSON rather than guessing publication-critical configuration.
 
 ## App settings versus project settings
 
