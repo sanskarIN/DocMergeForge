@@ -1,6 +1,6 @@
 # CLI Reference
 
-The `docmergeforge` command is the automation-oriented interface to DocMergeForge. It supports discovery/validation, direct PDF and DOCX merging, reusable project files, the SQL Full Mastery preset, interrupted-output recovery, manuscript audit, and output comparison.
+The `docmergeforge` command is the automation-oriented interface to DocMergeForge. It supports discovery/validation, direct PDF and DOCX merging, DOCX fidelity capability/acceptance checks, reusable project files, the SQL Full Mastery preset, interrupted-output recovery, manuscript audit, and output comparison.
 
 ```bash
 docmergeforge --help
@@ -10,8 +10,8 @@ docmergeforge --help
 
 Common exit behavior:
 
-- `0` — command completed successfully or requested dry-run is ready.
-- `2` — validation/preflight/recovery/argument condition failed and user action is required.
+- `0` — command completed successfully or requested dry-run/acceptance is ready.
+- `2` — validation/preflight/recovery/acceptance/argument condition failed and user action is required.
 - `130` — interactive encrypted-PDF password collection was cancelled.
 
 Unexpected exceptions can produce a non-zero process exit according to Python/runtime behavior.
@@ -159,7 +159,81 @@ docmergeforge docx \
   --output "./Master/Book-Master.docx"
 ```
 
-The command selects only DOCX files, validates the complete part set, merges in the selected order, and validates the resulting OOXML package.
+The command selects only DOCX files, validates the complete part set, merges in the selected order, and validates the resulting OOXML package. It does not silently switch to LibreOffice or Word.
+
+## `fidelity-capabilities`
+
+Report DOCX fidelity adapter detection, automation readiness, and production readiness as separate fields.
+
+```bash
+docmergeforge fidelity-capabilities
+```
+
+Output is a JSON array with one object per mode. Fields include:
+
+- `mode`;
+- `available`;
+- `production_ready`;
+- `detail`;
+- `automation_ready`;
+- `executable`.
+
+The portable mode is production-ready. LibreOffice/Word can be detected or automation-ready while remaining `production_ready=false`.
+
+Do not interpret `available=true` as a universal fidelity guarantee.
+
+## `fidelity-roundtrip`
+
+Run an explicit external-office round-trip on one DOCX and emit measured structural/risk evidence.
+
+```bash
+docmergeforge fidelity-roundtrip \
+  --input FILE.docx \
+  --output FILE.docx \
+  --mode libreoffice|word \
+  [--timeout SECONDS]
+```
+
+Required:
+
+- `--input` — existing DOCX source;
+- `--output` — separate DOCX destination that does not already exist;
+- `--mode` — `libreoffice` or `word`.
+
+Optional:
+
+- `--timeout` — positive native-office timeout in seconds; default `300`.
+
+LibreOffice example:
+
+```bash
+docmergeforge fidelity-roundtrip \
+  --input "./samples/representative.docx" \
+  --output "./evidence/representative-libreoffice.docx" \
+  --mode libreoffice \
+  --timeout 300
+```
+
+Microsoft Word example on Windows:
+
+```powershell
+docmergeforge fidelity-roundtrip `
+  --input ".\samples\representative.docx" `
+  --output ".\evidence\representative-word.docx" `
+  --mode word `
+  --timeout 300
+```
+
+The command prints JSON containing source/output hashes, structural snapshots, risk findings, newly introduced risk categories, and `accepted`.
+
+`accepted=true` currently requires:
+
+1. matching measured paragraph/table/inline-shape/section/heading counts; and
+2. no new risky-construct category in the round-tripped output.
+
+The command returns `0` for measured acceptance and `2` for a structurally valid output that does not meet those measured acceptance criteria. Native-tool launch, timeout, source-integrity, or invalid-output failures are treated as errors.
+
+This command creates evidence; it does not enable the external adapter as the normal production merge path. See [DOCX Fidelity Adapters and Acceptance](docx-fidelity-acceptance.md).
 
 ## `sql-preset`
 
@@ -389,11 +463,12 @@ For reliable scripting:
 
 - use `--dry-run` before project publication;
 - inspect exit codes, not only stdout text;
-- parse JSON for `validate`, project dry runs, `recover-output`, `audit`, and `compare`;
+- parse JSON for `validate`, project dry runs, `fidelity-capabilities`, `fidelity-roundtrip`, `recover-output`, `audit`, and `compare`;
 - avoid depending on filesystem directory listing order;
-- preserve project files and publication evidence with the release artifacts;
+- preserve project files and publication/fidelity evidence with release artifacts;
 - do not auto-delete transaction folders on error;
-- keep encrypted-PDF workflows interactive unless a future supported secret-provider interface is implemented.
+- keep encrypted-PDF workflows interactive unless a future supported secret-provider interface is implemented;
+- never promote an external DOCX fidelity mode to production based only on a successful single-file round-trip.
 
 ## Shell path examples
 
@@ -417,7 +492,9 @@ docmergeforge validate --input "/home/user/Books/My Series" --parts 1-120
 |---|---|
 | `validate` | Discover and validate expected numbered parts |
 | `pdf` | Direct PDF merge |
-| `docx` | Direct DOCX merge |
+| `docx` | Direct portable DOCX merge |
+| `fidelity-capabilities` | Report fidelity detection/automation/production states |
+| `fidelity-roundtrip` | Run explicit LibreOffice/Word DOCX acceptance evidence |
 | `sql-preset` | Guided SQL Full Mastery 120-part publication |
 | `project-create` | Create reusable JSON project |
 | `merge` | Dry-run or execute project |
