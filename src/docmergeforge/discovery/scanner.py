@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -35,6 +36,14 @@ def iter_files(roots: Iterable[Path], recursive: bool = True) -> Iterable[Path]:
                 yield path
 
 
+def _path_identity(path: Path) -> str:
+    try:
+        resolved = path.resolve(strict=False)
+    except OSError:
+        resolved = path.absolute()
+    return os.path.normcase(str(resolved))
+
+
 def _pdf_info(path: Path) -> tuple[int | None, bool, list[str]]:
     warnings: list[str] = []
     try:
@@ -52,7 +61,13 @@ def _pdf_info(path: Path) -> tuple[int | None, bool, list[str]]:
 
 def scan(roots: Iterable[Path], recursive: bool = True) -> list[InputDocument]:
     results: list[InputDocument] = []
+    seen: set[str] = set()
     for path in iter_files(roots, recursive=recursive):
+        identity = _path_identity(path)
+        if identity in seen:
+            continue
+        seen.add(identity)
+
         kind = classify(path)
         page_count: int | None = None
         encrypted = False
