@@ -258,7 +258,7 @@ def _run_direct_merge(args: argparse.Namespace) -> int:
             )
             return 2
         if kind == DocumentKind.PDF:
-            PdfMergeEngine().merge(
+            final_output = PdfMergeEngine().merge(
                 items,
                 args.output,
                 PdfSettings(),
@@ -266,13 +266,13 @@ def _run_direct_merge(args: argparse.Namespace) -> int:
                 password_provider=lambda path: passwords.get(path),
             )
         else:
-            DocxMergeEngine().merge(
+            final_output = DocxMergeEngine().merge(
                 items,
                 args.output,
                 DocxSettings(),
                 preserve_order=True,
             )
-        print(str(args.output))
+        print(str(final_output))
         return 0
     finally:
         passwords.clear()
