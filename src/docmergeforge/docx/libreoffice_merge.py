@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import signal
 import subprocess
 import tempfile
+import time
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -209,28 +211,49 @@ def find_uno_python() -> str | None:
     return None
 
 
+def _process_group_exists(process_group: int) -> bool:
+    try:
+        os.killpg(process_group, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _wait_for_process_group_exit(process_group: int, timeout_seconds: float) -> bool:
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if not _process_group_exists(process_group):
+            return True
+        time.sleep(0.1)
+    return not _process_group_exists(process_group)
+
+
 def _terminate_process_group(process: subprocess.Popen[str]) -> None:
     """Terminate only the isolated POSIX process group created for LibreOffice."""
     process_group = process.pid
+    if not _process_group_exists(process_group):
+        process.wait(timeout=1)
+        return
     try:
         os.killpg(process_group, signal.SIGTERM)
     except ProcessLookupError:
+        process.wait(timeout=1)
         return
-    try:
-        process.wait(timeout=5)
+    if _wait_for_process_group_exit(process_group, 5):
+        process.wait(timeout=1)
         return
-    except subprocess.TimeoutExpired:
-        pass
     try:
         os.killpg(process_group, signal.SIGKILL)
     except ProcessLookupError:
+        process.wait(timeout=1)
         return
-    try:
-        process.wait(timeout=5)
-    except subprocess.TimeoutExpired as exc:
+    if not _wait_for_process_group_exit(process_group, 5):
         raise ValidationError(
             "Isolated LibreOffice process group did not terminate after SIGKILL."
-        ) from exc
+        )
+    process.wait(timeout=1)
 
 
 def libreoffice_merge_documents(
@@ -250,7 +273,8 @@ def libreoffice_merge_documents(
     """
     if os.name != "posix":
         raise UnsupportedDocumentError(
-            "LibreOffice UNO multi-document acceptance currently requires POSIX pipe/process-group support."
+            "LibreOffice UNO multi-document acceptance currently requires POSIX "
+            "pipe/process-group support."
         )
     if timeout_seconds < 1:
         raise ValidationError("LibreOffice native merge timeout must be at least one second.")
@@ -283,8 +307,6 @@ def libreoffice_merge_documents(
         worker = temp_dir / "libreoffice_uno_worker.py"
         pipe_name = f"docmergeforge_{uuid.uuid4().hex}"
 
-        import json
-
         manifest.write_text(
             json.dumps(
                 [str(first_copy.resolve())]
@@ -305,8 +327,8 @@ def libreoffice_merge_documents(
                 "--norestore",
                 f"--accept=pipe,name={pipe_name};urp;",
             ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
             text=True,
             start_new_session=True,
         )
