@@ -4,7 +4,9 @@ from pathlib import Path
 import pytest
 from docx import Document
 from docx.enum.section import WD_ORIENT
+from docx.shared import Inches
 
+from docmergeforge.docx.section_evidence import page_number_section_records
 from docmergeforge.docx.word_merge_acceptance import (
     WordMergeAcceptanceEvidence,
     WordMergeContentSnapshot,
@@ -30,6 +32,8 @@ def _accepted_evidence(output: Path) -> WordMergeAcceptanceEvidence:
         tables_sha256="b" * 64,
         headers_sha256="c" * 64,
         footers_sha256="d" * 64,
+        section_properties_sha256="1" * 64,
+        page_number_properties_sha256="2" * 64,
     )
     return WordMergeAcceptanceEvidence(
         source_count=2,
@@ -67,15 +71,30 @@ def test_word_native_merge_smoke_builds_two_distinct_sources(
     first, second = captured_sources
     first_doc = Document(str(first))
     second_doc = Document(str(second))
+    second_section = second_doc.sections[0]
+    first_page_number = page_number_section_records(first)[0]
+    second_page_number = page_number_section_records(second)[0]
     payload = json.loads(
         (output_dir / "word-native-merge-evidence.json").read_text(encoding="utf-8")
     )
 
     assert exit_code == 0
     assert first_doc.sections[0].orientation != WD_ORIENT.LANDSCAPE
-    assert second_doc.sections[0].orientation == WD_ORIENT.LANDSCAPE
+    assert second_section.orientation == WD_ORIENT.LANDSCAPE
+    assert second_section.left_margin == Inches(0.70)
+    assert second_section.right_margin == Inches(0.80)
+    assert second_section.top_margin == Inches(0.60)
+    assert second_section.bottom_margin == Inches(0.65)
+    assert second_section.header_distance == Inches(0.25)
+    assert second_section.footer_distance == Inches(0.30)
     assert first_doc.sections[0].header.paragraphs[0].text.endswith("Source 1")
-    assert second_doc.sections[0].header.paragraphs[0].text.endswith("Source 2")
+    assert second_section.header.paragraphs[0].text.endswith("Source 2")
+    assert first_page_number.start == "1"
+    assert first_page_number.format == "decimal"
+    assert second_page_number.start == "7"
+    assert second_page_number.format == "upperRoman"
+    assert payload["expected_content"]["section_properties_sha256"] == "1" * 64
+    assert payload["expected_content"]["page_number_properties_sha256"] == "2" * 64
     assert payload["accepted"] is True
 
 
