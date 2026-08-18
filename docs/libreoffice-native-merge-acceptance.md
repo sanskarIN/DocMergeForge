@@ -1,52 +1,62 @@
 # LibreOffice Native Multi-Document Merge Acceptance
 
-DocMergeForge includes a separate LibreOffice Writer UNO multi-document merge **acceptance prototype**. It is not connected to the normal production DOCX engine and does not make `libreoffice` production-ready.
+DocMergeForge includes a separate, supervised LibreOffice Writer UNO multi-document merge **acceptance prototype**. It is intentionally not connected to the normal production DOCX engine and it does not make `libreoffice` production-ready.
 
-The prototype exists to measure real LibreOffice Writer document insertion before any native LibreOffice production claim is considered.
+The goal is to measure real Writer document insertion safely and reproducibly before any native LibreOffice production claim is considered.
 
 ## Current status
 
 ```text
 source-preserving one-document LibreOffice round trip: implemented
-POSIX UNO multi-document merge prototype: implemented
+supervised POSIX UNO multi-document merge prototype: implemented
 isolated LibreOffice user profile: implemented
 unique UNO pipe per merge: implemented
 isolated POSIX process-group cleanup: implemented
+real subprocess cleanup regressions: implemented
 body structure/text acceptance: implemented
 new-risk-category acceptance: implemented
+explicit ordered private-manuscript acceptance command: implemented
 real Ubuntu UNO acceptance workflow: implemented
+separate process-group cleanup workflow: implemented
 section/page-layout certification: still required
-representative private corpus: still required
+representative private corpus acceptance: still required
 Windows native LibreOffice acceptance: still required if claimed
 production LibreOffice merge mode: disabled
 ```
 
 The normal `docmergeforge docx` command continues to use portable OOXML composition.
 
-## Official LibreOffice interfaces used
-
-The prototype follows LibreOffice's UNO/Writer API model:
-
-- `com.sun.star.bridge.UnoUrlResolver` resolves an isolated UNO connection;
-- Writer's document text cursor exposes `XDocumentInsertable.insertDocumentFromURL(...)` for inserting another document at the cursor position;
-- `com.sun.star.text.ControlCharacter.PARAGRAPH_BREAK` creates the insertion paragraph boundary;
-- `com.sun.star.style.BreakType.PAGE_BEFORE` requests a page break before a later source when configured;
-- `XStorable.storeAsURL(...)` writes the merged document;
-- the DOCX export filter is `Office Open XML Text`.
-
-These are native LibreOffice APIs. Their use does not by itself prove that every Microsoft Word-specific construct survives insertion/export identically.
-
-## Implementation
+## Authoritative implementation
 
 ```text
-src/docmergeforge/docx/libreoffice_merge.py
-src/docmergeforge/docx/libreoffice_merge_acceptance.py
-scripts/check_libreoffice_native_merge_smoke.py
+src/docmergeforge/docx/libreoffice.py
+src/docmergeforge/docx/libreoffice_uno_merge.py
+src/docmergeforge/docx/libreoffice_uno_acceptance.py
+scripts/check_libreoffice_uno_merge_smoke.py
+scripts/check_libreoffice_uno_merge_acceptance.py
+.github/workflows/libreoffice-uno-acceptance.yml
+.github/workflows/libreoffice-uno-process-cleanup.yml
 ```
 
-## Process isolation
+There is only one maintained native multi-document LibreOffice acceptance path. Superseded prototype files are not part of the supported acceptance surface.
 
-Every native acceptance run uses:
+## LibreOffice interfaces used
+
+The supervised worker uses LibreOffice's UNO/Writer API model:
+
+- `com.sun.star.bridge.UnoUrlResolver` resolves a unique local UNO pipe;
+- the external process exposes `StarOffice.ServiceManager` and the worker resolves `StarOffice.ComponentContext`;
+- Writer's document cursor uses `XDocumentInsertable.insertDocumentFromURL(...)` to insert later source documents in order;
+- `com.sun.star.text.ControlCharacter.PARAGRAPH_BREAK` creates the insertion boundary;
+- `com.sun.star.style.BreakType.PAGE_BEFORE` requests a page start for later sources when enabled;
+- `XStorable.storeAsURL(...)` writes the temporary merged document; and
+- DOCX export uses the `Office Open XML Text` filter.
+
+Using native APIs is implementation evidence, not proof that every Microsoft Word-specific construct survives Writer insertion/export identically.
+
+## Process and profile isolation
+
+Every supervised acceptance run uses:
 
 1. a unique temporary LibreOffice user-profile directory;
 2. a unique UNO pipe name;
@@ -55,60 +65,67 @@ Every native acceptance run uses:
 5. a separate Python UNO worker; and
 6. cleanup targeted only at the process group created for that acceptance run.
 
-The prototype does not reuse the operator's normal LibreOffice profile and does not issue broad process-name kills.
+The implementation does not reuse the operator's normal LibreOffice profile and does not kill processes by a broad `soffice`/`libreoffice` name match.
 
-This implementation is currently limited to POSIX process-group semantics. Windows native LibreOffice acceptance remains a separate implementation/verification gate if Windows LibreOffice native mode is ever claimed.
+The launcher is polled/reaped while group existence is checked. This prevents an exited launcher from remaining a zombie and being mistaken for a live office group while still allowing a surviving `soffice.bin` child to be detected.
+
+The current cleanup implementation relies on POSIX process-group semantics. Other operating-system process-supervision models remain separate work if native LibreOffice mode is claimed there.
 
 ## Python UNO bridge
 
-The application Python environment is not assumed to contain LibreOffice's `uno` module.
-
-The prototype searches for a Python interpreter that can actually execute:
+The normal DocMergeForge Python environment is not assumed to contain LibreOffice's `uno` module. The prototype searches candidate interpreters and accepts only one that successfully executes:
 
 ```text
 import uno
 ```
 
-The environment variable below can explicitly select that interpreter:
+An operator can explicitly choose the UNO-capable interpreter with:
 
 ```text
 DOCMERGEFORGE_UNO_PYTHON
 ```
 
-On the Ubuntu acceptance workflow, `python3-uno` is installed and `/usr/bin/python3` is verified before the native merge is executed.
+The Ubuntu acceptance workflow installs `python3-uno` and verifies `/usr/bin/python3` can import `uno` before starting Writer.
 
-## Source safety
+## Input and source safety
 
-Before starting LibreOffice, DocMergeForge:
+Before Writer starts, DocMergeForge:
 
-- requires at least one DOCX source;
-- requires a separate `.docx` output path;
+- requires at least one source;
+- accepts DOCX sources only;
+- requires a separate `.docx` destination;
 - rejects duplicate resolved source paths;
-- refuses to overwrite an existing destination;
-- validates every source DOCX/OOXML package; and
+- refuses an existing destination;
+- validates every source OOXML package;
+- requires a positive timeout; and
 - records source SHA-256 hashes.
 
-The first source is copied to an isolated temporary master working copy before Writer opens it for editing. Later source files are inserted by URL and are not selected as the writable master.
+The first source is copied to an isolated temporary master working copy. Writer edits that copy rather than the original. Later sources are inserted by URL in the exact supplied order.
 
-Source hashes are checked before/after native processing. The result is written to a temporary DOCX, validated, promoted to the requested output, validated again, and source hashes are rechecked.
+Source hashes are rechecked around native processing and evidence construction. The native result is written to a temporary DOCX, structurally validated, promoted only after checks pass, validated again at the final path, and source integrity is checked again.
 
-## Worker timeout and process-group cleanup
+## Timeout and process-group cleanup
 
-The UNO worker is given a positive timeout. If it exceeds that timeout:
+If the UNO worker exceeds its timeout:
 
-1. only the worker process is killed first;
-2. the isolated LibreOffice process group receives `SIGTERM`;
-3. DocMergeForge waits for the complete group to disappear;
-4. if necessary, that same isolated group receives `SIGKILL`; and
-5. acceptance fails if the isolated group still cannot be proven gone.
+1. the worker process is terminated;
+2. the isolated LibreOffice group receives `SIGTERM`;
+3. DocMergeForge waits for the complete process group to disappear while polling/reaping its launcher;
+4. if the group remains, that same isolated group receives `SIGKILL`; and
+5. the operation fails if group termination cannot be proven.
 
-The cleanup waits on the **process group**, not merely the LibreOffice launcher PID, so a surviving `soffice.bin` child cannot be ignored because its launcher exited.
+This cleanup is independently regression-tested with real POSIX subprocesses in:
 
-This is an acceptance safety boundary, not a claim about every possible OS/process failure.
+```text
+tests/integration/test_lo_uno_process_group.py
+.github/workflows/libreoffice-uno-process-cleanup.yml
+```
+
+That lane exercises process supervision without depending on document fidelity, so a cleanup regression cannot be hidden by a Writer-document result.
 
 ## Current measured acceptance
 
-`src/docmergeforge/docx/libreoffice_merge_acceptance.py` currently measures the parts of multi-document insertion that are expected to be stable enough for the first external gate:
+`src/docmergeforge/docx/libreoffice_uno_acceptance.py` deliberately starts with a narrow, measurable first gate.
 
 ### Structure
 
@@ -122,103 +139,129 @@ This is an acceptance safety boundary, not a claim about every possible OS/proce
 - ordered non-empty body paragraph text SHA-256;
 - ordered body-table-cell text SHA-256.
 
-Length-delimited UTF-8 records are hashed; plain manuscript text is not serialized into acceptance JSON.
+Text records are length-delimited before hashing. Plain manuscript text is not serialized into the JSON evidence.
 
 ### OOXML risk categories
 
 The acceptance compares the union of risky source OOXML categories with the output and rejects newly introduced risk categories.
 
-### Source revision binding
+### Source-revision binding
 
-Source hashes are captured before expected evidence is built and rechecked before native execution, after native execution, and after output evidence is calculated.
+Source hashes are captured before expected evidence is built and checked again before native execution, after Writer processing, and after output evidence is measured. Evidence from mixed source revisions therefore fails closed.
+
+### Acceptance rule
+
+The first supervised UNO gate accepts only when:
+
+1. expected and output measured structures match;
+2. ordered body-text/table-cell fingerprints match; and
+3. no new risky OOXML category appears in the merged output.
+
+This rule is intentionally narrower than universal layout fidelity.
 
 ## Deliberately excluded from the current pass rule
 
-The first native LibreOffice multi-document gate does **not** yet treat the following as certified pass criteria:
+The current supervised UNO pass does **not** certify:
 
 - section count/equivalence;
-- page orientation and page size;
-- margins/gutter;
-- header/footer linkage;
-- page-number restart/format semantics;
-- exact line wrapping/pagination;
+- page orientation, size, or margins;
+- gutter/header/footer distances;
+- header/footer content and linked-to-previous semantics;
+- page-number restart/format/chapter semantics;
+- exact line wrapping or pagination;
 - floating-object coordinates;
-- fields/TOC recalculation;
-- chart/SmartArt appearance;
-- tracked-change/comment display;
+- fields/TOC/bookmark/hyperlink recalculation or rendering;
+- charts/SmartArt appearance;
+- comments/tracked-change behavior;
 - content controls;
 - embedded objects/custom XML;
-- font substitution.
+- font availability or substitution.
 
-Those remain explicit later acceptance gates rather than being silently assumed from body-text success.
+Those remain explicit later acceptance gates.
 
 ## Synthetic real-Writer smoke
 
-Run on a POSIX host with LibreOffice Writer and a working Python UNO bridge:
+On a POSIX host with LibreOffice Writer and a working Python UNO bridge:
 
 ```bash
-python scripts/check_libreoffice_native_merge_smoke.py \
-  --output-dir libreoffice-native-evidence \
+python scripts/check_libreoffice_uno_merge_smoke.py \
+  --output-dir libreoffice-uno-evidence \
   --timeout 300
 ```
 
-The smoke creates two separate DOCX inputs with distinct paragraphs and tables, executes the real UNO insertion path, and writes:
+The smoke creates two distinct DOCX sources, executes the real supervised Writer insertion path, and writes the merged DOCX plus privacy-safe measured JSON evidence. Existing artifacts are not overwritten.
 
-```text
-libreoffice-merge-source-01.docx
-libreoffice-merge-source-02.docx
-libreoffice-native-merged.docx
-libreoffice-native-merge-evidence.json
+## Explicit ordered acceptance command
+
+For private representative manuscripts, repeat `--input` in the exact intended merge order:
+
+```bash
+python scripts/check_libreoffice_uno_merge_acceptance.py \
+  --input "./private-corpus/Part 1.docx" \
+  --input "./private-corpus/Part 2.docx" \
+  --output "./private-evidence/merged.docx" \
+  --evidence "./private-evidence/libreoffice-uno-evidence.json" \
+  --timeout 300
 ```
 
-Existing smoke artifacts are never overwritten.
+Use `--no-start-each-on-new-page` only when the acceptance scenario intentionally requires continuous insertion boundaries.
+
+Exit behavior:
+
+- `0` — the measured acceptance rule passed;
+- `2` — a result/evidence record was produced but measured acceptance failed;
+- other non-zero/error — input, capability, UNO, timeout, cleanup, source-integrity, output-validation, or output-safety failure.
+
+Existing evidence is not overwritten. Keep private input/output DOCX files outside public workflow artifacts unless their disclosure is intentional.
 
 ## GitHub Actions acceptance
 
-`.github/workflows/libreoffice-native-acceptance.yml` runs on relevant `main` changes and manual dispatch.
-
-The Ubuntu job:
+`.github/workflows/libreoffice-uno-acceptance.yml` runs on relevant `main` changes and manual dispatch. Its Ubuntu job:
 
 1. installs LibreOffice Writer and `python3-uno`;
-2. installs DocMergeForge developer dependencies;
-3. records normal fidelity capability separation;
+2. installs DocMergeForge development dependencies;
+3. reports fidelity capability separation;
 4. verifies `/usr/bin/python3` can import `uno`;
-5. runs LibreOffice round-trip/native-merge/acceptance/smoke boundary tests;
-6. executes the real Writer UNO multi-document smoke;
-7. displays measured JSON evidence when available; and
-8. uploads the generated source/output/evidence bundle even when later investigation is required.
+5. runs the supervised merge, evidence, workflow-policy, smoke, and explicit-command regression surface;
+6. executes a real two-document Writer UNO merge;
+7. displays measured evidence when available; and
+8. uploads the synthetic source/output/evidence bundle.
 
-A workflow definition is not acceptance evidence. Record a concrete passing run ID before citing this gate externally.
+`.github/workflows/libreoffice-uno-process-cleanup.yml` independently executes the real process-group cleanup regressions.
+
+A workflow definition is not passing evidence. A concrete completed run and its artifacts must be reviewed before citing external LibreOffice acceptance.
 
 ## Production policy
 
-Even after a passing first native Writer smoke:
+Even after the first real supervised Writer smoke passes:
 
 ```text
 libreoffice.production_ready = false
 ```
 
-must remain unchanged.
+must remain unchanged until the complete supported application contract is certified.
 
-Production certification still requires representative real-world corpora, section/page-layout fidelity, advanced OOXML constructs, target-platform/version coverage, large-document behavior, cancellation/cleanup acceptance, packaged application integration if distributed, and human rendering/behavior review.
+Production certification still requires representative real-world corpora, section/page-layout fidelity, advanced OOXML constructs, target-platform/version coverage, large-document behavior, cancellation/process cleanup, packaged-app integration if distributed, and human rendering/interoperability review.
 
-## Remaining LibreOffice work
+## Remaining LibreOffice release gates
 
 Before native LibreOffice production mode can be considered:
 
-1. obtain and review a passing real UNO multi-document acceptance run;
-2. expand measured evidence to section/page-style/header/footer/page-number behavior;
-3. test complex styles/themes/list numbering;
-4. test images/drawings/text boxes;
-5. test fields/TOC/bookmarks/hyperlinks;
-6. test comments/tracked changes/content controls;
-7. test equations/charts/embedded objects/custom XML;
-8. test non-Latin text and representative fonts;
-9. test very large/long-running documents;
-10. run representative private manuscript corpora;
-11. perform manual Writer and Microsoft Word interoperability review where relevant;
-12. implement/verify other OS process-isolation semantics if those platforms are claimed; and
-13. keep every discovered fidelity defect as a reproducible regression.
+1. obtain and review a passing real supervised UNO multi-document workflow run;
+2. obtain and review the real process-group cleanup workflow evidence;
+3. expand measured evidence to sections/page styles/headers/footers/page numbering;
+4. test complex styles/themes/list numbering;
+5. test images/drawings/text boxes;
+6. test fields/TOC/bookmarks/hyperlinks;
+7. test comments/tracked changes/content controls;
+8. test equations/charts/SmartArt/embedded objects/custom XML;
+9. test non-Latin text and representative fonts;
+10. test very large and long-running documents;
+11. run representative private multi-document corpora;
+12. perform manual LibreOffice Writer and Microsoft Word interoperability review where relevant;
+13. implement/verify non-POSIX process isolation if additional operating systems are claimed;
+14. integrate the native path into the full application/project transaction contract only after certification; and
+15. preserve every discovered fidelity defect as a reproducible regression.
 
 See also:
 
