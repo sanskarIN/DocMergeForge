@@ -18,15 +18,21 @@ def validate_part_set(
     expected_end: int,
     *,
     allow_encrypted_pdf: bool = False,
+    merge_documents: list[InputDocument] | None = None,
 ) -> ValidationResult:
     selected = [item for item in documents if item.kind == kind]
+    merge_selected = selected if merge_documents is None else [
+        item for item in merge_documents if item.kind == kind
+    ]
+    merge_ids = {id(item) for item in merge_selected}
     expected = list(range(expected_start, expected_end + 1))
     expected_set = set(expected)
     by_part: dict[int, list[InputDocument]] = defaultdict(list)
     diagnostics: list[Diagnostic] = []
 
     for item in selected:
-        if item.size == 0:
+        is_merge_input = id(item) in merge_ids
+        if item.size == 0 and is_merge_input:
             diagnostics.append(
                 Diagnostic(
                     DiagnosticLevel.ERROR,
@@ -41,10 +47,24 @@ def validate_part_set(
                     DiagnosticLevel.WARNING,
                     "Could not detect a part number from the filename.",
                     item.path,
-                    "Rename the file or assign a part number manually.",
+                    (
+                        "Review the explicit project selection for this file."
+                        if is_merge_input
+                        else "Automatic merges exclude this file unless it is explicitly selected."
+                    ),
                 )
             )
+            for warning in item.warnings:
+                diagnostics.append(
+                    Diagnostic(
+                        DiagnosticLevel.WARNING,
+                        warning,
+                        item.path,
+                        "Inspect this file before merging.",
+                    )
+                )
             continue
+
         by_part[item.part.number].append(item)
         if item.part.number not in expected_set:
             diagnostics.append(
@@ -55,7 +75,7 @@ def validate_part_set(
                     "Automatic merges exclude it unless it is explicitly selected in a project.",
                 )
             )
-        if kind == DocumentKind.PDF and item.encrypted:
+        if kind == DocumentKind.PDF and item.encrypted and is_merge_input:
             if allow_encrypted_pdf:
                 diagnostics.append(
                     Diagnostic(
