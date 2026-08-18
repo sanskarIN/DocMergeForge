@@ -30,13 +30,19 @@ The master specification is larger than a single safe implementation step. Work 
 - Merge profiles and publication-oriented output naming/settings.
 - Remaining gate: broad real-world manuscript fidelity regression coverage before stable-release claims.
 
-## v0.4.x — Fidelity adapters — partially implemented
+## v0.4.x — Fidelity adapters — implementation advanced / production certification pending
 - Interactive encrypted-PDF password-in-memory flow is implemented for desktop and CLI use.
-- Portable OOXML fidelity mode is the production path.
-- LibreOffice availability is detected, but high-fidelity automation is not production-ready.
-- Microsoft Word capability is detected on Windows, but the high-fidelity adapter is not production-ready.
-- Non-production fidelity modes are rejected explicitly instead of silently falling back.
-- Remaining gate: complete LibreOffice/Word adapters plus risky-construct review and platform fidelity testing. Detection alone must never be represented as production fidelity support.
+- Portable OOXML fidelity mode remains the production merge path.
+- Native office execution now has a shared fail-closed boundary with timeout, captured diagnostics, DOCX output validation, and source-hash verification.
+- LibreOffice has an explicit source-preserving DOCX round-trip adapter using detected `libreoffice`/`soffice` executables.
+- Microsoft Word has an explicit Windows PowerShell/COM source-preserving DOCX round-trip adapter that opens inputs read-only and writes to validated temporary output before promotion.
+- Capability reporting now separates local availability, automation readiness, and production readiness.
+- `docmergeforge fidelity-capabilities` exposes those states without promoting external adapters to production.
+- `docmergeforge fidelity-roundtrip` generates source/output hashes, structural snapshots, risky-construct findings, and an acceptance result for a selected representative DOCX.
+- Risk review now detects macros, OLE/package embeddings, ActiveX, custom XML, comments, external relationships, tracked revisions, content controls, field codes, equations, altChunk content, charts, SmartArt/diagrams, and oversized markup skipped by the bounded scan.
+- A real LibreOffice Writer round-trip acceptance workflow is implemented for Ubuntu and uploads its evidence bundle.
+- Non-production fidelity modes are still rejected by the normal merge engine instead of silently falling back.
+- Remaining gate: complete and certify true multi-document LibreOffice/Word merge semantics; execute representative real-world corpus acceptance on every claimed target platform/application version; run Microsoft Word acceptance on a controlled Windows host with Word actually installed; add regression cases for any discovered fidelity deviations. A successful synthetic or single-document round-trip alone is not production certification.
 
 ## v0.5.x — Desktop completeness and accessibility — substantially implemented / acceptance pending
 - Settings, Help, Recent Projects, Validate, Audit, Compare, Resume, Support, and About entry points are implemented.
@@ -65,6 +71,7 @@ The master specification is larger than a single safe implementation step. Work 
 - Destination writeability is probed before expensive project merge work, and fault-injected `ENOSPC` coverage verifies atomic temporary-file cleanup and preservation of the previously published target.
 - Disk Full Acceptance mounts an isolated 32 MiB Linux tmpfs, writes until a real kernel `ENOSPC`, and verifies the previous published target remains unchanged and `.part` residue is removed. This is real Linux filesystem-exhaustion evidence, not merely exception injection.
 - A scalable synthetic stress-fixture generator and manually dispatchable stress workflow are implemented for measured large-run acceptance.
+- DOCX Fidelity Acceptance now adds a real external-application smoke lane for LibreOffice Writer on Ubuntu while keeping Word and multi-document external merge certification as separate gates.
 - Remaining gate: equivalent disk-full acceptance on additional filesystems/platforms if claimed, power-loss/device-disconnect scenarios where practical, multi-host/network-filesystem locking acceptance if claimed, an actually executed multi-gigabyte stress run, large real-world manuscript fidelity runs, human accessibility acceptance, clean-machine interactive packaged-app acceptance, platform-specific installer/bundle polish, final signed-release checksum publication, signing, and macOS notarization.
 - Signed or notarized binaries are not claimed.
 
