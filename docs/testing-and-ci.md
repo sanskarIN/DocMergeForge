@@ -17,11 +17,11 @@ pytest --cov=docmergeforge --cov-report=term-missing
 
 ### Unit tests
 
-Focused coverage includes part detection/natural sorting, output naming, settings/project serialization, storage/writeability, transaction recovery, cross-process locking, PDF/DOCX helpers, native DOCX command safety, external-office round-trip adapters, fidelity capability gates/evidence, OOXML risk scanning, Microsoft Word native-merge boundaries, page-number section evidence, exact Word process cleanup, packaging arguments, build provenance, and documentation-link resolution.
+Focused coverage includes part detection/natural sorting, output naming, settings/project serialization, storage/writeability, transaction recovery, cross-process locking, PDF/DOCX helpers, native DOCX command safety, external-office round-trip adapters, fidelity capability gates/evidence, OOXML risk scanning, Microsoft Word native-merge boundaries, page-number section evidence, exact Word process cleanup, cleanup-failure escalation, packaging arguments, build provenance, and documentation-link resolution.
 
 ### Integration tests
 
-Marked `integration`. They exercise multiple components together, including real PDF/DOCX fixtures, merge flows, CLI behavior, fidelity evidence generation, Word acceptance/smoke harness behavior through mocked external-process boundaries, UI metadata, provenance command execution, packaged-entry smoke behavior, abrupt child-process recovery, and privacy-safe resource evidence.
+Marked `integration`. They exercise multiple components together, including real PDF/DOCX fixtures, merge flows, CLI behavior, fidelity evidence generation, Word merge/timeout acceptance harness behavior through mocked external-process boundaries, UI metadata, provenance command execution, packaged-entry smoke behavior, abrupt child-process recovery, and privacy-safe resource evidence.
 
 ```bash
 pytest -m integration
@@ -51,7 +51,7 @@ Python 3.12: PASS
 Python 3.13: PASS
 ```
 
-That checkpoint predates the current Word-native/page-number/process-cleanup work and must not be reused as proof for the current head. Record a new run only after it actually passes.
+That checkpoint predates the current Word-native/page-number/process-cleanup/timeout-harness work and must not be reused as proof for the current head. Record a new run only after it actually passes.
 
 ## Documentation link integrity
 
@@ -107,12 +107,12 @@ The Ubuntu lane:
 1. installs LibreOffice Writer;
 2. installs DocMergeForge development dependencies;
 3. reports `fidelity-capabilities` so availability/automation/production states stay distinct;
-4. runs native-command, LibreOffice, Word round-trip, Word native-merge, exact-process-cleanup, section/page-number, source-revision, corpus, workflow-policy, environment/process-script, CLI, and OOXML-risk tests;
+4. runs native-command, LibreOffice, Word round-trip, Word native-merge, exact-process-cleanup, cleanup-failure, section/page-number, source-revision, timeout-harness, corpus, workflow-policy, environment/process-script, CLI, and OOXML-risk tests;
 5. executes a **real LibreOffice Writer** synthetic DOCX round trip;
 6. prints measured JSON evidence; and
 7. uploads source/output/evidence artifacts.
 
-The Word-related tests in this Linux lane validate Python, OOXML parsing, generated PowerShell, process policy, and acceptance logic with mocked external execution. They do **not** claim Microsoft Word ran on Linux.
+The Word-related tests in this Linux lane validate Python, OOXML parsing, generated PowerShell, process policy, timeout-harness behavior, and acceptance logic with mocked external execution. They do **not** claim Microsoft Word ran on Linux.
 
 A passing LibreOffice lane still does not certify complete native multi-document LibreOffice behavior or universal visual equivalence.
 
@@ -147,15 +147,15 @@ It deliberately fails if Word has been marked production-ready before certificat
 
 ### Clean host/process policy
 
-Before the smoke, `scripts/check_word_process_state.ps1` writes `word-process-before.json` and rejects any pre-existing `WINWORD` process. This prevents acceptance automation from being confused with an operator's unrelated Word session.
+Before acceptance, `scripts/check_word_process_state.ps1` writes `word-process-before.json` and rejects any pre-existing `WINWORD` process. This prevents acceptance automation from being confused with an operator's unrelated Word session.
 
-After the smoke it writes `word-process-after.json` and rejects leftover `WINWORD` state. The broad process-state guard is detection-only and never kills unknown Word processes.
+After the normal merge and timeout-cleanup stages, it writes `word-process-after.json` and rejects leftover `WINWORD` state. The broad process-state guard is detection-only and never kills unknown Word processes.
 
-The native merge itself separately records its own Word PID, `WINWORD` name, and process start-time fingerprint. `src/docmergeforge/docx/word_process.py` permits forced cleanup only when all three still match. PID reuse/mismatches fail closed. A real forced-timeout controlled run remains required before timeout cleanup is claimed as externally verified.
+The native merge and timeout harness separately record their own Word PID, `WINWORD` name, and process start-time fingerprint. `src/docmergeforge/docx/word_process.py` permits forced cleanup only when all three still match. PID reuse/mismatches fail closed.
 
-### Measured Word evidence
+### Measured Word merge evidence
 
-The deterministic smoke uses two distinct sources. It measures aggregate structure, privacy-safe body/table/header/footer text, section layout/linkage, page-number section semantics, source hashes, and OOXML risk categories.
+The deterministic normal merge smoke uses two distinct sources. It measures aggregate structure, privacy-safe body/table/header/footer text, section layout/linkage, page-number section semantics, source hashes, and OOXML risk categories.
 
 The second source deliberately differs from the first in orientation, margins, header/footer distances, and numbering. Numbering uses:
 
@@ -168,11 +168,30 @@ The page-number parser currently measures `w:start`, `w:fmt`, `w:chapStyle`, and
 
 Source hashes are captured before expected snapshots and checked after expected evidence, after Word execution, and again after output evidence. Mixed-revision evidence therefore fails closed.
 
+### Controlled timeout-cleanup evidence
+
+After the normal Word smoke passes, the controlled workflow executes:
+
+```text
+scripts/check_word_timeout_cleanup_acceptance.py
+```
+
+The harness intentionally holds an invisible Word COM session longer than `timeout_cleanup_seconds`, requires the native command to time out, requires exact Word identity to have been captured before timeout, invokes exact-instance cleanup, and writes:
+
+```text
+word-timeout-process-identity.json
+word-timeout-cleanup-evidence.json
+```
+
+Evidence distinguishes natural Word exit from exact-process forced termination. Either can be a valid cleanup outcome as long as exact identity is verified and cleanup succeeds. A non-timeout Word error, missing identity, identity mismatch, or cleanup failure is rejected.
+
+See [Microsoft Word Timeout Cleanup Acceptance](word-timeout-cleanup-acceptance.md).
+
 ### Controlled workflow sequence
 
-The workflow records Windows/Word environment metadata, records/verifies capability policy, requires clean pre-Word state, runs Word boundary/evidence/process tests, executes the real COM smoke, requires clean post-Word state, displays available evidence, uploads it even after measured smoke failure, and finally fails unless pre-state, smoke, and post-state all passed.
+The workflow records Windows/Word environment metadata, records/verifies capability policy, requires clean pre-Word state, runs Word boundary/evidence/process/timeout-harness tests, executes the real COM merge smoke, executes the real timeout-cleanup harness, requires clean post-Word state, displays available normal/timeout evidence, uploads it even after measured failure, and finally fails unless pre-state, merge smoke, timeout cleanup, and post-state all passed.
 
-Defining the workflow is not proof it ran. Do not cite Word acceptance until a real self-hosted run ID and its evidence have been reviewed.
+Defining the workflow is not proof it ran. Do not cite Word normal or timeout acceptance until a real self-hosted run ID and its evidence have been reviewed.
 
 See [Microsoft Word Native Merge Acceptance](word-native-merge-acceptance.md).
 
@@ -249,7 +268,7 @@ Current workflow generations include checkout/setup-python v7, upload-artifact v
 
 ## Fidelity testing
 
-PDF/DOCX tests cover structural/package behavior, ordering, encryption, sections/styles/numbering/media/relationships/fields, cancellation, source immutability, output validation, external-office command failures/timeouts, capability gating, measured round-trip evidence, Word native-merge boundaries, section/linkage fingerprints, page-number section semantics, source-revision binding, exact-process cleanup, private-corpus behavior, and risky OOXML constructs where practical.
+PDF/DOCX tests cover structural/package behavior, ordering, encryption, sections/styles/numbering/media/relationships/fields, cancellation, source immutability, output validation, external-office command failures/timeouts, capability gating, measured round-trip evidence, Word native-merge boundaries, section/linkage fingerprints, page-number section semantics, source-revision binding, exact-process cleanup, controlled timeout cleanup, cleanup-failure escalation, private-corpus behavior, and risky OOXML constructs where practical.
 
 Automated tests still cannot prove every Microsoft Word/LibreOffice/PDF viewer rendering decision. Representative real-world human fidelity review remains separate.
 
@@ -257,7 +276,7 @@ Automated tests still cannot prove every Microsoft Word/LibreOffice/PDF viewer r
 
 Use synthetic fixtures whenever possible. Never commit private manuscripts, passwords, tokens, signing keys, or confidential diagnostics. Reduce private-document regressions to the smallest privacy-safe synthetic structure that reproduces the defect.
 
-The controlled Word workflow uploads generated synthetic DOCX/evidence/environment/capability/process-state data. Temporary exact Word process identity files are cleanup control data, not publication artifacts.
+The controlled Word workflow uploads generated synthetic DOCX/evidence/environment/capability/process-state/timeout-cleanup data. Exact Word process identity files contain process-control values, not manuscript text, but should still be treated as technical acceptance evidence rather than publication output.
 
 ## CI debugging policy
 
@@ -265,7 +284,7 @@ When a gate fails, inspect the exact failed step, distinguish environment from a
 
 ## Release CI acceptance matrix
 
-Before a stable release candidate, obtain current evidence appropriate to each support statement for Quality, documentation-link integrity, 120-Part Regression, Build Smoke, Recovery Acceptance, filesystem exhaustion, Security/CodeQL, measured Stress, external-office fidelity, controlled Microsoft Word native acceptance where claimed, Word forced-timeout cleanup where claimed, Package Desktop/Onefile where distributed, checksums/provenance/attestations, fresh-runner execution, representative fidelity, human accessibility/clean-machine QA, and signing/notarization where claimed.
+Before a stable release candidate, obtain current evidence appropriate to each support statement for Quality, documentation-link integrity, 120-Part Regression, Build Smoke, Recovery Acceptance, filesystem exhaustion, Security/CodeQL, measured Stress, external-office fidelity, controlled Microsoft Word native merge acceptance where claimed, controlled Word timeout-cleanup acceptance where claimed, Package Desktop/Onefile where distributed, checksums/provenance/attestations, fresh-runner execution, representative fidelity, human accessibility/clean-machine QA, and signing/notarization where claimed.
 
 Do not reuse older run IDs as proof after materially changing the behavior they validated.
 
