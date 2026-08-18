@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from docmergeforge import __version__
+from docmergeforge.utilities.atomic import atomic_write_text
 
 
 def export_diagnostics(path: Path, warnings: list[str], recent_errors: list[str]) -> Path:
@@ -17,8 +18,5 @@ def export_diagnostics(path: Path, warnings: list[str], recent_errors: list[str]
         "recent_errors": recent_errors,
         "privacy_note": "Document body text and passwords are intentionally excluded.",
     }
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_suffix(path.suffix + ".tmp")
-    temp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    temp.replace(path)
+    atomic_write_text(path, json.dumps(payload, indent=2))
     return path
