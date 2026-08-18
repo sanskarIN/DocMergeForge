@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import subprocess
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -75,3 +75,42 @@ def verify_native_source_unchanged(source: Path, expected_sha256: str) -> None:
     current = sha256_file(source)
     if current != expected_sha256:
         raise ValidationError(f"Source integrity violation during native DOCX processing: {source}")
+
+
+def verify_native_sources_unchanged(source_hashes: Mapping[Path, str]) -> None:
+    """Verify every tracked source still matches the hash captured before native work."""
+    for source, expected_hash in source_hashes.items():
+        verify_native_source_unchanged(source, expected_hash)
+
+
+def promote_validated_native_docx_output(
+    temporary_output: Path,
+    destination: Path,
+    source_hashes: Mapping[Path, str],
+) -> None:
+    """Promote a native-office DOCX and fail closed without leaving a false-success file.
+
+    Callers must already have refused an existing destination. The temporary output and
+    all tracked sources are checked before promotion. They are checked again immediately
+    afterward to catch a last-moment source change or destination corruption. If that
+    final verification fails, the destination created by this operation is removed.
+    """
+    if destination.exists():
+        raise FileExistsError(f"Refusing to overwrite existing DOCX output: {destination}")
+
+    validate_native_docx_output(temporary_output)
+    verify_native_sources_unchanged(source_hashes)
+    temporary_output.replace(destination)
+
+    try:
+        validate_native_docx_output(destination)
+        verify_native_sources_unchanged(source_hashes)
+    except Exception:
+        try:
+            destination.unlink(missing_ok=True)
+        except OSError as cleanup_error:
+            raise ValidationError(
+                "Native DOCX final verification failed and the newly promoted output "
+                "could not be removed safely."
+            ) from cleanup_error
+        raise
