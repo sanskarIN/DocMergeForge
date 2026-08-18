@@ -1,8 +1,8 @@
 # DOCX Fidelity Adapters and Acceptance
 
-DocMergeForge separates **adapter implementation**, **local automation availability**, and **production-readiness**. These are different states and must never be collapsed into one claim.
+DocMergeForge separates **adapter implementation**, **local automation availability**, **measured acceptance**, and **production-readiness**. These are different states and must never be collapsed into one claim.
 
-The portable OOXML path remains the production-supported DOCX merge engine. LibreOffice and Microsoft Word now have explicit source-preserving round-trip adapter boundaries and measurable acceptance evidence, but neither external adapter is automatically selected for production merging.
+The portable OOXML path remains the only production-supported DOCX merge engine. LibreOffice and Microsoft Word have explicit source-preserving one-document round-trip adapters plus separate native multi-document acceptance prototypes, but neither external mode is automatically selected for production merging.
 
 ## Fidelity states
 
@@ -10,8 +10,8 @@ The portable OOXML path remains the production-supported DOCX merge engine. Libr
 
 - `mode` — `portable`, `libreoffice`, or `word`;
 - `available` — the local automation host/executable can be detected;
-- `automation_ready` — DocMergeForge has an implementation path that can attempt the operation;
-- `production_ready` — the mode is allowed by the production merge gate;
+- `automation_ready` — DocMergeForge has an implementation path that can attempt the external operation;
+- `production_ready` — the mode is allowed by the normal production merge gate;
 - `executable` — detected executable/automation host when applicable;
 - `detail` — operator-facing explanation of the current state.
 
@@ -28,74 +28,95 @@ automation_ready = true
 production_ready = true
 ```
 
-The normal DOCX merge engine still calls the production-fidelity gate before document work begins. Selecting a non-production fidelity mode is rejected rather than silently falling back.
+The normal DOCX merge engine calls the production-fidelity gate before document work begins. Selecting a non-production external fidelity mode is rejected rather than silently falling back or being promoted.
 
-## LibreOffice adapter
+## LibreOffice one-document adapter
 
-The LibreOffice adapter searches for:
-
-```text
-libreoffice
-soffice
-```
-
-The explicit round-trip operation:
+The round-trip adapter searches for `libreoffice` or `soffice` and:
 
 1. requires separate `.docx` source and destination paths;
-2. refuses to overwrite an existing destination;
+2. refuses an existing destination;
 3. snapshots the source SHA-256;
-4. creates a temporary LibreOffice user profile for the acceptance run instead of reusing the user's normal profile;
-5. invokes LibreOffice without a shell using headless/no-startup UI options;
-6. writes the converted document into a temporary directory beside the destination;
-7. validates the temporary OOXML package;
-8. verifies the source hash is unchanged;
-9. promotes the validated copy to the requested destination;
-10. validates the final destination again;
-11. verifies the source hash again;
-12. removes the temporary automation profile/directory during normal cleanup.
+4. creates an isolated temporary LibreOffice user profile;
+5. invokes LibreOffice headlessly without a shell;
+6. writes output into a temporary directory beside the requested destination; and
+7. hands the result to the shared native-output promotion boundary.
 
-The isolated user profile reduces interference from an already-running user profile and avoids making the acceptance run depend on the user's normal LibreOffice state. It does not make claims about every LibreOffice extension, enterprise policy, or telemetry configuration.
+The isolated user profile reduces interference from an already-running user profile. It does not make claims about every LibreOffice extension, enterprise policy, rendering behavior, or version.
 
-LibreOffice automation is an **acceptance tool**, not an implicit replacement for the portable merge engine.
+## Supervised LibreOffice native multi-document acceptance
 
-## Microsoft Word adapter
+DocMergeForge also has one authoritative POSIX Writer/UNO multi-document **acceptance prototype**:
 
-The Microsoft Word adapter is Windows-only and uses Windows PowerShell to drive installed Word through COM. No `pywin32` runtime dependency is required.
+```text
+src/docmergeforge/docx/libreoffice_uno_merge.py
+src/docmergeforge/docx/libreoffice_uno_acceptance.py
+scripts/check_libreoffice_uno_merge_smoke.py
+scripts/check_libreoffice_uno_merge_acceptance.py
+```
 
-The generated PowerShell automation:
+It is deliberately separate from normal production merging.
 
-- starts Word invisibly;
-- disables interactive alerts;
-- sets Word automation security to force-disable macros for the automation session;
-- opens the source read-only;
-- requests that the source not be added to Word's recent-file list;
-- saves a separate DOCX copy with Word's DOCX format identifier;
-- closes the document;
-- quits Word in a `finally` block;
-- releases COM objects and requests pending finalization;
-- writes only to a temporary destination before DocMergeForge validates/promotes it.
+The supervised implementation:
 
-The Python boundary applies the same timeout, source-hash, no-overwrite, separate-output, and OOXML validation rules used by the LibreOffice adapter.
+- creates a unique temporary Writer user profile;
+- creates a unique UNO pipe;
+- copies the first source into a writable master working copy;
+- selects a Python interpreter that can actually `import uno`;
+- launches LibreOffice in a new POSIX session/process group;
+- connects through UNO and inserts later documents in exact supplied order with Writer's document insertion API;
+- optionally requests a page-before insertion boundary;
+- exports the working document with the `Office Open XML Text` filter;
+- supervises/reaps the launcher while tracking the complete process group;
+- escalates only its isolated group from `SIGTERM` to `SIGKILL` when necessary;
+- validates output and source revision identity around promotion; and
+- records privacy-safe measured acceptance evidence.
+
+The first native Writer pass rule currently measures body paragraph/table/inline-shape/heading structure, ordered body/table-cell text fingerprints, source SHA-256 values, and newly introduced risky-OOXML categories. It intentionally does **not** certify sections, page geometry, headers/footers, page numbering, exact pagination, floating objects, field rendering, charts/SmartArt, embedded objects, custom XML, or font substitution.
+
+See [LibreOffice Native Multi-Document Merge Acceptance](libreoffice-native-merge-acceptance.md).
+
+## Microsoft Word one-document adapter
+
+The Microsoft Word round-trip adapter is Windows-only and uses Windows PowerShell to drive installed Word through COM. No `pywin32` runtime dependency is required.
+
+The generated PowerShell automation starts Word invisibly, disables alerts, force-disables automation macros, opens the source read-only without adding it to recent files, saves a separate DOCX copy, closes the document, quits Word in `finally`, releases COM objects, and writes only to a temporary destination before DocMergeForge validates/promotes it.
 
 Detecting Windows PowerShell does **not** prove Microsoft Word is installed. Actual COM availability is verified only when the adapter is run.
 
-## Native command safety boundary
+## Microsoft Word native multi-document acceptance
 
-External office execution is centralized in the native DOCX command boundary.
+A separate Word-native acceptance prototype uses ordered `Range.InsertFile(...)`, real next-page/continuous section boundaries, exact COM-created Word process identity, source-revision binding, structural/text/section/page-number/risk evidence, and controlled timeout cleanup.
 
-Safety properties include:
+The process identity is PID + `WINWORD` name + process start-time fingerprint. Cleanup authority is restricted to that still-matching instance; PID reuse or mismatches fail closed.
 
-- argument-vector execution with `shell=False` behavior through `subprocess.run`;
-- no command-string concatenation;
-- mandatory positive timeout;
-- captured stdout/stderr;
+See [Microsoft Word Native Merge Acceptance](word-native-merge-acceptance.md) and [Microsoft Word Timeout Cleanup Acceptance](word-timeout-cleanup-acceptance.md).
+
+## Native command and output safety boundary
+
+External-office command execution and final output promotion are fail-closed.
+
+Command safety includes:
+
+- argument-vector execution rather than shell command concatenation;
+- mandatory positive timeouts;
+- captured stdout/stderr where appropriate;
 - non-zero exit codes treated as failures;
 - OS launch errors translated to validation failures;
-- bounded error detail in raised messages;
-- post-command DOCX package validation;
-- source-integrity verification.
+- bounded native error detail; and
+- no assumption that exit code `0` means valid DOCX output.
 
-A command that exits successfully but produces no output, an empty file, or invalid OOXML is still a failure.
+Final promotion safety includes:
+
+1. refusal to overwrite an existing acceptance destination;
+2. temporary DOCX package validation before promotion;
+3. tracked source-hash validation immediately before promotion;
+4. promotion to the separate final destination;
+5. final destination package validation;
+6. tracked source-hash validation immediately after promotion; and
+7. removal of the newly created destination if final validation/integrity fails.
+
+This shared promotion rule applies to both one-document adapters and both maintained native multi-document prototypes.
 
 ## Capability inspection
 
@@ -122,9 +143,9 @@ Example shape:
 
 Exact external executable paths and availability depend on the machine.
 
-## Explicit round-trip acceptance
+## Explicit one-document round-trip acceptance
 
-To test one representative document with LibreOffice:
+LibreOffice:
 
 ```bash
 docmergeforge fidelity-roundtrip \
@@ -134,7 +155,7 @@ docmergeforge fidelity-roundtrip \
   --timeout 300
 ```
 
-On a Windows machine with Microsoft Word installed:
+Microsoft Word on a controlled Windows machine with Word installed:
 
 ```powershell
 docmergeforge fidelity-roundtrip `
@@ -144,84 +165,27 @@ docmergeforge fidelity-roundtrip `
   --timeout 300
 ```
 
-The command exits with:
+The command exits with `0` when measured round-trip acceptance passes, `2` when a valid result exists but measured acceptance differs, and an error when the adapter cannot run safely or output validation fails.
 
-- `0` when the measured structural/content acceptance passes;
-- `2` when the produced document is valid but the measured acceptance criteria do not match;
-- an error when the adapter cannot run safely or output validation fails.
+## Round-trip evidence fields
 
-The acceptance output is a separate copy. Originals remain untouched.
+One-document evidence contains source/output hashes, structural snapshots, privacy-safe visible-text fingerprints, source/output risk categories, newly introduced risk categories, structure/content match flags, and overall `accepted` status.
 
-## Evidence fields
+Measured structural counts currently include body paragraphs/tables, inline shapes, sections, headings, and header/footer paragraphs/tables. Content fingerprints cover body paragraph/table-cell text and header/footer paragraph/table-cell text without serializing the text itself.
 
-Round-trip evidence contains:
+`accepted=true` requires structural equality, measured content equality, and no new risky-construct category.
 
-- selected adapter mode;
-- source/output paths;
-- source/output file SHA-256;
-- source/output structural counts;
-- source/output privacy-safe content fingerprints;
-- source/output risky-construct findings;
-- whether measured structural counts match;
-- whether measured visible-text fingerprints match;
-- newly introduced risky constructs;
-- overall `accepted` status.
-
-Measured structural counts currently include:
-
-- body paragraphs;
-- body tables;
-- inline shapes;
-- sections;
-- headings;
-- header paragraphs;
-- footer paragraphs;
-- header tables;
-- footer tables.
-
-Measured content fingerprints currently include SHA-256 values for:
-
-- visible body paragraph text;
-- body table-cell text;
-- header paragraph/table-cell text;
-- footer paragraph/table-cell text.
-
-The text itself is not serialized into the acceptance report. The implementation hashes length-delimited UTF-8 text records so the report can detect measured content changes without storing manuscript body/header/footer text.
-
-`accepted=true` currently requires all of the following:
-
-1. the measured structural snapshot matches;
-2. the measured content fingerprints match; and
-3. no new risky-construct category appears in the round-tripped output.
-
-This is deliberately narrower than a claim of visual/layout identity. For example, it does not prove identical line wrapping, floating-object coordinates, font substitution, field recalculation, chart rendering, or page breaks.
+This is deliberately narrower than visual/layout identity.
 
 ## Risky OOXML construct review
 
-The OOXML risk scanner reports categories including:
+The scanner reports categories including VBA/macros, OLE/package embeddings, ActiveX, custom XML, comments, external relationships, tracked revisions/moves, content controls, Word field codes, Office Math, `altChunk`, charts, SmartArt/diagram parts, and unusually large markup parts skipped by the bounded scan.
 
-- VBA/macros;
-- embedded OLE/package objects;
-- ActiveX controls;
-- custom XML;
-- comments/annotations;
-- external relationships;
-- tracked insertions, deletions, and move revisions;
-- content controls;
-- Word field codes;
-- Office Math equations;
-- alternative-format imported content (`altChunk`);
-- charts;
-- SmartArt/diagram parts;
-- unusually large markup parts skipped by the bounded risk scan.
+Markup scanning uses XML namespace/local-name parsing rather than depending on one literal prefix or quote style. External relationship detection parses relationship XML and handles `TargetMode` case-insensitively.
 
-Markup scanning uses XML namespace/local-name parsing rather than depending on one specific prefix such as `w:` or one XML quote style. External relationship detection also parses relationship XML and handles `TargetMode` case-insensitively.
+Risk detection is a review signal. A finding does not automatically mean corruption, and absence of findings does not prove universal fidelity.
 
-Risk detection is a review signal. A finding does not automatically mean the document is corrupt, and absence of findings does not prove universal fidelity.
-
-## Synthetic acceptance fixture
-
-The repository includes:
+## One-document synthetic acceptance fixture
 
 ```bash
 python scripts/check_docx_fidelity_acceptance.py \
@@ -229,49 +193,45 @@ python scripts/check_docx_fidelity_acceptance.py \
   --output-dir fidelity-evidence
 ```
 
-The script creates a deterministic smoke fixture containing:
+The fixture contains heading/normal/formatted/bullet text, a table, and section header/footer content. The real LibreOffice one-document workflow uses this fixture and uploads its synthetic evidence.
 
-- a heading;
-- normal text;
-- bold and italic runs;
-- bullet paragraphs;
-- a table;
-- a section header;
-- a section footer.
+## Supervised LibreOffice multi-document commands
 
-It then executes the selected external adapter and writes:
+Synthetic Writer smoke:
 
-```text
-fidelity-source.docx
-fidelity-<mode>-roundtrip.docx
-fidelity-<mode>-evidence.json
+```bash
+python scripts/check_libreoffice_uno_merge_smoke.py \
+  --output-dir libreoffice-uno-evidence \
+  --timeout 300
 ```
 
-Existing artifacts are never overwritten.
+Private ordered acceptance:
 
-Because header/footer paragraphs are part of the structural snapshot and header/footer visible text is part of the content fingerprints, losing or changing those measured elements can now make the smoke acceptance fail instead of being ignored.
+```bash
+python scripts/check_libreoffice_uno_merge_acceptance.py \
+  --input "./private-corpus/Part 1.docx" \
+  --input "./private-corpus/Part 2.docx" \
+  --output "./private-libreoffice-evidence/merged.docx" \
+  --evidence "./private-libreoffice-evidence/evidence.json"
+```
 
-## GitHub Actions acceptance
+The explicit command returns `0` when its measured native-Writer rule passes and `2` when a valid merged result/evidence exists but measured content/structure/risk acceptance fails.
 
-`.github/workflows/fidelity-acceptance.yml` runs the LibreOffice path on an Ubuntu GitHub-hosted runner when fidelity-related code changes or when manually dispatched.
+## GitHub Actions acceptance surfaces
 
-The workflow:
+`.github/workflows/fidelity-acceptance.yml` executes the general fidelity regressions and a **real one-document LibreOffice Writer round trip** on Ubuntu.
 
-1. installs LibreOffice Writer;
-2. installs DocMergeForge and development dependencies;
-3. reports fidelity capabilities;
-4. runs fidelity-focused unit tests;
-5. performs a real LibreOffice round-trip using the synthetic fixture;
-6. prints the JSON evidence;
-7. uploads the source, round-trip output, and evidence JSON as a workflow artifact.
+`.github/workflows/libreoffice-uno-acceptance.yml` is the single maintained **real multi-document LibreOffice Writer/UNO** lane. It installs Writer + `python3-uno`, verifies the UNO bridge, runs supervised boundary/command tests, performs a real two-document insertion, and uploads synthetic evidence.
 
-The workflow exists as an executable acceptance lane. A specific run must be recorded as passing before it is cited as release evidence for a commit.
+`.github/workflows/libreoffice-uno-process-cleanup.yml` independently runs real POSIX subprocess cleanup regressions so process supervision does not depend on a document-fidelity outcome.
 
-Even a passing run provides LibreOffice process evidence for the tested Linux runner/build only. It is not Windows/macOS LibreOffice acceptance and it is not Microsoft Word acceptance.
+`.github/workflows/word-native-acceptance.yml` is manual-only on a controlled self-hosted Windows/Word runner and contains both normal native Word merge and timeout-cleanup stages.
 
-## Private representative corpus acceptance
+A workflow definition is not evidence that it passed. Record exact run IDs/checkpoints/artifacts before citing a current-head external-application acceptance result.
 
-For representative documents that cannot be committed to a public repository, run:
+## Private representative one-document corpus acceptance
+
+For representative documents that cannot be committed publicly:
 
 ```bash
 docmergeforge fidelity-corpus \
@@ -280,90 +240,43 @@ docmergeforge fidelity-corpus \
   --mode libreoffice
 ```
 
-On a controlled Windows machine with Microsoft Word installed, use `--mode word`.
+On a controlled Windows machine with Word installed, use `--mode word`.
 
-The corpus runner:
+The corpus runner deterministically discovers DOCX files, preserves source-relative subdirectories below `roundtrip/`, applies structural/content/risk acceptance per file, records hashes/fingerprints without visible manuscript text, rewrites normal paths to relative values, redacts known roots from recorded errors, refuses output inside the source corpus, fails closed on no matches, and never treats a fail-fast partial run as accepted.
 
-- discovers matching DOCX files deterministically;
-- preserves source-relative subdirectory layout below `roundtrip/`;
-- applies the same structural/content/risk acceptance to each source;
-- records source/output file hashes and content fingerprints without serializing visible manuscript text;
-- rewrites source/output paths to corpus-relative paths in the JSON report;
-- redacts the absolute corpus/output roots from recorded per-item errors when those paths occur;
-- refuses to place its output inside the source corpus;
-- fails closed if no DOCX matches;
-- never treats a fail-fast partial run as fully accepted;
-- does not automatically upload the corpus/evidence.
-
-Generated round-trip DOCX files still contain manuscript content and must be treated according to the manuscript's confidentiality requirements.
+Generated round-trip DOCX files still contain manuscript content and remain sensitive.
 
 See [Private DOCX Fidelity Corpus Testing](docx-fidelity-corpus.md).
 
 ## Microsoft Word acceptance requirement
 
-GitHub-hosted Windows runners do not constitute Microsoft Word acceptance unless Word is actually installed and licensed in that environment. A production Word claim therefore requires a controlled Windows acceptance machine with Word present.
+GitHub-hosted Windows runners do not constitute Microsoft Word acceptance unless Word is actually installed and licensed in that environment. A production Word claim requires a controlled Windows acceptance machine with Word present.
 
-At minimum, a Word acceptance record should capture:
-
-- Windows version/build;
-- Microsoft Word version/build and architecture;
-- DocMergeForge commit SHA;
-- representative corpus identifier;
-- capability output;
-- per-document fidelity evidence JSON;
-- Word repair-prompt result;
-- visual/manual review result;
-- generated document hashes;
-- failures or known deviations.
+At minimum, record Windows/Word version/build/architecture, DocMergeForge commit SHA, representative corpus identifier, capability output, measured evidence, repair-prompt result, manual review result, generated document hashes, and known deviations.
 
 Do not mark Word production-ready merely because PowerShell is present.
 
 ## Representative corpus gate
 
-The synthetic fixture is a smoke test, not a sufficient production corpus. Before an external adapter can become production-ready, run documents that cover the constructs the project intends to support, including where applicable:
+Synthetic fixtures are smoke tests, not sufficient production corpora. Before an external adapter can become production-ready, run documents covering the constructs the project intends to support, including multiple sections/orientations, complex headers/footers/linking, page-number restarts, multi-level numbering, custom styles/themes, complex tables, images/drawings/text boxes/charts/SmartArt, hyperlinks/bookmarks, footnotes/endnotes, fields/TOC, equations, comments/tracked changes, content controls, embedded objects, custom XML, non-Latin text/fonts, very large documents, and documents produced by multiple office-suite versions.
 
-- multiple sections and orientations;
-- complex headers/footers and section linking;
-- page-number restarts and continuous numbering;
-- nested/multi-level numbering;
-- custom styles and themes;
-- tables with merges, widths, borders, and pagination behavior;
-- images, drawings, text boxes, charts, and SmartArt;
-- hyperlinks and bookmarks;
-- footnotes/endnotes;
-- fields and TOC behavior;
-- equations;
-- comments and tracked changes;
-- content controls;
-- embedded objects;
-- custom XML;
-- very large documents;
-- non-Latin text and representative fonts;
-- documents produced by multiple Word/LibreOffice versions.
-
-For each supported construct, record both automated evidence and manual rendering/behavior review in the target application.
-
-## Why round-trip before native merge certification
-
-A native office-suite merge adapter can change document semantics even when the process exits successfully. The round-trip stage isolates one variable: whether the external application can safely open and re-save representative source material while preserving the measured structure and visible textual content.
-
-Only after representative round-trip evidence is trustworthy should full native multi-document merge semantics be certified.
+For every claimed construct, record both automated evidence and manual rendering/behavior review in the target application.
 
 ## Production-readiness rule
 
-External fidelity modes must remain `production_ready=false` until all required implementation and acceptance work is complete.
+External fidelity modes must remain `production_ready=false` until the complete supported application contract and acceptance matrix are verified.
 
-Changing that flag requires, at minimum:
+Changing that flag requires at least:
 
-1. a complete multi-document adapter for the target application;
-2. deterministic source-preserving behavior;
-3. cancellation/timeout/error cleanup;
-4. structural/package/content validation appropriate to the support claim;
+1. complete multi-document behavior for the target application;
+2. deterministic source-preserving semantics;
+3. cancellation/timeout/error/process cleanup appropriate to the target OS;
+4. structural/package/content/layout validation appropriate to the support claim;
 5. representative corpus automation;
-6. target-platform/application-version acceptance;
-7. documented manual rendering review;
+6. exact target-platform/application-version acceptance;
+7. documented manual rendering/interoperability review;
 8. regression coverage for discovered fidelity defects;
-9. packaged-app acceptance where the external mode is distributed;
-10. release-evidence records tied to exact commits and tool versions.
+9. packaged-app integration/acceptance where the external mode is distributed; and
+10. release-evidence records tied to exact commits/tool versions.
 
 Until then, portable mode remains the only production-enabled merge path.
