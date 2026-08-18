@@ -46,7 +46,12 @@ class FidelityCorpusReport:
     mode: str
     pattern: str
     recursive: bool
+    discovered_count: int
     items: tuple[FidelityCorpusItem, ...]
+
+    @property
+    def processed_count(self) -> int:
+        return len(self.items)
 
     @property
     def accepted_count(self) -> int:
@@ -54,20 +59,30 @@ class FidelityCorpusReport:
 
     @property
     def failed_count(self) -> int:
-        return len(self.items) - self.accepted_count
+        return self.processed_count - self.accepted_count
+
+    @property
+    def stopped_early(self) -> bool:
+        return self.processed_count < self.discovered_count
 
     @property
     def accepted(self) -> bool:
-        return bool(self.items) and self.failed_count == 0
+        return (
+            self.discovered_count > 0
+            and not self.stopped_early
+            and self.failed_count == 0
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "mode": self.mode,
             "pattern": self.pattern,
             "recursive": self.recursive,
-            "input_count": len(self.items),
+            "discovered_count": self.discovered_count,
+            "processed_count": self.processed_count,
             "accepted_count": self.accepted_count,
             "failed_count": self.failed_count,
+            "stopped_early": self.stopped_early,
             "accepted": self.accepted,
             "items": [item.to_dict() for item in self.items],
         }
@@ -166,6 +181,7 @@ def run_fidelity_corpus(
         mode=mode,
         pattern=pattern,
         recursive=recursive,
+        discovered_count=len(sources),
         items=tuple(items),
     )
 
