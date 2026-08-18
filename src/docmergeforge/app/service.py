@@ -24,7 +24,7 @@ from docmergeforge.presets.sql_full_mastery import (
     REPORT_HTML_FILENAME,
     REPORT_MD_FILENAME,
 )
-from docmergeforge.project.selection import apply_project_selection
+from docmergeforge.project.selection import apply_project_selection, project_merge_documents
 from docmergeforge.reports.generator import (
     write_checksums,
     write_companion_index,
@@ -61,9 +61,31 @@ class DryRunResult:
         return has_documents and pdf_ready and docx_ready
 
 
+def _resolved(path: Path) -> Path:
+    try:
+        return path.resolve(strict=False)
+    except OSError:
+        return path.absolute()
+
+
+def _is_within(path: Path, directory: Path) -> bool:
+    try:
+        _resolved(path).relative_to(_resolved(directory))
+    except ValueError:
+        return False
+    return True
+
+
 class MergeApplicationService:
     def discover(self, project: MergeProject) -> list[InputDocument]:
         discovered = scan(project.source_folders, recursive=True)
+        output = _resolved(project.output_folder)
+        source_roots = [_resolved(root) for root in project.source_folders]
+        output_is_strictly_nested = any(
+            output != source_root and _is_within(output, source_root) for source_root in source_roots
+        )
+        if output_is_strictly_nested:
+            discovered = [item for item in discovered if not _is_within(item.path, output)]
         return apply_project_selection(discovered, project.selected_files)
 
     def dry_run(
@@ -73,8 +95,8 @@ class MergeApplicationService:
         allow_encrypted_pdf: bool = False,
     ) -> DryRunResult:
         inputs = self.discover(project)
-        pdfs = [item for item in inputs if item.kind == DocumentKind.PDF]
-        docxs = [item for item in inputs if item.kind == DocumentKind.DOCX]
+        pdfs = project_merge_documents(project, inputs, DocumentKind.PDF)
+        docxs = project_merge_documents(project, inputs, DocumentKind.DOCX)
         pdf_result = validate_part_set(
             inputs,
             DocumentKind.PDF,
@@ -145,8 +167,8 @@ class MergeApplicationService:
         self._emit(progress, "discovering", 0, 1)
         inputs = self.discover(project)
         self._emit(progress, "discovering", 1, 1)
-        pdfs = [item for item in inputs if item.kind == DocumentKind.PDF]
-        docxs = [item for item in inputs if item.kind == DocumentKind.DOCX]
+        pdfs = project_merge_documents(project, inputs, DocumentKind.PDF)
+        docxs = project_merge_documents(project, inputs, DocumentKind.DOCX)
         companions = [item for item in inputs if item.kind == DocumentKind.COMPANION]
         ignored = [item.path for item in inputs if item.kind == DocumentKind.OTHER]
         if not pdfs and not docxs:
@@ -334,8 +356,8 @@ class MergeApplicationService:
         self._emit(progress, "discovering", 0, 1)
         inputs = self.discover(project)
         self._emit(progress, "discovering", 1, 1)
-        pdfs = [item for item in inputs if item.kind == DocumentKind.PDF]
-        docxs = [item for item in inputs if item.kind == DocumentKind.DOCX]
+        pdfs = project_merge_documents(project, inputs, DocumentKind.PDF)
+        docxs = project_merge_documents(project, inputs, DocumentKind.DOCX)
         companions = [item for item in inputs if item.kind == DocumentKind.COMPANION]
         ignored = [item.path for item in inputs if item.kind == DocumentKind.OTHER]
 
