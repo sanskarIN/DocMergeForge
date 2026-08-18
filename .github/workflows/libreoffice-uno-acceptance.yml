@@ -10,8 +10,10 @@ on:
   push:
     branches: [main]
     paths:
+      - "src/docmergeforge/docx/libreoffice.py"
       - "src/docmergeforge/docx/libreoffice_uno_merge.py"
       - "src/docmergeforge/docx/libreoffice_uno_acceptance.py"
+      - "scripts/check_libreoffice_uno_merge_acceptance.py"
       - "scripts/check_libreoffice_uno_merge_smoke.py"
       - "tests/unit/test_lo_uno_*.py"
       - "tests/integration/test_lo_uno_*.py"
@@ -49,7 +51,9 @@ jobs:
           pytest \
             tests/unit/test_lo_uno_supervised_merge.py \
             tests/unit/test_lo_uno_supervised_acceptance.py \
-            tests/integration/test_lo_uno_supervised_smoke.py
+            tests/unit/test_lo_uno_acceptance_workflow.py \
+            tests/integration/test_lo_uno_supervised_smoke.py \
+            tests/integration/test_lo_uno_acceptance_command.py
       - name: Run real supervised LibreOffice UNO multi-document smoke
         run: |
           python scripts/check_libreoffice_uno_merge_smoke.py \
