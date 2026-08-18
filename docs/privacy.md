@@ -1,6 +1,6 @@
 # Privacy
 
-DocMergeForge is designed as a local-first document-processing application. Core discovery, hashing, validation, PDF/DOCX merging, audit, comparison, reporting, project storage, and interrupted-output recovery operate on files available to the local machine.
+DocMergeForge is designed as a local-first document-processing application. Core discovery, hashing, validation, PDF/DOCX merging, audit, comparison, reporting, project storage, DOCX fidelity acceptance, and interrupted-output recovery operate on files available to the local machine.
 
 ## Core privacy commitments
 
@@ -11,6 +11,8 @@ Current application design follows these principles:
 - encrypted-PDF passwords are not persisted by the application;
 - project files store configuration/paths, not password secrets;
 - companion archives are indexed locally without extraction/upload;
+- private DOCX fidelity corpus execution is local and does not upload corpus files/evidence;
+- fidelity corpus JSON rewrites manuscript locations to corpus-relative paths instead of serializing absolute source paths;
 - diagnostics should avoid manuscript body text;
 - sensitive token/password-like values are redacted in the diagnostics layer;
 - temporary/staged files are cleaned after normal success/failure where safe;
@@ -29,7 +31,9 @@ It does **not** control other software/services on your computer. Your files can
 - cloud virtual desktops;
 - third-party PDF/office applications with their own telemetry/cloud features.
 
-Choose source/output locations according to your privacy policy.
+The LibreOffice/Microsoft Word fidelity acceptance paths intentionally invoke those locally installed applications. Their own telemetry, account, macro, add-in, cloud, policy, or enterprise-management behavior is outside DocMergeForge's control.
+
+Choose source/output locations and external office-suite configuration according to your privacy policy.
 
 ## Source file metadata
 
@@ -85,11 +89,36 @@ Do not include passwords in:
 
 ## Hashes
 
-SHA-256 hashes are generated for source/output/companion identity evidence.
+SHA-256 hashes are generated for source/output/companion/fidelity identity evidence.
 
 A hash is derived from file bytes and is not normally reversible into the full manuscript. However, hashes can still be sensitive identifiers for known files and can reveal that two parties possess identical content.
 
-Share release hashes intentionally.
+Share release/fidelity hashes intentionally.
+
+## Private DOCX fidelity corpus
+
+`docmergeforge fidelity-corpus` exists so representative real-world DOCX files can be acceptance-tested locally without putting those source documents into a public repository or CI fixture set.
+
+The corpus report stores paths such as:
+
+```text
+sections/landscape.docx
+roundtrip/sections/landscape.docx
+```
+
+instead of the absolute source/output paths held internally while the command is running. Nested single-document evidence is rewritten to the same relative paths before JSON serialization.
+
+This reduces path-metadata disclosure but does not make the evidence directory public-safe automatically:
+
+- source/output SHA-256 values remain in the report;
+- error text can originate from the local OS or external office application and should be reviewed;
+- round-tripped DOCX files contain the manuscript content;
+- filenames/subdirectory names can still be sensitive;
+- LibreOffice/Word may have their own local recent-file/history/telemetry behavior.
+
+The output directory must be outside the source corpus, and the command does not upload its corpus/report/artifacts.
+
+Keep private corpus sources and generated evidence outside public source control unless they are intentionally sanitized. See [Private DOCX Fidelity Corpus Testing](docx-fidelity-corpus.md).
 
 ## Reports and manifests
 
@@ -133,7 +162,7 @@ Always review diagnostic exports before sending them to support or attaching the
 
 ## Temporary files
 
-Document engines use temporary/atomic output paths. Full project publication also uses a hidden staging directory under the chosen output folder.
+Document engines use temporary/atomic output paths. Full project publication also uses a hidden staging directory under the chosen output folder. External DOCX fidelity adapters use separate temporary directories beside the requested acceptance output before promoting a validated copy.
 
 Ordinary temporary/staged data is cleaned after normal completion/failure where safe.
 
@@ -175,7 +204,7 @@ Do not upload raw transaction folders from confidential projects to public issue
 
 ## Telemetry
 
-Future telemetry, if ever introduced, should be:
+Future DocMergeForge telemetry, if ever introduced, should be:
 
 - explicit;
 - opt-in;
@@ -183,7 +212,7 @@ Future telemetry, if ever introduced, should be:
 - documented with exactly what fields leave the device;
 - designed never to send manuscript content/passwords.
 
-No documentation should imply telemetry exists until it is actually implemented.
+No documentation should imply DocMergeForge telemetry exists until it is actually implemented. This statement does not make a claim about telemetry in third-party office applications that the fidelity acceptance adapters may invoke.
 
 ## Backups
 
@@ -210,10 +239,14 @@ Before sharing any support material:
 - [ ] Project JSON paths reviewed.
 - [ ] Diagnostic stack traces reviewed.
 - [ ] Audit findings reviewed for email/URL exposure.
+- [ ] Fidelity corpus report filenames/hashes/errors reviewed.
+- [ ] Fidelity round-trip DOCX artifacts excluded unless intentionally shareable.
 
 ## Related documents
 
 - [Security Model](security.md)
+- [Private DOCX Fidelity Corpus Testing](docx-fidelity-corpus.md)
+- [DOCX Fidelity Adapters and Acceptance](docx-fidelity-acceptance.md)
 - [Support](support.md)
 - [Publication Recovery](recovery.md)
 - [`SECURITY.md`](../SECURITY.md)
