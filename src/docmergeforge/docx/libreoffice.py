@@ -7,9 +7,8 @@ from pathlib import Path
 from docmergeforge.core.exceptions import UnsupportedDocumentError, ValidationError
 from docmergeforge.docx.native import (
     NativeCommandResult,
+    promote_validated_native_docx_output,
     run_native_command,
-    validate_native_docx_output,
-    verify_native_source_unchanged,
 )
 from docmergeforge.utilities.hashing import sha256_file
 
@@ -72,10 +71,10 @@ def libreoffice_roundtrip_copy(
             timeout_seconds=timeout_seconds,
         )
         converted = temp_dir / f"{source.stem}.docx"
-        validate_native_docx_output(converted)
-        verify_native_source_unchanged(source, before)
-        converted.replace(destination)
+        promote_validated_native_docx_output(
+            converted,
+            destination,
+            {source: before},
+        )
 
-    validate_native_docx_output(destination)
-    verify_native_source_unchanged(source, before)
     return result
