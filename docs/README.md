@@ -33,6 +33,7 @@ This directory is the canonical documentation set for DocMergeForge. It covers e
 
 - [PDF Engine](pdf-engine.md)
 - [DOCX Engine](docx-engine.md)
+- [DOCX Fidelity Adapters and Acceptance](docx-fidelity-acceptance.md)
 - [SQL Full Mastery 120-Part Preset](sql-full-mastery-preset.md)
 
 ## Safety, privacy, and accessibility
@@ -104,12 +105,12 @@ DocMergeForge currently exposes:
 - reusable JSON project files;
 - the SQL Full Mastery 120-part guided preset;
 - PyInstaller-based desktop packaging helpers;
-- automated Quality, Regression, Build Smoke, Security, Recovery Acceptance, Disk Full Acceptance, Package Desktop, and Onefile Acceptance workflows;
+- automated Quality, Regression, Build Smoke, Security, Recovery Acceptance, Disk Full Acceptance, DOCX Fidelity Acceptance, Package Desktop, and Onefile Acceptance workflows;
 - a manually dispatchable Stress Acceptance workflow.
 
 ## Documentation accuracy policy
 
-Documentation should describe implemented behavior, not aspirational behavior. Features that are capability-detected but not production-ready—such as high-fidelity LibreOffice or Microsoft Word automation—must remain clearly marked as incomplete until their adapters and acceptance tests are finished.
+Documentation should describe implemented behavior, not aspirational behavior. External LibreOffice and Microsoft Word round-trip adapters may be implementation-ready or locally detectable without being production-ready. They must remain clearly separated from the production merge gate until complete native merge semantics and representative target-platform acceptance are verified. See [DOCX Fidelity Adapters and Acceptance](docx-fidelity-acceptance.md).
 
 Executable documentation follows the same rule: current PyInstaller and unsigned CI packaging are documented as implemented and independently smoke-tested, while code signing, notarization, native installer formats, human clean-machine QA, and production distribution remain explicit gates until corresponding acceptance exists.
 
