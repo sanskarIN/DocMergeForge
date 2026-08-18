@@ -56,7 +56,8 @@ def test_configure_logging_falls_back_to_private_stream_on_file_error(
     logger = configure_logging(tmp_path / "app.log")
     assert len(logger.handlers) == 1
     handler = logger.handlers[0]
-    assert type(handler) is logging.StreamHandler
+    assert isinstance(handler, logging.StreamHandler)
+    assert not isinstance(handler, logging.FileHandler)
 
     record = logging.LogRecord(
         "docmergeforge",
