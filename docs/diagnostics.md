@@ -4,17 +4,19 @@ DocMergeForge includes privacy-aware rotating logging and a structured diagnosti
 
 ## Logger identity
 
-The application logger name is:
+The maintained application logger name is:
 
 ```text
 docmergeforge
 ```
 
-Use `get_logger()` when application code needs the configured shared logger rather than creating unrelated handlers.
+Use `get_logger()` from `docmergeforge.diagnostics.logging` when application code needs the configured shared logger rather than creating unrelated handlers.
+
+A former duplicate utility logger was removed because maintaining a second configuration path for the same logger could bypass the privacy filter or drift from the supported rotation/fallback behavior.
 
 ## Configure logging
 
-The logging layer exposes a configuration function conceptually equivalent to:
+The logging layer exposes:
 
 ```python
 configure_logging(path, level="INFO")
@@ -22,16 +24,18 @@ configure_logging(path, level="INFO")
 
 It:
 
-1. creates the parent log directory;
-2. configures the `docmergeforge` logger level;
-3. disables propagation;
-4. closes/removes existing handlers on that logger;
-5. adds a rotating UTF-8 file handler;
-6. attaches the privacy redaction filter.
+1. configures the `docmergeforge` logger level;
+2. disables propagation;
+3. closes/removes existing handlers on that logger;
+4. attempts to create the parent log directory and rotating UTF-8 file handler;
+5. falls back to a stream handler if the log path cannot be created/opened because of an `OSError`; and
+6. attaches the same privacy redaction filter and formatter to either handler.
+
+An unwritable log directory therefore must not prevent the desktop application from opening. The fallback is a resilience measure, not proof that persistent diagnostics are available; fix the filesystem problem if durable logs are required.
 
 ## Rotation policy
 
-Current file rotation settings are:
+When the file handler is available, current rotation settings are:
 
 ```text
 maxBytes = 5 * 1024 * 1024
@@ -57,23 +61,22 @@ A record therefore contains timestamp, severity, logger name, and message.
 
 `configure_logging()` converts the supplied level to uppercase and asks Python's `logging` module for that level. If the string is unknown, it falls back to `INFO`.
 
-Common values:
+The desktop settings loader accepts these persisted values:
 
 ```text
 DEBUG
 INFO
 WARNING
 ERROR
-CRITICAL
 ```
 
-Use DEBUG only when needed and review the resulting file before sharing because more technical context can reveal more path/filename metadata.
+Use DEBUG only when needed and review the resulting output before sharing because more technical context can reveal more path/filename metadata.
 
 ## Privacy redaction
 
 `PrivacyFilter` rewrites messages/arguments through `redact_sensitive_text()` before a record is emitted.
 
-Current redaction recognizes assignment-style keywords, case-insensitively, including:
+Current assignment-style redaction recognizes common secret names case-insensitively, including variants of:
 
 ```text
 password
@@ -81,28 +84,41 @@ passwd
 secret
 token
 authorization
+api_key / api-key
+access_token / access-token
+refresh_token / refresh-token
+client_secret / client-secret
 ```
 
-For patterns similar to:
+It handles ordinary and common JSON-style quoted assignments such as:
 
 ```text
 password=my-secret
 Token: abc123
+{"api_key": "api123"}
+{"client_secret": "client456"}
 ```
 
-the value is replaced with:
+The secret value is replaced with `[REDACTED]` while preserving enough surrounding syntax to keep the diagnostic understandable.
 
-```text
-[REDACTED]
-```
-
-## Bearer-token redaction
+## Authorization/header redaction
 
 Bearer credentials matching the configured token pattern are replaced with:
 
 ```text
 Bearer [REDACTED]
 ```
+
+Common HTTP-style forms are also covered, including:
+
+```text
+Authorization: Basic <credential>
+Authorization: Bearer <credential>
+Api-Key: <credential>
+X-Api-Key: <credential>
+```
+
+Their credential portion is removed before the record reaches the configured handler.
 
 ## Logging arguments
 
@@ -117,13 +133,13 @@ This reduces the chance that a sensitive value bypasses redaction simply because
 
 No regex redactor can identify every possible secret format.
 
-Do not deliberately log sensitive values with the expectation that a filter will save them. Code should avoid putting passwords, authentication secrets, manuscript body text, or private keys into log calls in the first place.
+Do not deliberately log sensitive values with the expectation that a filter will save them. Code should avoid putting passwords, authentication secrets, manuscript body text, private keys, or signing credentials into log calls in the first place.
 
 Redaction is defense in depth, not permission to log secrets.
 
 ## Diagnostic export
 
-The diagnostics export helper writes a JSON file containing:
+The diagnostics export helper writes JSON containing:
 
 ```text
 app_version
@@ -152,23 +168,26 @@ Platform metadata can still be identifying in some contexts. Review it before pu
 
 ## Atomic diagnostics export
 
-The JSON export is written to:
+Diagnostics export uses the same shared atomic text-persistence primitive as app settings, recent-project history, and project JSON.
 
-```text
-<target-suffix>.tmp
-```
+Each export:
 
-and then replaces the final target after the complete JSON has been written.
+1. creates a unique sibling temporary file;
+2. writes UTF-8 JSON;
+3. flushes and `fsync`s that temporary file;
+4. promotes it with `os.replace(...)`; and
+5. removes temporary residue if writing or replacement fails.
 
-This reduces the chance that a normal interrupted write leaves a half-written final diagnostics JSON.
+The implementation does not depend on one predictable `<target>.tmp` filename. A failed replacement leaves the previously published target intact.
 
 ## What diagnostics should not contain
 
 Contributors should not intentionally place any of the following into `warnings`/`recent_errors` or log messages:
 
 - encrypted-PDF passwords;
-- API/access tokens;
+- API/access/refresh tokens;
 - Authorization headers;
+- client secrets;
 - private signing keys/certificate secrets;
 - complete manuscript body text;
 - complete private companion source code;
@@ -240,7 +259,7 @@ Recommended diagnostics procedure:
 4. export structured diagnostics if the desktop support flow offers it;
 5. open the file and inspect it manually;
 6. redact private paths/names as needed;
-7. do not include passwords/manuscript content;
+7. do not include passwords/manuscript content; and
 8. attach only the minimum useful evidence to a public report.
 
 See [Support](support.md).
@@ -250,7 +269,7 @@ See [Support](support.md).
 When adding a log/error/export field:
 
 - Is this information actually necessary?
-- Could it contain a password/token?
+- Could it contain a password/token/API key/client secret?
 - Could it contain manuscript body text?
 - Could a filename/path expose sensitive metadata?
 - Should it go through `redact_sensitive_text()`?
@@ -260,17 +279,20 @@ When adding a log/error/export field:
 
 ## Testing redaction
 
-Security/privacy regression tests should include representative examples of:
+Security/privacy regression tests should include representative synthetic examples of:
 
 ```text
 password=...
 passwd: ...
 secret=...
 token: ...
-authorization=...
-Bearer ...
+{"api_key": "..."}
+{"client_secret": "..."}
+Authorization: Basic ...
+Authorization: Bearer ...
+X-Api-Key: ...
 ```
 
-Tests should verify the sensitive value is absent and `[REDACTED]` is present.
+Tests should verify the sensitive value is absent and `[REDACTED]` is present. Logging tests should also preserve the privacy filter when file logging falls back to the stream handler.
 
 Do not put real credentials into tests.
