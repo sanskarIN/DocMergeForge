@@ -10,8 +10,6 @@ from docmergeforge.docx.section_evidence import (
     page_number_section_records,
 )
 
-_W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-
 
 def _rewrite_document_xml(path: Path, replacements: list[tuple[bytes, bytes]]) -> None:
     with ZipFile(path, "r") as source:
@@ -40,15 +38,17 @@ def _set_page_number_properties(
     chapter_style: str,
     chapter_separator: str,
 ) -> None:
-    marker = b"<w:pgSz"
-    page_number = (
-        f'<w:pgNumType w:start="{start}" w:fmt="{fmt}" '
-        f'w:chapStyle="{chapter_style}" w:chapSep="{chapter_separator}"/>'
-    ).encode()
+    marker = b"<w:cols"
+    attributes = [f'w:start="{start}"', f'w:fmt="{fmt}"']
+    if chapter_style:
+        attributes.append(f'w:chapStyle="{chapter_style}"')
+    if chapter_separator:
+        attributes.append(f'w:chapSep="{chapter_separator}"')
+    page_number = f"<w:pgNumType {' '.join(attributes)}/>".encode()
     with ZipFile(path, "r") as archive:
         document_xml = archive.read("word/document.xml")
     if marker not in document_xml:
-        raise AssertionError("Expected section page-size marker in generated fixture")
+        raise AssertionError("Expected section columns marker in generated fixture")
     _rewrite_document_xml(path, [(marker, page_number + marker)])
 
 
@@ -110,10 +110,7 @@ def test_page_number_fingerprint_changes_when_restart_changes(tmp_path: Path) ->
     )
 
     original = page_number_properties_sha256([first, second])
-    _rewrite_document_xml(
-        second,
-        [(b'w:start="5"', b'w:start="6"')],
-    )
+    _rewrite_document_xml(second, [(b'w:start="5"', b'w:start="6"')])
     changed = page_number_properties_sha256([first, second])
 
     assert original != changed
@@ -139,9 +136,9 @@ def test_page_number_fingerprint_binds_document_order(tmp_path: Path) -> None:
         chapter_separator="",
     )
 
-    assert page_number_properties_sha256([first, second]) != page_number_properties_sha256(
-        [second, first]
-    )
+    assert page_number_properties_sha256(
+        [first, second]
+    ) != page_number_properties_sha256([second, first])
 
 
 def test_page_number_evidence_rejects_non_docx(tmp_path: Path) -> None:
