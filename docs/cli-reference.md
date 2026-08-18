@@ -184,7 +184,7 @@ Do not interpret `available=true` as a universal fidelity guarantee.
 
 ## `fidelity-roundtrip`
 
-Run an explicit external-office round-trip on one DOCX and emit measured structural/risk evidence.
+Run an explicit external-office round-trip on one DOCX and emit measured structural/content/risk evidence.
 
 ```bash
 docmergeforge fidelity-roundtrip \
@@ -224,14 +224,17 @@ docmergeforge fidelity-roundtrip `
   --timeout 300
 ```
 
-The command prints JSON containing source/output hashes, structural snapshots, risk findings, newly introduced risk categories, and `accepted`.
+The command prints JSON containing source/output file hashes, structural snapshots, privacy-safe visible-text fingerprints, risk findings, newly introduced risk categories, `structure_matches`, `content_matches`, and `accepted`.
+
+The structural snapshot currently covers body paragraph/table counts, inline shapes, sections, headings, and header/footer paragraph/table counts. Content evidence contains SHA-256 fingerprints for visible body paragraph text, body table-cell text, header text, and footer text; the visible manuscript text itself is not serialized in the evidence.
 
 `accepted=true` currently requires:
 
-1. matching measured paragraph/table/inline-shape/section/heading counts; and
-2. no new risky-construct category in the round-tripped output.
+1. matching measured structural snapshots;
+2. matching measured visible-text content fingerprints; and
+3. no new risky-construct category in the round-tripped output.
 
-The command returns `0` for measured acceptance and `2` for a structurally valid output that does not meet those measured acceptance criteria. Native-tool launch, timeout, source-integrity, or invalid-output failures are treated as errors.
+The command returns `0` for measured acceptance and `2` for a structurally valid output that does not meet those measured structural/content/risk criteria. Native-tool launch, timeout, source-integrity, or invalid-output failures are treated as errors.
 
 This command creates evidence; it does not enable the external adapter as the normal production merge path. See [DOCX Fidelity Adapters and Acceptance](docx-fidelity-acceptance.md).
 
@@ -302,9 +305,11 @@ The JSON report contains:
 - `failed_count`;
 - `stopped_early`;
 - overall `accepted`;
-- per-document relative source/output paths, error state, and measured evidence.
+- per-document relative source/output paths, error state, file hashes, structural snapshots, visible-text fingerprints, risk findings, and measured acceptance evidence.
 
-The serialized corpus report rewrites source/output locations to corpus-relative paths so workstation/user directory information is not automatically embedded in the report. The generated round-trip DOCX files still contain the document content and therefore remain private unless sanitized.
+The serialized corpus report rewrites source/output locations to corpus-relative paths so workstation/user directory information is not automatically embedded in the report. Known corpus/output roots in recorded per-item errors are also replaced with `<corpus>`/`<evidence>` placeholders. Third-party error text can still contain other sensitive information and should be reviewed before sharing.
+
+The generated round-trip DOCX files still contain the document content and therefore remain private unless sanitized. Hashes/fingerprints are identifiers derived from the content and should also be shared intentionally.
 
 The command returns `0` only when every discovered document was processed and accepted. Fail-fast partial execution, a failed item, or an acceptance mismatch returns `2`/an error as appropriate.
 
