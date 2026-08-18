@@ -12,6 +12,7 @@ from docmergeforge.core.models import (
     MergeState,
     PdfSettings,
 )
+from docmergeforge.utilities.atomic import atomic_write_text
 
 
 def save_project(project: MergeProject, path: Path) -> None:
@@ -20,10 +21,10 @@ def save_project(project: MergeProject, path: Path) -> None:
     data["output_folder"] = str(project.output_folder)
     data["selected_files"] = [str(item) for item in project.selected_files]
     data["state"] = project.state.value
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_suffix(path.suffix + ".tmp")
-    temp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-    temp.replace(path)
+    atomic_write_text(
+        path,
+        json.dumps(data, indent=2, ensure_ascii=False),
+    )
 
 
 def load_project(path: Path) -> MergeProject:
