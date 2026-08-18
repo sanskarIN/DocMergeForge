@@ -70,6 +70,7 @@ jobs:
           pytest `
             tests/unit/test_docx_word.py `
             tests/unit/test_docx_word_merge.py `
+            tests/unit/test_docx_word_merge_cleanup_failure.py `
             tests/unit/test_docx_word_process.py `
             tests/unit/test_docx_section_evidence.py `
             tests/unit/test_docx_word_merge_acceptance.py `
