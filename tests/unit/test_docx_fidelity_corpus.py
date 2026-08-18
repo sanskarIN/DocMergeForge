@@ -77,6 +77,36 @@ def test_run_fidelity_corpus_keeps_report_paths_relative(
     assert item["source"] == "nested/sample.docx"
     assert item["output"] == "roundtrip/nested/sample.docx"
     assert str(corpus.resolve()) not in str(payload)
+    assert str(output.resolve()) not in str(payload)
+
+
+def test_corpus_errors_redact_absolute_private_roots(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    corpus = tmp_path / "private-corpus"
+    output = tmp_path / "private-evidence"
+    source = corpus / "nested" / "sample.docx"
+    _write_docx(source, "Sample")
+
+    def fail_acceptance(
+        source_path: Path, destination: Path, *args: object, **kwargs: object
+    ) -> FidelityAcceptanceEvidence:
+        raise ValidationError(f"failed {source_path} -> {destination}")
+
+    monkeypatch.setattr(
+        fidelity_corpus,
+        "run_fidelity_roundtrip_acceptance",
+        fail_acceptance,
+    )
+    report = fidelity_corpus.run_fidelity_corpus(corpus, output, "libreoffice")
+    payload = report.to_dict()
+    error = payload["items"][0]["error"]
+
+    assert isinstance(error, str)
+    assert str(corpus.resolve()) not in error
+    assert str(output.resolve()) not in error
+    assert "<corpus>/nested/sample.docx" in error
+    assert "<evidence>/roundtrip/nested/sample.docx" in error
 
 
 def test_fail_fast_partial_corpus_is_never_accepted(
