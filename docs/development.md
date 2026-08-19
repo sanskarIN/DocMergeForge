@@ -2,6 +2,8 @@
 
 This guide is for contributors working on DocMergeForge source code, tests, documentation, packaging, or release automation.
 
+For detailed internals, use the [Source Code Reference](source-code-reference.md), [Test Suite Reference](test-suite-reference.md), [Automation and Workflow Reference](automation-reference.md), [Configuration Reference](configuration-reference.md), and [Complete Repository File Reference](repository-reference.md).
+
 ## Development principles
 
 Changes should preserve the project's core invariants:
@@ -16,6 +18,7 @@ Changes should preserve the project's core invariants:
 8. Recovery fails closed rather than guessing when filesystem state conflicts.
 9. Passwords and manuscript body text are not written into diagnostics/project files.
 10. Unsupported high-fidelity modes must not silently pretend to be production-ready.
+11. Every tracked repository file remains explicitly documented in `docs/repository-reference.md`.
 
 ## Environment setup
 
@@ -78,6 +81,8 @@ utilities/    hashing, storage, atomic/transaction helpers
 validation/   part/output comparison and validation services
 ```
 
+Use [Complete Repository File Reference](repository-reference.md) for every tracked path and [Source Code Reference](source-code-reference.md) for module responsibilities and dependency direction.
+
 ## Entry points
 
 Declared console scripts:
@@ -92,9 +97,12 @@ docmergeforge-gui -> docmergeforge.ui.main:main
 Run before committing/pushing code:
 
 ```bash
+pre-commit validate-config
 ruff check .
-black --check .
+black --check --diff .
 mypy src/docmergeforge
+python scripts/check_docs_links.py
+python scripts/check_repository_reference.py
 pytest
 ```
 
@@ -104,7 +112,17 @@ To apply Black formatting:
 black .
 ```
 
-Do not weaken Ruff/Black/mypy settings to make a new change pass unless the project intentionally changes its quality policy and documents why.
+Do not weaken Ruff/Black/mypy/documentation settings to make a new change pass unless the project intentionally changes its quality policy and documents why.
+
+## Documentation integrity checks
+
+DocMergeForge treats documentation as maintained project infrastructure rather than optional prose.
+
+`python scripts/check_docs_links.py` validates repository-local Markdown targets. `python scripts/check_repository_reference.py` obtains the tracked path set with `git ls-files` and requires each path to be explicitly backticked in `docs/repository-reference.md`.
+
+This means a new source module, test, workflow, script, configuration file, asset, or guide should be documented as part of the same change that introduces it. Generated/untracked local files are intentionally outside this coverage contract.
+
+Use [Documentation Catalog](documentation-catalog.md) to choose the canonical guide to update instead of duplicating behavior descriptions across unrelated pages.
 
 ## Type checking
 
@@ -152,7 +170,7 @@ pytest -m regression
 pytest -m "regression or integration" tests/regression tests/integration
 ```
 
-See [Testing and CI](testing-and-ci.md).
+See [Testing and CI](testing-and-ci.md) for execution/CI semantics and [Test Suite Reference](test-suite-reference.md) for the file-by-file ownership map.
 
 ## Synthetic fixtures
 
@@ -258,6 +276,8 @@ CHANGELOG.md
 what_changed.md
 ```
 
+When a tracked path is added, renamed, or deleted, also update `docs/repository-reference.md`. For documentation navigation changes, keep `docs/README.md` and `docs/documentation-catalog.md` synchronized with the canonical set.
+
 Do not mark a release gate complete in documentation until verified evidence exists.
 
 ## Building desktop packages
@@ -316,11 +336,13 @@ A code change is not complete merely because it compiles. Depending on scope, co
 - Ruff green;
 - Black green;
 - strict mypy green;
+- documentation link integrity green;
+- repository-reference coverage green;
 - pytest green;
 - 120-part regression green;
 - cross-platform Build Smoke green;
 - CodeQL/security checks green;
-- updated docs/changelog;
+- updated canonical docs/changelog;
 - platform packaging acceptance;
 - human accessibility/fidelity/stress acceptance.
 
