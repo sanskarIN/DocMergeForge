@@ -41,6 +41,8 @@ The OS releases the lock automatically if the owning process exits or crashes. T
 
 Do **not** delete the lock file as a way to bypass an active lock. Removing a pathname does not safely coordinate with a process that already has the underlying file open.
 
+The maintained lock implementation refuses a pre-existing symlink at the lock-file path. On platforms exposing `O_NOFOLLOW`, the open operation also asks the operating system not to follow a symlink during the open itself. This prevents a lock-file pathname from being used to redirect DocMergeForge's initialization write to an unrelated file.
+
 The lock is local filesystem coordination. Network filesystems can implement advisory locking differently; real shared-filesystem acceptance remains necessary before claiming robust multi-host locking semantics.
 
 ## Transaction folder
@@ -58,6 +60,8 @@ transaction.json
 ```
 
 The journal contains promotion phase and per-output recovery metadata, including staged file fingerprints and whether a previous final file existed.
+
+Before the journal is allowed to describe a promotable staged artifact, each completed staged output is reopened and `fsync` is requested. The journal itself is also flushed and `fsync`ed before its temporary file is atomically promoted to `transaction.json`. These checks strengthen ordinary crash durability, but they are not a claim that every filesystem/device has been certified for sudden power-loss semantics.
 
 ## Journal phases
 
@@ -157,6 +161,25 @@ CLI failure shape:
 
 Exit code: `2`.
 
+## Strict journal validation
+
+Recovery treats `transaction.json` as untrusted recovery evidence rather than blindly coercing JSON values.
+
+Current validation requires:
+
+- an integer journal version equal to the supported version;
+- a string phase from the supported phase set;
+- a non-empty list of entry objects;
+- string staging/final names;
+- real JSON booleans for `overwrite` and `had_existing`;
+- a positive integer staged byte size;
+- exactly 64 hexadecimal characters for each staged SHA-256;
+- a string-or-null backup name;
+- no duplicate final target in one journal;
+- no reused staging/backup child path in one journal.
+
+Values such as `"false"` are **not** accepted as booleans. Malformed or ambiguous recovery evidence stops recovery before filesystem mutation.
+
 ## Fingerprint checks
 
 The journal records for each staged output:
@@ -199,11 +222,14 @@ A stale transaction directory whose journal phase is `committed` or `rolled-back
 Recovery fails if:
 
 - JSON cannot be read;
+- `transaction.json` is a symlink;
 - journal version is unsupported;
 - phase is invalid;
 - entries are missing/empty;
-- entry structure is incomplete;
+- entry structure or field types are invalid;
 - recorded paths are unsafe;
+- a referenced staging/backup child is a symlink or non-file object;
+- duplicate final targets or reused child paths are present;
 - fingerprints are invalid;
 - expected backup/staging evidence is unavailable.
 
@@ -212,6 +238,10 @@ Do not edit the journal casually to make recovery pass. Preserve a copy first an
 ## Path safety
 
 Recovery validates transaction child names and final paths so a journal cannot direct cleanup/restoration outside the intended transaction/output directories.
+
+Transaction child names must be simple file names. Empty names, `.`, `..`, absolute paths, nested paths, journal self-references, symlinks, and existing non-file children are rejected. Pending-transaction discovery also ignores symlinked `.docmergeforge-staging-*` directories.
+
+Final paths are resolved against the configured output directory and must remain inside it; the output directory itself is not a valid final-file target.
 
 This is both a safety and security requirement.
 
@@ -264,15 +294,17 @@ The operating-system lock releases when the process dies, but the journal/backup
 
 Disk exhaustion can happen during staging or promotion. The project performs storage estimation and a writeability probe before expensive work, but filesystems can still change after preflight.
 
+The output-folder probe now writes a byte, flushes it, requests `fsync`, and removes the probe. This catches more real destination failures than merely creating an empty file. It still cannot guarantee that later larger writes will succeed after preflight.
+
 The transaction/recovery layer is designed to keep failed staging from becoming a successful publication and to preserve recovery evidence if rollback cannot complete.
 
 Never assume “disk full” means all temporary files are safe to delete; check for a transaction journal first.
 
 ## Testing recovery and locking
 
-The repository contains automated recovery/cancellation tests, simulated interrupted-promotion coverage, and output-lock tests that verify a second transaction/recovery attempt is rejected while the first lock is active.
+The repository contains automated recovery/cancellation tests, simulated interrupted-promotion coverage, output-lock tests, durable-write failure injection, malformed-journal regressions, and symlink-recovery regressions.
 
-These are valuable regression checks but do not replace real forced-process-termination acceptance on each release platform or multi-host/network-filesystem locking acceptance.
+These are valuable regression checks but do not replace real forced-process-termination acceptance on each release platform, sudden-power-loss/device-disconnect acceptance, or multi-host/network-filesystem locking acceptance.
 
 Release acceptance should include controlled interruption testing on non-production fixtures.
 
