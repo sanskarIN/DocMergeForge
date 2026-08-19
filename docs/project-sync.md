@@ -48,11 +48,38 @@ The proposal is then ordered by:
 
 This means filesystem directory enumeration order is not used as publication order.
 
+## Duplicate-part ambiguity
+
+Synchronization detects duplicate part numbers **per document kind** before an apply can occur.
+
+For example, this is ambiguous and blocks apply:
+
+```text
+Part 1.pdf
+Part 1 copy.pdf
+```
+
+Likewise, two DOCX candidates for Part 1 are ambiguous.
+
+This is **not** considered a duplicate conflict:
+
+```text
+Part 1.pdf
+Part 1.docx
+```
+
+PDF and DOCX are independent manuscript pipelines, so one PDF Part 1 and one DOCX Part 1 are expected in a dual-format publication.
+
+The preview keeps all detected candidates visible instead of silently picking a winner. It reports same-kind duplicate numbers in `duplicate_parts.pdf` and `duplicate_parts.docx`, and sets `safe_to_apply=false` when either list is non-empty.
+
+An apply with an ambiguous same-kind duplicate set exits with code `2` before removal approval, backup creation, or project replacement. Resolve/rename/remove the unintended duplicate source candidate, preview again, and only then consider applying the new selection.
+
 ## Preview JSON
 
 A preview reports fields including:
 
 - `changed`;
+- `safe_to_apply`;
 - `current_count`;
 - `proposed_count`;
 - `current`;
@@ -60,11 +87,15 @@ A preview reports fields including:
 - `added`;
 - `removed`;
 - `reordered`;
+- `duplicate_parts.pdf`;
+- `duplicate_parts.docx`;
 - `project`;
 - `applied`;
 - `approval_required`;
 - `removal_approval_required`;
 - `backup`.
+
+`safe_to_apply` is a synchronization-ambiguity signal, not a publication-readiness claim. A safe synchronization proposal can still have missing parts, encrypted inputs, corrupt documents, insufficient storage, or other conditions that later project preflight must reject.
 
 Paths can reveal private workstation information. Treat saved preview logs as potentially sensitive metadata.
 
@@ -76,7 +107,7 @@ After reviewing the preview:
 docmergeforge project-sync --project "./Book.json" --apply
 ```
 
-If the proposal only adds paths and/or changes the deterministic order, the command can apply it directly.
+If the proposal is unambiguous and only adds paths and/or changes the deterministic order, the command can apply it directly.
 
 A changed project gets a backup before atomic replacement. The first backup is normally:
 
@@ -91,7 +122,9 @@ Book.json_v2.bak
 Book.json_v3.bak
 ```
 
-An unchanged proposal is a true no-op: no backup or project rewrite is performed.
+An unchanged, unambiguous proposal is a true no-op: no backup or project rewrite is performed.
+
+An unchanged but ambiguous proposal is still refused when `--apply` is requested. The absence of a metadata diff does not make duplicate source identity safe.
 
 ## Removal protection
 
@@ -116,10 +149,13 @@ docmergeforge project-sync \
 
 Use `--allow-removals` only after checking every item in `removed`. The flag removes those paths from project metadata; it still does not delete the source files from disk.
 
+Duplicate-part ambiguity is checked before the removal-approval gate. `--allow-removals` cannot override `safe_to_apply=false` and must never be used as a way to pick between duplicate source candidates.
+
 ## Write-safety behavior
 
 The apply path has additional safeguards:
 
+- same-kind duplicate numbered candidates block apply before any write;
 - a project file addressed through a symbolic link is refused;
 - the synchronization plan records its current-selection baseline;
 - if that selection changes before apply, the stale plan is rejected;
@@ -135,23 +171,24 @@ The apply path has additional safeguards:
 1. Back up important project/source data through your normal backup process.
 2. Run `project-sync` without `--apply`.
 3. Review `current`, `proposed`, `added`, `removed`, and `reordered`.
-4. Confirm that the expected part range is still correct.
-5. If no removals are proposed, apply with `--apply` when desired.
-6. If removals are proposed, verify each path and use `--allow-removals` only when all removals are intentional.
-7. Keep the generated `.bak` project file until the changed project has been validated.
-8. Run project preflight:
+4. Confirm `safe_to_apply=true` and both `duplicate_parts` lists are empty.
+5. Confirm that the expected part range is still correct.
+6. If no removals are proposed, apply with `--apply` when desired.
+7. If removals are proposed, verify each path and use `--allow-removals` only when all removals are intentional.
+8. Keep the generated `.bak` project file until the changed project has been validated.
+9. Run project preflight:
 
 ```bash
 docmergeforge merge --project "./Book.json" --dry-run
 ```
 
-9. Review ordered PDF/DOCX inputs, missing/duplicate diagnostics, encrypted-input status, output paths, and storage evidence.
-10. Only then run the full publication command.
+10. Review ordered PDF/DOCX inputs, missing/duplicate diagnostics, encrypted-input status, output paths, and storage evidence.
+11. Only then run the full publication command.
 
 ## Exit behavior
 
-- `0`: preview succeeded, no-op succeeded, or an approved apply succeeded.
-- `2`: an apply requires removal approval or a handled synchronization write/safety failure occurred.
+- `0`: preview succeeded, an unambiguous no-op succeeded, or an approved apply succeeded.
+- `2`: duplicate-part ambiguity blocks apply, an apply requires removal approval, or a handled synchronization write/safety failure occurred.
 
 Malformed/unreadable project files can still fail during project loading according to the normal project-file validation rules.
 
