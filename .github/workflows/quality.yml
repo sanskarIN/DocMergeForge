@@ -35,4 +35,5 @@ jobs:
       - run: black --check --diff .
       - run: mypy src/docmergeforge
       - run: python scripts/check_docs_links.py
+      - run: python scripts/check_repository_reference.py
       - run: pytest --cov=docmergeforge --cov-report=term-missing
