@@ -25,6 +25,8 @@ It does **not**:
 docmergeforge project-sync --project "./Book.json"
 ```
 
+The command loads the project and a SHA-256 content revision from the **same exact byte snapshot** before synchronization planning begins. That revision is retained for a later approved apply so project-file changes that happen between load/preview and replacement can be detected instead of silently overwritten.
+
 The preview scans the project's configured source folders recursively. If the output folder is strictly nested below a source root, the scanner excludes that output subtree **before hashing or PDF inspection** so old publications, staging/report artifacts, and transaction residue do not become synchronization candidates or consume document-inspection work.
 
 The automatic proposal contains only files that are:
@@ -147,6 +149,8 @@ docmergeforge project-sync --project "./Book.json" --apply
 
 If the proposal is unambiguous and only adds paths and/or changes the deterministic order, the command can apply it directly.
 
+Before a changed apply is allowed to write, DocMergeForge verifies that the project file still has the exact content revision captured when the command loaded it. This is stricter than semantic object comparison: even byte-level drift such as external JSON reformatting is treated as a stale snapshot and requires a fresh preview. The existing semantic re-load comparison remains as an additional defense for callers that do not supply an exact revision token.
+
 A changed project gets a backup before atomic replacement. The first backup is normally:
 
 ```text
@@ -159,6 +163,8 @@ If that backup already exists it is preserved and a versioned backup is used, fo
 Book.json_v2.bak
 Book.json_v3.bak
 ```
+
+Immediately before the final project replacement, the guarded save checks the expected content revision again. If the file changed during the apply path, the replacement is refused and the caller's in-memory selection is restored. A backup already created before that late failure is intentionally retained for review/recovery.
 
 An unchanged, unambiguous proposal is a true no-op: no backup or project rewrite is performed.
 
@@ -196,14 +202,19 @@ The apply path has additional safeguards:
 - same-kind duplicate numbered candidates block apply before any write;
 - nested project output files are excluded before scanner hashing/PDF inspection;
 - a project file addressed through a symbolic link is refused;
+- the project and its SHA-256 revision are loaded from one exact byte snapshot;
 - the synchronization plan records its current-selection baseline;
 - if that selection changes before apply, the stale plan is rejected;
+- if the project bytes change after the snapshot, exact revision checks reject the stale write even when the parsed JSON would still be semantically equivalent;
+- the parsed on-disk project is also compared with the in-memory project before backup/write;
 - the existing project JSON is copied to a durable versioned backup before replacement;
-- project replacement uses the shared atomic text-save path;
+- the final guarded save rechecks the expected revision immediately before the shared atomic text-save path;
 - the atomic save writes a unique sibling temporary file, flushes it, requests `fsync`, then uses `os.replace(...)`;
 - if project saving fails, the caller's in-memory selection is restored;
-- the already-created backup is retained for recovery/review;
+- an already-created backup is retained for recovery/review;
 - CLI `OSError`/validation failures are returned as structured JSON with exit code `2`.
+
+The revision check is an **optimistic stale-write guard**, not a universal cross-process lock. An arbitrary external editor that writes in the very small interval after the final revision check and before atomic replacement is not participating in a coordinated lock protocol. For shared/multi-writer project files, use external coordination or version control rather than treating project JSON as a collaborative database.
 
 ## Recommended operator workflow
 
@@ -215,15 +226,16 @@ The apply path has additional safeguards:
 6. Confirm that the expected part range is still correct.
 7. If no removals are proposed, apply with `--apply` when desired.
 8. If removals are proposed, verify each path and use `--allow-removals` only when all removals are intentional.
-9. Keep the generated `.bak` project file until the changed project has been validated.
-10. Run project preflight:
+9. If apply reports that the project changed on disk, stop and run a fresh preview instead of retrying against the stale proposal.
+10. Keep the generated `.bak` project file until the changed project has been validated.
+11. Run project preflight:
 
 ```bash
 docmergeforge merge --project "./Book.json" --dry-run
 ```
 
-11. Review ordered PDF/DOCX inputs, missing/duplicate diagnostics, encrypted-input status, output paths, and storage evidence.
-12. Only then run the full publication command.
+12. Review ordered PDF/DOCX inputs, missing/duplicate diagnostics, encrypted-input status, output paths, and storage evidence.
+13. Only then run the full publication command.
 
 ## Exit behavior
 
