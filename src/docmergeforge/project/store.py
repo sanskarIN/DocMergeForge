@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict
+from hashlib import sha256
 from pathlib import Path
 from typing import Any, cast
 
@@ -16,7 +17,14 @@ from docmergeforge.core.part_range import validate_expected_part_range
 from docmergeforge.utilities.atomic import atomic_write_text
 
 
+def project_file_revision(path: Path) -> str:
+    """Return a content revision token for one persisted project file."""
+    return sha256(path.read_bytes()).hexdigest()
+
+
 def save_project(project: MergeProject, path: Path) -> None:
+    if path.is_symlink():
+        raise ValueError("Refusing to save a project file through a symbolic link.")
     validate_expected_part_range(
         project.settings.expected_start,
         project.settings.expected_end,
@@ -30,6 +38,24 @@ def save_project(project: MergeProject, path: Path) -> None:
         path,
         json.dumps(data, indent=2, ensure_ascii=False),
     )
+
+
+def save_project_if_revision(
+    project: MergeProject,
+    path: Path,
+    expected_revision: str,
+) -> None:
+    """Save only when the project file still matches a previously observed revision."""
+    if path.is_symlink():
+        raise ValueError("Refusing to save a project file through a symbolic link.")
+    if not path.is_file():
+        raise ValueError(f"Project file does not exist: {path}")
+    if project_file_revision(path) != expected_revision:
+        raise ValueError(
+            "Project file changed on disk after it was opened. Reload the project, review "
+            "the current file, and repeat the change instead of overwriting newer content."
+        )
+    save_project(project, path)
 
 
 def _mapping(value: object, label: str) -> dict[str, Any]:
@@ -176,8 +202,7 @@ def _docx_settings(data: dict[str, Any]) -> DocxSettings:
     )
 
 
-def load_project(path: Path) -> MergeProject:
-    raw: object = json.loads(path.read_text(encoding="utf-8"))
+def _project_from_raw(raw: object) -> MergeProject:
     data = _mapping(raw, "root")
     name = _required_string(data, "name")
     source_folders = _path_list(data.get("source_folders"), "source_folders", allow_empty=False)
@@ -232,3 +257,15 @@ def load_project(path: Path) -> MergeProject:
         last_successful_checkpoint=checkpoint,
         warnings=warnings,
     )
+
+
+def load_project(path: Path) -> MergeProject:
+    raw: object = json.loads(path.read_text(encoding="utf-8"))
+    return _project_from_raw(raw)
+
+
+def load_project_snapshot(path: Path) -> tuple[MergeProject, str]:
+    """Load a project and revision token from the same exact UTF-8 byte snapshot."""
+    raw_bytes = path.read_bytes()
+    raw: object = json.loads(raw_bytes.decode("utf-8"))
+    return _project_from_raw(raw), sha256(raw_bytes).hexdigest()
