@@ -2,7 +2,7 @@
 
 Thank you for improving DocMergeForge. Contributions are welcome across application code, tests, documentation, accessibility, document fidelity, packaging, recovery, and release automation.
 
-Start with the full [Development Guide](docs/development.md) and [Testing and CI Guide](docs/testing-and-ci.md).
+Start with the full [Development Guide](docs/development.md), [Testing and CI Guide](docs/testing-and-ci.md), and [Documentation Catalog](docs/documentation-catalog.md). Maintainers working on internals should also use the [Complete Repository File Reference](docs/repository-reference.md).
 
 ## Core contribution rules
 
@@ -18,6 +18,7 @@ Every change must preserve the project's safety model:
 8. Passwords, tokens, and manuscript body text must not be intentionally logged or persisted.
 9. Unsupported fidelity modes must not silently downgrade or claim production readiness.
 10. Documentation must describe verified behavior rather than aspirations.
+11. Every tracked repository file must remain explicitly documented in `docs/repository-reference.md`.
 
 ## Development environment
 
@@ -48,9 +49,12 @@ See [Installation](docs/installation.md) for platform-specific setup.
 Before opening a pull request:
 
 ```bash
+pre-commit validate-config
 ruff check .
 black --check --diff .
 mypy src/docmergeforge
+python scripts/check_docs_links.py
+python scripts/check_repository_reference.py
 pytest
 ```
 
@@ -89,18 +93,27 @@ Add focused tests for changed behavior. Important areas include:
 - output transaction rollback/recovery;
 - storage/writeability failures;
 - reports/checksums/manifests;
-- project persistence;
+- project persistence and synchronization;
 - CLI behavior;
 - desktop accessibility metadata;
-- packaging configuration.
+- packaging configuration;
+- documentation link/reference integrity when documentation infrastructure changes.
+
+Use the [Test Suite Reference](docs/test-suite-reference.md) to find the existing test owner for a behavior before creating a duplicate test area.
 
 Never commit confidential user manuscripts or real credentials as fixtures. Reduce private regressions to synthetic documents.
 
 ## Documentation
 
-Meaningful behavior changes should update the relevant page under [`docs/`](docs/README.md).
+Meaningful behavior changes should update the relevant page under [`docs/`](docs/README.md). The [Documentation Catalog](docs/documentation-catalog.md) maps each maintained guide to its audience and purpose.
 
-The documentation portal includes user, operator, contributor, architecture, CLI, engine, recovery, packaging, security, accessibility, and release guides.
+The documentation portal includes user, operator, contributor, architecture, CLI, engine, recovery, packaging, security, accessibility, release, source-code, test-suite, automation, configuration, and complete repository-file references.
+
+When a tracked file is added, renamed, or removed, update `docs/repository-reference.md` in the same change. The Quality workflow enforces this with:
+
+```bash
+python scripts/check_repository_reference.py
+```
 
 Also update as appropriate:
 
@@ -176,7 +189,7 @@ A good pull request explains:
 - release-gate impact;
 - known remaining limitations.
 
-Use the repository pull-request template.
+Use the repository pull-request template. If the PR changes tracked paths, reviewers should confirm the repository-reference coverage check passes.
 
 ## Security
 
