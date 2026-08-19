@@ -41,3 +41,22 @@ def test_require_storage_reports_unwritable_output(
 
     with pytest.raises(OutputAccessError, match="Output folder is not writable"):
         require_storage([], output)
+
+
+def test_require_storage_reports_probe_fsync_failure_and_cleans_probe(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = tmp_path / "output"
+
+    def failing_fsync(fd: int) -> None:
+        del fd
+        raise OSError(errno.EIO, "simulated storage flush failure")
+
+    monkeypatch.setattr(storage.os, "fsync", failing_fsync)
+
+    with pytest.raises(OutputAccessError, match="simulated storage flush failure"):
+        require_storage([], output)
+
+    assert output.is_dir()
+    assert not list(output.glob(".docmergeforge-write-probe-*"))
