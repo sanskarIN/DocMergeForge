@@ -1,6 +1,9 @@
 from pathlib import Path
 
+import pytest
+
 from docmergeforge.core.models import DocumentKind, InputDocument, PartIdentity
+from docmergeforge.core.part_range import MAX_EXPECTED_PART_COUNT, MAX_PART_NUMBER
 from docmergeforge.validation.service import duplicate_hashes, validate_part_set
 
 
@@ -100,6 +103,16 @@ def test_selected_unnumbered_encrypted_file_still_blocks_without_password() -> N
         diagnostic.message == "Selected PDF is password protected."
         for diagnostic in result.diagnostics
     )
+
+
+def test_validation_rejects_more_than_supported_expected_parts() -> None:
+    with pytest.raises(ValueError, match="cannot contain more than"):
+        validate_part_set([], DocumentKind.PDF, 1, MAX_EXPECTED_PART_COUNT + 1)
+
+
+def test_validation_rejects_part_number_beyond_filename_detector_limit() -> None:
+    with pytest.raises(ValueError, match="cannot exceed"):
+        validate_part_set([], DocumentKind.PDF, MAX_PART_NUMBER, MAX_PART_NUMBER + 1)
 
 
 def test_duplicate_file_hashes() -> None:
