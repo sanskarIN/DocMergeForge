@@ -1,4 +1,5 @@
 import argparse
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -125,6 +126,39 @@ def test_direct_merge_reports_actual_path_and_excludes_unrelated_files(
     assert exit_code == 0
     assert captured_documents == [part_1]
     assert capsys.readouterr().out.strip() == str(actual)
+
+
+def test_cli_project_create_reports_save_failure_as_json(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    project_path = tmp_path / "project.json"
+
+    def fail_save(*_args: object, **_kwargs: object) -> None:
+        raise OSError("project destination denied")
+
+    monkeypatch.setattr(cli, "save_project", fail_save)
+
+    exit_code = cli.main(
+        [
+            "project-create",
+            "--input",
+            str(tmp_path / "source"),
+            "--output-dir",
+            str(tmp_path / "output"),
+            "--project-file",
+            str(project_path),
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 2
+    assert payload == {
+        "created": False,
+        "project": str(project_path),
+        "error": "project destination denied",
+    }
 
 
 def test_cli_recover_output_reports_recovered_paths(
