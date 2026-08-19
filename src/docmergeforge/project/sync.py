@@ -7,7 +7,12 @@ from pathlib import Path
 from docmergeforge.core.models import DocumentKind, InputDocument, MergeProject
 from docmergeforge.discovery.part_detection import natural_key
 from docmergeforge.project.discovery import discover_project_sources
-from docmergeforge.project.store import load_project, save_project
+from docmergeforge.project.store import (
+    load_project,
+    project_file_revision,
+    save_project,
+    save_project_if_revision,
+)
 from docmergeforge.utilities.atomic import atomic_write_text, versioned_path
 
 _MERGEABLE_KINDS = {DocumentKind.PDF, DocumentKind.DOCX}
@@ -181,6 +186,8 @@ def apply_project_sync(
     project: MergeProject,
     project_path: Path,
     plan: ProjectSyncPlan,
+    *,
+    expected_revision: str | None = None,
 ) -> Path | None:
     """Apply an approved plan with a durable backup and atomic project replacement."""
     if not plan.safe_to_apply:
@@ -196,6 +203,11 @@ def apply_project_sync(
         raise ValueError(f"Project file does not exist: {project_path}")
     if tuple(map(_path_key, project.selected_files)) != tuple(map(_path_key, plan.current)):
         raise ValueError("Project selection changed after the synchronization plan was created.")
+    if expected_revision is not None and project_file_revision(project_path) != expected_revision:
+        raise ValueError(
+            "Project file changed on disk after it was loaded. Reload the project, review a new "
+            "synchronization preview, and apply only that fresh plan."
+        )
 
     persisted_project = load_project(project_path)
     if persisted_project != project:
@@ -211,7 +223,10 @@ def apply_project_sync(
     original_selection = list(project.selected_files)
     project.selected_files = list(plan.proposed)
     try:
-        save_project(project, project_path)
+        if expected_revision is None:
+            save_project(project, project_path)
+        else:
+            save_project_if_revision(project, project_path, expected_revision)
     except Exception:
         project.selected_files = original_selection
         raise
