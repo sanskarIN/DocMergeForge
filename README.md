@@ -18,7 +18,7 @@ DocMergeForge is a local-first cross-platform desktop and CLI application for as
 
 ## Documentation
 
-The complete documentation portal is **[docs/README.md](docs/README.md)**.
+The complete documentation portal is **[docs/README.md](docs/README.md)**. The [Documentation Catalog](docs/documentation-catalog.md) maps every guide by audience and task, while the [Complete Repository File Reference](docs/repository-reference.md) documents every tracked repository file.
 
 Start with:
 
@@ -34,6 +34,11 @@ Start with:
 Technical/safety/release references include:
 
 - [Architecture](docs/architecture.md)
+- [Source Code Reference](docs/source-code-reference.md)
+- [Test Suite Reference](docs/test-suite-reference.md)
+- [Automation and Workflow Reference](docs/automation-reference.md)
+- [Configuration, Governance, and Asset Reference](docs/configuration-reference.md)
+- [Complete Repository File Reference](docs/repository-reference.md)
 - [Merge Pipeline](docs/merge-pipeline.md)
 - [PDF Engine](docs/pdf-engine.md)
 - [DOCX Engine](docs/docx-engine.md)
@@ -274,21 +279,25 @@ assets/branding/      original SVG branding
 .github/workflows/    quality, regression, build, security, package, stress, fidelity automation
 ```
 
-Architecture details: [docs/architecture.md](docs/architecture.md).
+Architecture details: [docs/architecture.md](docs/architecture.md). File-by-file ownership and purpose: [docs/repository-reference.md](docs/repository-reference.md).
 
 ## Quality commands
 
 ```bash
+pre-commit validate-config
 ruff check .
 black --check --diff .
 mypy src/docmergeforge
 python scripts/check_docs_links.py
+python scripts/check_repository_reference.py
 pytest
 ```
 
+The repository-reference checker uses the tracked `git ls-files` set and requires every tracked path to be explicitly cataloged in `docs/repository-reference.md`, preventing new source/tests/workflows/config/assets/docs from silently becoming undocumented.
+
 CI also exercises the generated 120-part regression, cross-platform desktop build/accessibility smoke, CodeQL security analysis, package building, a real LibreOffice one-document fidelity lane, supervised real Writer multi-document insertion and process cleanup lanes, and a manual controlled Microsoft Word native acceptance workflow.
 
-See [Testing and CI](docs/testing-and-ci.md).
+See [Testing and CI](docs/testing-and-ci.md) and [Automation and Workflow Reference](docs/automation-reference.md).
 
 ## Building desktop executables
 
@@ -355,7 +364,7 @@ See [Release Process](docs/release-process.md), [Known Limitations](docs/known-l
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md), [Development Guide](docs/development.md), and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). GitHub issue/PR templates require privacy-safe reproductions and explicit validation/evidence boundaries for document-engine, recovery, packaging, and fidelity changes.
+See [CONTRIBUTING.md](CONTRIBUTING.md), [Development Guide](docs/development.md), [Test Suite Reference](docs/test-suite-reference.md), and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). GitHub issue/PR templates require privacy-safe reproductions and explicit validation/evidence boundaries for document-engine, recovery, packaging, and fidelity changes.
 
 ## License
 
