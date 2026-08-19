@@ -45,6 +45,12 @@ def atomic_write_text(path: Path, text: str, *, encoding: str = "utf-8") -> None
         raise
 
 
+def _fsync_completed_file(path: Path) -> None:
+    """Flush a completed artifact to stable storage before final-name promotion."""
+    with path.open("rb") as handle:
+        os.fsync(handle.fileno())
+
+
 @contextmanager
 def atomic_output(final_path: Path, overwrite: bool = False) -> Iterator[Path]:
     final_path.parent.mkdir(parents=True, exist_ok=True)
@@ -62,6 +68,7 @@ def atomic_output(final_path: Path, overwrite: bool = False) -> Iterator[Path]:
         yield tmp_path
         if not tmp_path.exists() or tmp_path.stat().st_size == 0:
             raise RuntimeError("Temporary output is missing or empty.")
+        _fsync_completed_file(tmp_path)
         os.replace(tmp_path, final_path)
     except Exception:
         tmp_path.unlink(missing_ok=True)
