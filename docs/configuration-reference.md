@@ -119,7 +119,19 @@ pre-commit install
 pre-commit run --all-files
 ```
 
-The Quality workflow validates the pre-commit configuration separately. A local hook pass is useful developer feedback but does not prove the remote CI matrix passed.
+The maintained local hooks include:
+
+- Ruff linting with fixes;
+- Ruff formatting;
+- YAML and JSON syntax checks;
+- end-of-file and trailing-whitespace normalization;
+- oversized-added-file checks;
+- `python scripts/check_docs_links.py` for repository-local Markdown link integrity; and
+- `python scripts/check_repository_reference.py` for complete Git-tracked repository documentation coverage.
+
+The repository-reference hook uses `always_run: true` because a tracked-file deletion, rename, configuration change, source change, or non-Markdown addition can make the inventory stale even when no Markdown file itself is part of the staged change. `pass_filenames: false` ensures the checker evaluates the complete tracked repository rather than only staged paths.
+
+The Quality workflow validates the pre-commit configuration separately and also invokes both documentation integrity commands directly. A local hook pass is useful developer feedback but does not prove the remote CI matrix passed.
 
 ## GitHub ownership and community metadata
 
