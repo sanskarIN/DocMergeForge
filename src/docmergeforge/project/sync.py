@@ -7,7 +7,7 @@ from pathlib import Path
 from docmergeforge.core.models import DocumentKind, InputDocument, MergeProject
 from docmergeforge.discovery.part_detection import natural_key
 from docmergeforge.project.discovery import discover_project_sources
-from docmergeforge.project.store import save_project
+from docmergeforge.project.store import load_project, save_project
 from docmergeforge.utilities.atomic import atomic_write_text, versioned_path
 
 _MERGEABLE_KINDS = {DocumentKind.PDF, DocumentKind.DOCX}
@@ -196,6 +196,13 @@ def apply_project_sync(
         raise ValueError(f"Project file does not exist: {project_path}")
     if tuple(map(_path_key, project.selected_files)) != tuple(map(_path_key, plan.current)):
         raise ValueError("Project selection changed after the synchronization plan was created.")
+
+    persisted_project = load_project(project_path)
+    if persisted_project != project:
+        raise ValueError(
+            "Project file changed on disk after it was loaded. Reload the project, review a new "
+            "synchronization preview, and apply only that fresh plan."
+        )
 
     backup_path = versioned_path(project_path.with_suffix(project_path.suffix + ".bak"))
     original_text = project_path.read_text(encoding="utf-8")
