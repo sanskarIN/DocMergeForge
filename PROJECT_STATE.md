@@ -7,7 +7,7 @@ This file is a compact continuation checkpoint for future development sessions. 
 - Repository: `sanskarIN/DocMergeForge`
 - Branch: `main`
 - Version declared in `pyproject.toml`: `0.1.0`
-- Checkpoint immediately before this state-file commit: `cce31129dda06922146651de69abadc8f56bcdfc`
+- Checkpoint immediately before this state-file commit: `54db4f228dd735d31b4125109eaa7e874317ce35`
 - Development status: pre-stable; do not claim `v1.0.0` or production certification from source/documentation changes alone.
 
 ## Latest completed feature: guarded existing-project persistence
@@ -33,6 +33,8 @@ Implementation:
   - `project-create` converts handled persistence failures into structured JSON with exit code `2` instead of leaking a save exception.
 - `src/docmergeforge/ui/main.py`
   - **Resume Project** loads project + revision together and refuses to overwrite a project changed while the user reviews/reorders inputs;
+  - resumed ordering deliberately does **not** write a recovery checkpoint before the guarded save;
+  - after the guarded save succeeds, the desktop writes the `ordering` recovery checkpoint, then updates recent-project history and starts merge;
   - new-project save failures are surfaced to the desktop user;
   - ordering and SQL-preset recovery checkpoint failures are surfaced and stop the affected workflow.
 
@@ -47,6 +49,9 @@ Regression coverage added/expanded:
   - exact byte-level project drift rejection between snapshot and apply.
 - `tests/unit/test_cli_workflow.py`
   - structured `project-create` save failure with exit code `2`.
+- `tests/integration/test_order_dialog_accessibility.py`
+  - desktop resume sequence explicitly asserts order confirmation → guarded save → recovery checkpoint → recent-project update → merge start;
+  - this prevents a rejected stale project from leaving a newly written stale recovery snapshot.
 
 Canonical documentation updated:
 
@@ -101,8 +106,9 @@ Do not infer a green build merely from commits being present.
 
 For this continuation:
 
-- source, regression tests, and canonical documentation for the new project revision behavior are committed on `main`;
+- source, regression tests, integration coverage, and canonical documentation for the new project revision behavior are committed on `main`;
 - focused commit diffs were inspected for unintended broad rewrites;
+- the resumed-project integration regression was refined to avoid lambda assignment patterns that could conflict with enabled Ruff `E` rules;
 - `pyproject.toml` remains pre-stable at version `0.1.0` and retains Ruff, Black, strict mypy, and pytest configuration;
 - committed tests are implementation evidence, not execution evidence.
 
