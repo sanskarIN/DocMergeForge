@@ -19,6 +19,7 @@ from docmergeforge.core.models import (
     MergeSettings,
     PdfSettings,
 )
+from docmergeforge.core.part_range import validate_expected_part_range
 from docmergeforge.discovery.part_detection import natural_key
 from docmergeforge.discovery.scanner import scan
 from docmergeforge.docx.engine import DocxMergeEngine
@@ -36,11 +37,11 @@ from docmergeforge.validation.service import validate_part_set
 
 
 def _parts(value: str) -> tuple[int, int]:
-    start, end = value.split("-", 1)
-    start_number, end_number = int(start), int(end)
-    if start_number < 1 or end_number < start_number:
-        raise argparse.ArgumentTypeError("parts must be a positive range such as 1-120")
-    return start_number, end_number
+    try:
+        start, end = value.split("-", 1)
+        return validate_expected_part_range(int(start), int(end))
+    except (ValueError, TypeError) as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
 
 
 def _positive_seconds(value: str) -> int:
