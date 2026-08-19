@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from docmergeforge.core.models import MergeProject
+from docmergeforge.core.part_range import MAX_EXPECTED_PART_COUNT, MAX_PART_NUMBER
 from docmergeforge.project.store import load_project, save_project
 
 
@@ -63,6 +64,30 @@ def test_project_load_rejects_inverted_part_range(tmp_path: Path) -> None:
     path = _write_project(tmp_path, payload)
 
     with pytest.raises(ValueError, match="positive and non-decreasing"):
+        load_project(path)
+
+
+def test_project_load_rejects_excessive_part_count(tmp_path: Path) -> None:
+    payload = _valid_payload()
+    payload["settings"] = {
+        "expected_start": 1,
+        "expected_end": MAX_EXPECTED_PART_COUNT + 1,
+    }
+    path = _write_project(tmp_path, payload)
+
+    with pytest.raises(ValueError, match="cannot contain more than"):
+        load_project(path)
+
+
+def test_project_load_rejects_part_number_above_detector_limit(tmp_path: Path) -> None:
+    payload = _valid_payload()
+    payload["settings"] = {
+        "expected_start": MAX_PART_NUMBER,
+        "expected_end": MAX_PART_NUMBER + 1,
+    }
+    path = _write_project(tmp_path, payload)
+
+    with pytest.raises(ValueError, match="cannot exceed"):
         load_project(path)
 
 
