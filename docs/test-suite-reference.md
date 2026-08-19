@@ -59,11 +59,11 @@ These tests can verify orchestration without automatically proving every externa
 
 Actual Word automation still requires the controlled Windows/Word environment described in the acceptance documentation.
 
-### Desktop accessibility integration
+### Desktop integration and accessibility
 
-- `tests/integration/test_order_dialog_accessibility.py` — checks important accessible/keyboard-facing properties of the ordering dialog using the real Qt widget layer.
+- `tests/integration/test_order_dialog_accessibility.py` — checks important accessible/keyboard-facing properties of the ordering dialog using the real Qt widget layer, and protects **Resume Project** persistence ordering so the exact-revision guarded project save occurs before a new recovery checkpoint is written.
 
-Automated widget assertions do not replace human screen-reader/high-contrast/display-scaling acceptance.
+Automated widget/workflow assertions do not replace human screen-reader/high-contrast/display-scaling acceptance.
 
 ## Regression suite
 
