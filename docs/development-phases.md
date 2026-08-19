@@ -19,11 +19,15 @@ The master specification is larger than a single safe implementation step. Work 
 - Filename templates and cross-platform-safe output naming.
 - Dry-run/preflight evidence and storage planning.
 - Output comparison workflow and manuscript audit/preview support.
+- Preview-first `project-sync` can rebuild explicit `selected_files` from the current numbered/in-range PDF/DOCX source set without mutating manuscript files.
+- Project synchronization uses deterministic ordering, nested-output exclusion, platform-aware path identity, versioned project backups, atomic replacement, symlink refusal, and stale in-memory selection guards.
+- An apply that would remove an existing selected path fails closed unless the operator separately supplies `--allow-removals`, protecting reviewed unnumbered front/back matter and other manual exceptions from a one-flag reset.
 - Explicit keyboard shortcuts, screen-reader names/descriptions, and search-label buddy navigation are implemented for the order editor.
 - Explicit project selection uses platform-aware path normalization rather than unconditional case folding, so case-distinct POSIX inputs remain individually selectable while duplicate aliases of the same path are rejected.
 - Project checkpoint state is updated in memory only after its recovery snapshot has been persisted successfully.
 - Expected-part ranges use one shared bounded contract across project loading, project saving, CLI parsing, and validation: six-digit maximum part numbers and at most 10,000 expected parts per range.
 - Remaining gate: complete keyboard-only and assistive-technology acceptance of reorder behavior on all supported desktop platforms.
+- Remaining project-sync gate: current-head source CI must be observed after the new synchronization implementation/tests; a committed test is not itself passing-run evidence.
 
 ## v0.3.x — Publication tooling — substantially implemented
 - PDF front-matter generation.
