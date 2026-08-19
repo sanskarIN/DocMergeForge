@@ -31,7 +31,7 @@ def _existing_anchor(path: Path) -> Path:
 
 
 def require_output_writable(output_folder: Path) -> None:
-    """Verify that the destination can host transaction staging before merge work starts."""
+    """Verify that the destination can host durable transaction staging before merging."""
 
     probe_path: Path | None = None
     try:
@@ -41,7 +41,10 @@ def require_output_writable(output_folder: Path) -> None:
             dir=output_folder,
         )
         probe_path = Path(raw_path)
-        os.close(descriptor)
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(b"\0")
+            handle.flush()
+            os.fsync(handle.fileno())
     except OSError as exc:
         raise OutputAccessError(f"Output folder is not writable: {output_folder}: {exc}") from exc
     finally:
