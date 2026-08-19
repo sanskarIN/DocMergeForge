@@ -4,6 +4,65 @@ This file records the current DocMergeForge development pass, verification evide
 
 An item is not treated as finished merely because code was pushed. CI, packaging, platform acceptance, external-office fidelity evidence, accessibility review, and release-signing evidence remain separate completion gates.
 
+## 2026-08-19 — Project-file revision guards and stale-write protection
+
+### Added
+- Added `project_file_revision(...)` in `src/docmergeforge/project/store.py` to derive an exact SHA-256 content revision from the persisted project bytes.
+- Added `load_project_snapshot(...)` so a project object and its revision token come from the same exact byte snapshot instead of separate reads that could observe different file states.
+- Added `save_project_if_revision(...)` as an optimistic compare-before-save primitive for editing an existing project. It refuses a write when the current project bytes no longer match the revision observed at load.
+- Added exact-revision support to `apply_project_sync(...)` so synchronization callers can carry their initial project snapshot revision through apply and final persistence.
+- Added regression coverage for snapshot revision identity, successful guarded saves, stale content rejection without overwrite, symbolic-link project-save refusal, CLI byte-level drift rejection, and structured `project-create` save failures.
+
+### Changed
+- Generic project saving now refuses a destination addressed through a symbolic link before validating/serializing project data.
+- Desktop **Resume Project** now loads the project and exact revision together, allows order review, and saves only if the project still matches the observed revision. A project changed externally during the interaction is not overwritten.
+- Desktop project creation now catches project-save failures, records them in diagnostics, surfaces a critical dialog, and stops instead of letting the persistence exception escape the UI callback.
+- Desktop ordering and SQL-preset recovery checkpoints now go through a shared UI helper that surfaces checkpoint persistence failures and stops the affected workflow rather than continuing after a recovery snapshot could not be written.
+- `docmergeforge project-sync` now loads its project through `load_project_snapshot(...)` and passes the revision into apply.
+- Synchronization now performs an exact revision check before backup/write preparation, retains its semantic project comparison as a second defense, and performs another expected-revision check immediately before final atomic project replacement.
+- `docmergeforge project-create` now converts handled project-save `OSError`/`ValueError` failures into structured JSON with `created=false`, the project path, an error message, and exit code `2`.
+- `docs/project-sync.md`, `docs/project-files.md`, `docs/source-code-reference.md`, and `docs/test-suite-reference.md` now describe the exact revision contract, desktop behavior, CLI behavior, tests, and the limit that optimistic revision checks are not universal cross-process locking.
+- `PROJECT_STATE.md` was first corrected to remove an already-completed discovery-routing task: `MergeApplicationService.discover()` already uses `discover_project_sources()` and `tests/unit/test_service_discovery_safety.py` already protects the shared nested-output exclusion behavior.
+
+### Fixed / Hardened
+- Closed the stale desktop overwrite window where **Resume Project** could load a project, wait for the user to edit/reorder it, and then silently replace a project file that changed on disk during that interaction.
+- Strengthened project synchronization from semantic stale-state comparison alone to exact byte-revision checking. An external JSON reformat that remains semantically equivalent is still detected as a changed project snapshot and requires a fresh preview before apply.
+- Kept the semantic synchronization comparison in addition to exact revisions so callers without an expected revision still retain the earlier fail-closed project-state check.
+- Ensured a late guarded-save failure restores the caller's original in-memory `selected_files`; any backup already created before that late failure remains available for review/recovery.
+- Prevented project files from being written through symbolic-link destinations by the generic project persistence function, not only by the synchronization wrapper.
+- Prevented new desktop persistence failures introduced by stricter save rules from surfacing as uncaught UI callback exceptions.
+- Prevented CLI project creation from reporting success or crashing with an unhandled save exception when the project file cannot be safely persisted.
+
+### Concurrency boundary
+- The new project revision mechanism is an **optimistic stale-write guard**, not a cooperative file lock or transactional multi-writer database protocol.
+- A normal guarded workflow detects changes that occur after its captured snapshot and before its revision checks, including byte-only changes.
+- An arbitrary external writer that changes the file in the small interval after the final revision check and before atomic replacement is not participating in a coordinated lock protocol and can still race that replacement.
+- If true simultaneous multi-writer project editing becomes an intended supported feature, it should be designed as a separate coordinated locking/revision protocol rather than represented as already solved by this optimistic guard.
+
+### Verification Status
+- Latest implementation/documentation checkpoint immediately before this development-record update: `966f9ff0df844ba41c94c07601afe6ad9e916313`.
+- Commit diffs inspected during this pass confirmed the persistence and desktop changes were focused on the intended project-store, synchronization, CLI, UI, test, and documentation surfaces rather than broad unrelated rewrites.
+- `pyproject.toml` still declares version `0.1.0`, Python `>=3.12`, Ruff rules `E/F/I/B/UP/SIM/C4`, Black line length 100, and strict mypy for the `docmergeforge` package.
+- Focused regression test source was added for the new behaviors, but committed tests are implementation evidence only until execution is observed.
+- No fresh current-head Ruff, Black, strict mypy, documentation-link, repository-reference, pytest/coverage, Quality, Regression, Build Smoke, or Security/CodeQL pass is claimed in this section without an actual reviewed run.
+- External-office production flags are not changed by this work, and the repository remains pre-stable at `0.1.0`.
+
+### Remaining Project-Persistence / Synchronization Work
+- Observe and review a current-head Quality run; fix any lint, formatting, typing, test, documentation-link, or repository-reference failure without weakening maintained rules.
+- If true collaborative/multi-writer project editing is intended, design a coordinated lock/revision protocol with explicit ownership, timeout/recovery, filesystem semantics, and tests. Do not relabel the optimistic revision guard as universal locking.
+- Evaluate whether the desktop project/order UI should expose the same explicit synchronization preview/apply/second-removal-approval model already available in the CLI.
+- Keep project persistence, synchronization, source-code, and test-suite documentation synchronized whenever this boundary changes.
+
+### Remaining Release-Gate Work
+- Execute and review the maintained supervised LibreOffice UNO multi-document and process-cleanup workflows, then expand representative real-world fidelity evidence for sections, page styles, headers/footers, numbering, advanced OOXML, fonts, and interoperability behavior.
+- Execute and review the controlled Microsoft Word native normal-merge and real timeout-cleanup workflow on the dedicated Windows/Word environment; then run representative private corpora and exact-version human rendering/repair-prompt acceptance.
+- Execute and record a genuinely measured multi-gigabyte stress run.
+- Complete human keyboard-only, screen-reader, high-contrast, display-scaling, reduced-motion, and localization-readiness acceptance.
+- Complete representative clean-machine interactive packaged-app acceptance, platform-specific distribution polish, Windows production signing, macOS signing/notarization/stapling, final post-signing hashes, and signature verification.
+- Perform additional physical power-loss, storage-device disconnect, and network/multi-host filesystem acceptance only where those semantics are intended to be claimed.
+- Enable appropriate GitHub branch protection/rulesets and required status checks through repository administration if enforced review/CI policy on `main` is desired.
+- Do not set LibreOffice or Word to `production_ready=true`, and do not claim `v1.0.0`, until the corresponding full application/release acceptance matrix is actually verified.
+
 ## 2026-08-19 — Repository-wide documentation mapping and coverage enforcement
 
 ### Added
@@ -100,8 +159,8 @@ An item is not treated as finished merely because code was pushed. CI, packaging
 
 ### Remaining Project-Synchronization Work
 - Obtain and review current-head source CI; fix any synchronization-specific lint/type/test/link failures without weakening repository rules.
-- Consider safely routing `MergeApplicationService.discover()` through the new raw discovery helper to remove duplicated nested-output exclusion logic after regression evidence is available.
-- Consider a project-file revision/concurrency guard if synchronized project JSON is expected to support multi-writer editing; normal project persistence is still documented as last-writer-wins rather than collaborative locking.
+- Shared application discovery already routes through `discover_project_sources()` and is protected by `tests/unit/test_service_discovery_safety.py`; do not reimplement that completed item unless the discovery contract changes.
+- Exact project revision guards are now implemented for synchronization and desktop resume. If stronger simultaneous multi-writer guarantees become a supported requirement, design a coordinated lock/revision protocol rather than duplicating the completed optimistic guard.
 - Evaluate whether desktop project/order workflows should expose the same preview/apply/second-removal-approval model.
 
 ### Remaining Release-Gate Work
