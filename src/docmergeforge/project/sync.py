@@ -95,8 +95,14 @@ def plan_project_sync(
     current_set = set(current_keys)
     proposed_set = set(proposed_keys)
 
-    added = tuple(path for path, key in zip(proposed, proposed_keys) if key not in current_set)
-    removed = tuple(path for path, key in zip(current, current_keys) if key not in proposed_set)
+    added = tuple(
+        path
+        for path, key in zip(proposed, proposed_keys, strict=True)
+        if key not in current_set
+    )
+    removed = tuple(
+        path for path, key in zip(current, current_keys, strict=True) if key not in proposed_set
+    )
     common_current = tuple(key for key in current_keys if key in proposed_set)
     common_proposed = tuple(key for key in proposed_keys if key in current_set)
 
