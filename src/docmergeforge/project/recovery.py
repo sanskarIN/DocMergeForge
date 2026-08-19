@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from docmergeforge.core.models import MergeProject
@@ -12,9 +13,10 @@ class RecoveryStore:
 
     def checkpoint(self, project: MergeProject, name: str) -> Path:
         self.base_dir.mkdir(parents=True, exist_ok=True)
-        project.last_successful_checkpoint = name
         path = self.base_dir / "recovery-project.json"
-        save_project(project, path)
+        snapshot = replace(project, last_successful_checkpoint=name)
+        save_project(snapshot, path)
+        project.last_successful_checkpoint = name
         return path
 
     def recover(self) -> MergeProject | None:
