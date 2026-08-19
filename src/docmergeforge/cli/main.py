@@ -31,6 +31,7 @@ from docmergeforge.pdf.passwords import verify_pdf_password
 from docmergeforge.presets.sql_full_mastery import PRESET_NAME, create_sql_full_mastery_project
 from docmergeforge.project.selection import automatic_numbered_documents, project_merge_documents
 from docmergeforge.project.store import load_project, save_project
+from docmergeforge.project.sync import apply_project_sync, plan_project_sync
 from docmergeforge.utilities.output_transaction import recover_interrupted_output_transactions
 from docmergeforge.validation.compare import compare_docx, compare_pdf
 from docmergeforge.validation.service import validate_part_set
@@ -213,6 +214,17 @@ def build_parser() -> argparse.ArgumentParser:
     project_create.add_argument("--parts", default="1-120", type=_parts)
     project_create.add_argument("--sql-preset", action="store_true")
 
+    project_sync = sub.add_parser(
+        "project-sync",
+        help="Preview or explicitly apply deterministic selected-file synchronization.",
+    )
+    project_sync.add_argument("--project", required=True, type=Path)
+    project_sync.add_argument(
+        "--apply",
+        action="store_true",
+        help="Apply the reviewed proposal after creating a versioned project backup.",
+    )
+
     project_merge = sub.add_parser("merge", help="Run a reusable DocMergeForge project file.")
     project_merge.add_argument("--project", required=True, type=Path)
     project_merge.add_argument("--dry-run", action="store_true")
@@ -316,6 +328,39 @@ def _run_project(project: MergeProject, dry_run: bool) -> int:
         return 0
     finally:
         passwords.clear()
+
+
+def _run_project_sync(project_path: Path, apply: bool) -> int:
+    project = load_project(project_path)
+    plan = plan_project_sync(project)
+    backup: Path | None = None
+    if apply:
+        try:
+            backup = apply_project_sync(project, project_path, plan)
+        except ValueError as exc:
+            print(
+                json.dumps(
+                    {
+                        "project": str(project_path),
+                        "applied": False,
+                        "error": str(exc),
+                    },
+                    indent=2,
+                )
+            )
+            return 2
+
+    payload = plan.to_dict()
+    payload.update(
+        {
+            "project": str(project_path),
+            "applied": apply and plan.changed,
+            "approval_required": plan.changed and not apply,
+            "backup": str(backup) if backup is not None else None,
+        }
+    )
+    print(json.dumps(payload, indent=2))
+    return 0
 
 
 def _recover_output(output_folder: Path) -> int:
@@ -436,6 +481,9 @@ def main(argv: list[str] | None = None) -> int:
         save_project(project, args.project_file)
         print(str(args.project_file))
         return 0
+
+    if args.command == "project-sync":
+        return _run_project_sync(args.project, args.apply)
 
     if args.command == "merge":
         return _run_project(load_project(args.project), args.dry_run)
