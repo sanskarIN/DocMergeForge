@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import os
+from contextlib import suppress
 from pathlib import Path
 from types import TracebackType
 from typing import BinaryIO, Protocol, Self, cast
@@ -20,6 +21,26 @@ class _MsvcrtModule(Protocol):
 
 def _windows_locking_module() -> _MsvcrtModule:
     return cast(_MsvcrtModule, importlib.import_module("msvcrt"))
+
+
+def _open_lock_file(path: Path) -> BinaryIO:
+    if path.is_symlink():
+        raise OutputLockError(f"Refusing to use a symlink as the output lock file: {path}")
+
+    flags = os.O_RDWR | os.O_CREAT
+    flags |= cast(int, getattr(os, "O_BINARY", 0))
+    flags |= cast(int, getattr(os, "O_NOFOLLOW", 0))
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(path, flags, 0o600)
+        handle = cast(BinaryIO, os.fdopen(descriptor, "r+b"))
+        descriptor = None
+        return handle
+    except OSError as exc:
+        if descriptor is not None:
+            with suppress(OSError):
+                os.close(descriptor)
+        raise OutputLockError(f"Could not open output-directory lock file: {path}: {exc}") from exc
 
 
 class OutputDirectoryLock:
@@ -52,7 +73,7 @@ class OutputDirectoryLock:
             raise RuntimeError("Output-directory lock is already acquired.")
 
         self.output_folder.mkdir(parents=True, exist_ok=True)
-        handle = self.path.open("a+b")
+        handle = _open_lock_file(self.path)
         try:
             if handle.seek(0, os.SEEK_END) == 0:
                 handle.write(b"\0")
