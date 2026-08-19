@@ -46,6 +46,8 @@ def test_cli_project_sync_previews_without_mutating_project(
 
     assert exit_code == 0
     assert payload["changed"] is True
+    assert payload["safe_to_apply"] is True
+    assert payload["duplicate_parts"] == {"pdf": [], "docx": []}
     assert payload["applied"] is False
     assert payload["approval_required"] is True
     assert payload["backup"] is None
@@ -68,6 +70,7 @@ def test_cli_project_sync_apply_creates_backup_and_persists_order(
 
     assert exit_code == 0
     assert payload["changed"] is True
+    assert payload["safe_to_apply"] is True
     assert payload["applied"] is True
     assert payload["approval_required"] is False
     assert payload["backup"] == str(tmp_path / "Book.json.bak")
@@ -76,6 +79,27 @@ def test_cli_project_sync_apply_creates_backup_and_persists_order(
         source / "Part 2.docx",
     ]
     assert load_project(tmp_path / "Book.json.bak").selected_files == []
+
+
+def test_cli_project_sync_blocks_duplicate_parts_before_writing(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    project_path, source = _write_project(tmp_path)
+    duplicate = source / "Part 1 copy.docx"
+    duplicate.write_text("duplicate part one", encoding="utf-8")
+
+    exit_code = cli.main(["project-sync", "--project", str(project_path), "--apply"])
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 2
+    assert payload["safe_to_apply"] is False
+    assert payload["duplicate_parts"] == {"pdf": [], "docx": [1]}
+    assert payload["applied"] is False
+    assert payload["removal_approval_required"] is False
+    assert "ambiguous" in payload["error"]
+    assert load_project(project_path).selected_files == []
+    assert not (tmp_path / "Book.json.bak").exists()
 
 
 def test_cli_project_sync_blocks_removal_without_second_approval(
@@ -177,6 +201,7 @@ def test_cli_project_sync_apply_is_noop_when_selection_is_current(
 
     assert exit_code == 0
     assert payload["changed"] is False
+    assert payload["safe_to_apply"] is True
     assert payload["applied"] is False
     assert payload["backup"] is None
     assert not (tmp_path / "Book.json.bak").exists()
