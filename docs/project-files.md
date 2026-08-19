@@ -49,17 +49,23 @@ Preview the proposed selection:
 docmergeforge project-sync --project "./Book.json"
 ```
 
-The command scans the project source roots, excludes a strictly nested project output subtree, and proposes only mergeable PDF/DOCX files that:
+The command scans the project source roots and proposes only mergeable PDF/DOCX files that:
 
 - have a detected part number;
 - fall inside the project's configured inclusive expected range; and
 - resolve to a unique platform-aware path identity.
 
+When the output folder is strictly nested under a source root, project discovery excludes that output tree during recursive traversal. Excluded directories are pruned before their files reach classification, PDF inspection, byte-size evidence collection, or SHA-256 hashing. Normal project runs and `project-sync` share this same discovery boundary.
+
 The proposed order is deterministic: part number first, then document kind, natural filename ordering, and normalized full path as the final tie breaker.
 
-Preview JSON includes `current`, `proposed`, `added`, `removed`, `reordered`, counts, and approval flags. A preview never writes the project or a backup.
+Preview JSON includes `current`, `proposed`, `added`, `removed`, `reordered`, counts, approval flags, same-kind duplicate-part evidence, missing-part evidence, `safe_to_apply`, and `numbering_complete_for_available_kinds`. A preview never writes the project or a backup.
 
-After reviewing the complete proposal, apply an addition/reorder-only change with:
+Two automatic candidates of the same kind claiming the same part number are ambiguous. For example, two Part 1 PDFs set `safe_to_apply=false` and block apply. One Part 1 PDF plus one Part 1 DOCX is valid because those are separate manuscript pipelines.
+
+`missing_parts` is calculated for each manuscript kind that has at least one eligible synchronization candidate. Missing expected numbers make `numbering_complete_for_available_kinds=false`, but do not by themselves block a metadata update. A work-in-progress selection can therefore be synchronized while incomplete; publication readiness must still be established with project preflight.
+
+After reviewing an unambiguous proposal, apply an addition/reorder-only change with:
 
 ```bash
 docmergeforge project-sync --project "./Book.json" --apply
@@ -76,16 +82,24 @@ docmergeforge project-sync \
   --allow-removals
 ```
 
-A changed project is backed up before replacement. The first backup is normally `Book.json.bak`; existing backups are preserved with versioned names such as `Book.json_v2.bak`. The new project file is then saved through the same atomic text-persistence path used by normal project saving.
+`--allow-removals` cannot override duplicate-part ambiguity.
+
+Before a changed synchronization is written, the project currently on disk is loaded again and compared semantically with the project instance used for the operation. If settings, source/output locations, selection, state, warnings, or checkpoint data changed on disk after load, synchronization refuses the stale write and requires a fresh load/preview.
+
+A changed approved project is backed up before replacement. The first backup is normally `Book.json.bak`; existing backups are preserved with versioned names such as `Book.json_v2.bak`. The new project file is then saved through the same atomic text-persistence path used by normal project saving.
 
 Additional safeguards:
 
-- unchanged proposals are true no-ops and create no backup;
+- same-kind duplicate numbered candidates block apply before any project write;
+- unchanged unambiguous proposals are true no-ops and create no backup;
 - synchronization refuses to write a project file addressed through a symbolic link;
 - a synchronization plan is rejected if the in-memory selection changed after the plan was created;
+- a project changed semantically on disk after load is rejected instead of being overwritten;
 - backup/project write `OSError`s are reported as structured CLI JSON failures;
 - a failed project replacement leaves the already-created backup available for recovery and restores the caller's in-memory selection;
 - synchronization changes only project metadata; it does not rename, delete, move, convert, or modify manuscript source files.
+
+The on-disk comparison reduces stale-write risk but is not a universal lock against arbitrary external editors. Normal project persistence remains atomic and logically last-writer-wins rather than a collaborative multi-writer protocol.
 
 `project-sync` is not a replacement for project preflight. After applying a proposal, run:
 
@@ -280,7 +294,7 @@ Project saving first validates the shared expected-part range contract, then use
 
 If range validation, writing, or replacement fails, an invalid new project file is not published. Write/promotion failures remove the temporary file and preserve the previously published project file.
 
-Multiple writers no longer contend on one predictable `<project>.tmp` filename, although concurrent saves are still logically last-writer-wins and should not be used as a collaborative editing protocol.
+Multiple writers no longer contend on one predictable `<project>.tmp` filename, although concurrent saves are still logically last-writer-wins and should not be used as a collaborative editing protocol. `project-sync` adds a semantic on-disk recheck immediately before its backup/write path, but arbitrary external writers that change the file after that check are still outside a universal coordinated lock.
 
 The project file itself is still not a backup of the source manuscript. Back up important project files independently.
 
