@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -72,7 +73,7 @@ def test_recursive_iter_files_prunes_excluded_directory_before_descent(
         root: Path,
         *,
         followlinks: bool,
-    ) -> object:
+    ) -> Iterator[tuple[str, list[str], list[str]]]:
         walk_calls.append((root, followlinks))
         yield str(source), directory_names, ["root.txt"]
         assert directory_names == ["Content"]
@@ -106,9 +107,7 @@ def test_non_recursive_iter_files_still_honors_excluded_root(tmp_path: Path) -> 
     included.write_text("one", encoding="utf-8")
     excluded_file.write_text("two", encoding="utf-8")
 
-    discovered = list(
-        scanner.iter_files([source], recursive=False, exclude_roots=[excluded])
-    )
+    discovered = list(scanner.iter_files([source], recursive=False, exclude_roots=[excluded]))
 
     assert discovered == [included]
 
