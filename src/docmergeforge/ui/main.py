@@ -40,7 +40,12 @@ from docmergeforge.pdf.engine import PdfMergeEngine
 from docmergeforge.presets.sql_full_mastery import PRESET_NAME
 from docmergeforge.profiles.catalog import MergeProfile, apply_profile
 from docmergeforge.project.recovery import RecoveryStore
-from docmergeforge.project.store import load_project, save_project
+from docmergeforge.project.store import (
+    load_project,
+    load_project_snapshot,
+    save_project,
+    save_project_if_revision,
+)
 from docmergeforge.settings.config import AppSettings
 from docmergeforge.ui.about_dialog import AboutDialog
 from docmergeforge.ui.dialogs import (
@@ -544,14 +549,19 @@ class MainWindow(QMainWindow):
             return
         path = Path(project_file)
         try:
-            project = load_project(path)
-        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            project, revision = load_project_snapshot(path)
+        except (OSError, ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
             self._record_error(str(exc))
             QMessageBox.critical(self, "Project could not be opened", str(exc))
             return
         if not self._confirm_project_order(project):
             return
-        save_project(project, path)
+        try:
+            save_project_if_revision(project, path, revision)
+        except (OSError, ValueError) as exc:
+            self._record_error(str(exc))
+            QMessageBox.critical(self, "Project changed on disk", str(exc))
+            return
         self._remember_project(project, path)
         self._run_project(project)
 
