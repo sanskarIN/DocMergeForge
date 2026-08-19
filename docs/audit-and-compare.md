@@ -194,6 +194,34 @@ Counts do not necessarily need to be identical. DocMergeForge can intentionally 
 
 The comparison is evidence for review, not a pass/fail semantic equivalence theorem.
 
+## From review findings to project selection changes
+
+`audit` and `compare` remain report-only tools. They do not automatically rewrite a project based on a finding or count difference, because those results do not provide enough information to prove that a source should be added, removed, or reordered.
+
+When your review process leads you to add/remove numbered source files on disk and you want to refresh a reusable project's explicit automatic selection, use the separate preview-first synchronization command:
+
+```bash
+docmergeforge project-sync --project "./Book.json"
+```
+
+Review the complete `current`, `proposed`, `added`, `removed`, and `reordered` evidence. Apply an addition/reorder-only proposal with:
+
+```bash
+docmergeforge project-sync --project "./Book.json" --apply
+```
+
+If the proposal removes any existing selected path, apply is blocked until those removals receive the separate `--allow-removals` approval. This protects intentionally selected unnumbered front/back matter and other manual exceptions.
+
+`project-sync` does **not** consume audit findings or compare results as mutation instructions. It independently rebuilds a deterministic numbered/in-range PDF/DOCX selection from the project's source folders. See [Project Synchronization](project-sync.md) for the full safety model.
+
+After any applied selection change, run:
+
+```bash
+docmergeforge merge --project "./Book.json" --dry-run
+```
+
+and review resolved inputs/diagnostics before creating a new publication.
+
 ## Recommended post-publication workflow
 
 For a high-value publication:
@@ -202,15 +230,21 @@ For a high-value publication:
 2. Run `compare` for each produced format.
 3. Review page/count differences against configured publication features.
 4. Run `audit` on sources and/or final outputs as appropriate.
-5. Open the PDF in at least one independent PDF reader.
-6. Open the DOCX in the intended target editor (for example Microsoft Word or LibreOffice).
-7. Check front matter, TOC, headings, page numbering, tables, images, footnotes/endnotes, headers/footers, and complex fields manually.
-8. Record human QA evidence with release records.
+5. If source membership/order changed during review, preview `project-sync` and explicitly approve only the intended metadata changes.
+6. Re-run project dry-run/preflight after any applied synchronization.
+7. Open the PDF in at least one independent PDF reader.
+8. Open the DOCX in the intended target editor (for example Microsoft Word or LibreOffice).
+9. Check front matter, TOC, headings, page numbering, tables, images, footnotes/endnotes, headers/footers, and complex fields manually.
+10. Record human QA evidence with release records.
 
 ## CI use
 
 `compare` and audit primitives are suitable for regression fixtures where expected results are known. Avoid turning every count difference into a universal failure rule without considering intentional publication-generated structure.
 
+`project-sync` can be parsed in automation for drift reporting, but do not mechanically add `--apply --allow-removals` to unattended CI. Removal approval exists to force review of project metadata changes that can alter publication membership.
+
 ## Privacy
 
 Audit and comparison run locally. Audit output can expose detected email addresses, GitHub URLs, and file paths, so review exported logs/results before sharing them publicly.
+
+Project-sync preview output likewise contains local source/project paths and should be treated as potentially sensitive metadata when archived or shared.
