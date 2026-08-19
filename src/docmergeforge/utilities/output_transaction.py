@@ -66,6 +66,17 @@ def _safe_child(folder: Path, name: str) -> Path:
     return folder / candidate
 
 
+def _validate_recovery_child(path: Path) -> None:
+    if path.is_symlink():
+        raise TransactionRecoveryError(
+            f"Transaction recovery child must not be a symlink: {path.name}"
+        )
+    if path.exists() and not path.is_file():
+        raise TransactionRecoveryError(
+            f"Transaction recovery child must be a regular file: {path.name}"
+        )
+
+
 def _safe_final(output_folder: Path, relative_name: str) -> Path:
     candidate = output_folder / relative_name
     try:
@@ -100,6 +111,10 @@ def pending_output_transactions(output_folder: Path) -> list[Path]:
 
 def _load_journal(transaction_folder: Path) -> dict[str, Any]:
     journal_path = transaction_folder / JOURNAL_FILENAME
+    if journal_path.is_symlink():
+        raise TransactionRecoveryError(
+            f"Refusing symlinked transaction recovery journal: {journal_path}"
+        )
     try:
         payload = json.loads(journal_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -191,6 +206,9 @@ def _recover_promoting_transaction(
         staging = _safe_child(transaction_folder, staging_name)
         final = _safe_final(output_folder, final_relative)
         backup = _safe_child(transaction_folder, backup_name) if backup_name is not None else None
+        _validate_recovery_child(staging)
+        if backup is not None:
+            _validate_recovery_child(backup)
 
         final_identity = _path_identity(final)
         if final_identity in seen_finals:
