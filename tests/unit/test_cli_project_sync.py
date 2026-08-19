@@ -142,6 +142,27 @@ def test_cli_project_sync_applies_removal_after_second_approval(
     ]
 
 
+def test_cli_project_sync_reports_write_failure_as_json(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_path, _source = _write_project(tmp_path)
+
+    def fail_apply(*_args: object, **_kwargs: object) -> None:
+        raise OSError("backup denied")
+
+    monkeypatch.setattr(cli, "apply_project_sync", fail_apply)
+
+    exit_code = cli.main(["project-sync", "--project", str(project_path), "--apply"])
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 2
+    assert payload["applied"] is False
+    assert payload["backup"] is None
+    assert payload["error"] == "backup denied"
+
+
 def test_cli_project_sync_apply_is_noop_when_selection_is_current(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
