@@ -2,6 +2,8 @@
 
 DocMergeForge uses layered automated checks because document merging, filesystem publication, desktop UI behavior, packaging, documentation, supply-chain evidence, external-office automation, and security fail in different ways. A green unit-test suite alone is not sufficient release evidence.
 
+For test ownership and automation details, also see [Test Suite Reference](test-suite-reference.md) and [Automation and Workflow Reference](automation-reference.md).
+
 ## Local quality commands
 
 ```bash
@@ -10,6 +12,7 @@ ruff check .
 black --check --diff .
 mypy src/docmergeforge
 python scripts/check_docs_links.py
+python scripts/check_repository_reference.py
 pytest --cov=docmergeforge --cov-report=term-missing
 ```
 
@@ -17,7 +20,7 @@ pytest --cov=docmergeforge --cov-report=term-missing
 
 ### Unit tests
 
-Focused coverage includes part detection/natural sorting, output naming, settings/project serialization, storage/writeability, transaction recovery, cross-process locking, PDF/DOCX helpers, native DOCX command/promotion safety, external-office round-trip adapters, supervised LibreOffice UNO insertion/evidence/process policy, fidelity capability gates/evidence, OOXML risk scanning, Microsoft Word native-merge boundaries, page-number section evidence, exact Word process cleanup, cleanup-failure escalation, packaging arguments, build provenance, and documentation-link resolution.
+Focused coverage includes part detection/natural sorting, output naming, settings/project serialization, storage/writeability, transaction recovery, cross-process locking, PDF/DOCX helpers, native DOCX command/promotion safety, external-office round-trip adapters, supervised LibreOffice UNO insertion/evidence/process policy, fidelity capability gates/evidence, OOXML risk scanning, Microsoft Word native-merge boundaries, page-number section evidence, exact Word process cleanup, cleanup-failure escalation, packaging arguments, build provenance, documentation-link resolution, and complete repository-reference coverage.
 
 ### Integration tests
 
@@ -40,7 +43,7 @@ pytest -m "regression or integration" tests/regression tests/integration
 
 `.github/workflows/quality.yml` runs on `main` pushes and pull requests using Python 3.12 and 3.13 on Ubuntu. Per-workflow/ref concurrency cancels stale runs.
 
-It runs pre-commit configuration validation, Ruff, Black check, strict mypy, repository-local Markdown link integrity, and full pytest with coverage.
+It runs pre-commit configuration validation, Ruff, Black check, strict mypy, repository-local Markdown link integrity, complete Git-tracked repository-reference coverage, and full pytest with coverage.
 
 Historical source checkpoint evidence:
 
@@ -51,7 +54,7 @@ Python 3.12: PASS
 Python 3.13: PASS
 ```
 
-That checkpoint predates the current native-office hardening and must not be reused as proof for the current head. Record a new run only after it actually passes.
+That checkpoint predates the current native-office hardening and repository-reference gate and must not be reused as proof for the current head. Record a new run only after it actually passes.
 
 ## Documentation link integrity
 
@@ -66,6 +69,22 @@ tests/unit/test_docs_links.py
 The scanner walks repository Markdown while ignoring generated/cache directories, checks relative Markdown links/images, strips URL fragments, decodes URL-encoded local paths, ignores external schemes/anchor-only links, rejects paths escaping the repository root, and fails on missing local targets.
 
 Initial fully green link-check Quality evidence: `32030103104`.
+
+## Repository documentation coverage
+
+Implementation:
+
+```text
+docs/repository-reference.md
+scripts/check_repository_reference.py
+tests/unit/test_repository_reference.py
+```
+
+The checker uses `git ls-files` as the source of truth for tracked files and requires every exact repository-relative path to appear backticked in `docs/repository-reference.md`. This intentionally excludes untracked/generated local state while making added, renamed, or deleted source files, tests, workflows, configuration, assets, and documentation part of the same documentation-maintenance contract.
+
+Path coverage is not semantic review: a passing check proves every tracked file is explicitly cataloged, not that every description is automatically correct. Reviewers remain responsible for accurate descriptions and canonical subsystem documentation.
+
+The check was added after the historical Quality run IDs above. Do not reuse those historical runs as evidence that the repository-reference gate passed; record a new current-head Quality run only after the new gate executes successfully.
 
 ## 120-Part Regression
 
@@ -334,18 +353,6 @@ When a gate fails, inspect the exact failed step, distinguish environment from a
 
 ## Release CI acceptance matrix
 
-Before a stable release candidate, obtain current evidence appropriate to each support statement for Quality, documentation-link integrity, 120-Part Regression, Build Smoke, Recovery Acceptance, filesystem exhaustion, Security/CodeQL, measured Stress, one-document external-office fidelity, supervised LibreOffice UNO multi-document and process-cleanup acceptance where claimed, controlled Microsoft Word native merge and timeout-cleanup acceptance where claimed, Package Desktop/Onefile where distributed, checksums/provenance/attestations, fresh-runner execution, representative fidelity, human accessibility/clean-machine QA, and signing/notarization where claimed.
+Before a stable release candidate, obtain current evidence appropriate to each support statement for Quality, documentation-link integrity, repository-reference coverage, 120-Part Regression, Build Smoke, Recovery Acceptance, filesystem exhaustion, Security/CodeQL, measured Stress, one-document external-office fidelity, supervised LibreOffice UNO multi-document and process-cleanup acceptance where claimed, controlled Microsoft Word native merge and timeout-cleanup acceptance where claimed, Package Desktop/Onefile where distributed, checksums/provenance/attestations, fresh-runner execution, representative fidelity, human accessibility/clean-machine QA, and signing/notarization where claimed.
 
 Do not reuse older run IDs as proof after materially changing the behavior they validated.
-
-## Evidence records
-
-Record verified checkpoints in:
-
-```text
-CHANGELOG.md
-what_changed.md
-docs/release-evidence.md
-```
-
-Keep **implemented**, **source-CI verified**, **external-application measured**, **downloaded-artifact verified**, and **human/production accepted** states distinct.
