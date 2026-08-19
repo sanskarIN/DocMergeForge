@@ -6,7 +6,12 @@ MAX_EXPECTED_PART_COUNT = 10_000
 
 def validate_expected_part_range(start: int, end: int) -> tuple[int, int]:
     """Validate a bounded expected-part range shared by CLI, projects, and services."""
-    if isinstance(start, bool) or isinstance(end, bool) or not isinstance(start, int) or not isinstance(end, int):
+    if (
+        isinstance(start, bool)
+        or isinstance(end, bool)
+        or not isinstance(start, int)
+        or not isinstance(end, int)
+    ):
         raise ValueError("Expected part range values must be integers.")
     if start < 1 or end < start:
         raise ValueError("Expected part range must be positive and non-decreasing.")
