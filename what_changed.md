@@ -4,6 +4,33 @@ This file records the current DocMergeForge development pass, verification evide
 
 An item is not treated as finished merely because code was pushed. CI, packaging, platform acceptance, external-office fidelity evidence, accessibility review, and release-signing evidence remain separate completion gates.
 
+## 2026-08-19 — Guarded resume recovery-order follow-up
+
+### Changed
+- Desktop **Resume Project** now suppresses the ordering-phase recovery checkpoint while the opened project is still only an in-memory edit based on the original revision snapshot.
+- After order review, the desktop first performs `save_project_if_revision(...)`. Only after that guarded save succeeds does it write the new `ordering` recovery checkpoint, update recent-project history, and start the merge workflow.
+- `_confirm_project_order(...)` now accepts a keyword-only `checkpoint` control so new-project flows keep their existing checkpoint behavior while resumed projects can defer checkpoint persistence until after the stale-write guard succeeds.
+- `docs/test-suite-reference.md` now records the resumed-project ordering regression in the desktop integration coverage map.
+
+### Fixed / Hardened
+- Prevented a stale externally modified project from being rejected by the exact revision guard while still leaving behind a newly written recovery snapshot containing the user's now-stale in-memory ordering changes.
+- Preserved fail-closed behavior when the post-save recovery checkpoint itself fails: the project file may already contain the successfully guarded edit, but the desktop stops before merge rather than running without the requested recovery checkpoint.
+
+### Regression coverage
+- Expanded `tests/integration/test_order_dialog_accessibility.py` with a focused **Resume Project** workflow regression that asserts the maintained event order is:
+  1. order confirmation with pre-save checkpoint disabled;
+  2. exact-revision guarded project save;
+  3. recovery checkpoint;
+  4. recent-project update;
+  5. merge start.
+- Followed with a lint-clean refinement that avoids assigning lambdas to fake-window attributes and keeps the test aligned with the repository's enabled Ruff `E` rules.
+
+### Verification Status
+- Latest implementation/test/documentation checkpoint immediately before this development-record update: `11011c61038342a083f67c24a7ae0fb555bf35fd`.
+- The follow-up implementation is committed as `1f6c068ab65d2d0d228ea0e6fb735173014bc3d8`; the integration regression and its lint-clean refinement are committed as `03b249e2f11328eff95023fccb0675d16c969ea7` and `3fbf10fe9d36c2c080c669a9b9189d8aefca1623`.
+- Commit diff inspection confirmed the refinement commit only replaced the temporary test fake/lambda construction with a small typed fake class; it did not broaden production behavior.
+- No fresh current-head Ruff, Black, strict mypy, documentation-link, repository-reference, pytest/coverage, Quality, Regression, Build Smoke, or Security/CodeQL pass is claimed here without an observed current-head run.
+
 ## 2026-08-19 — Project-file revision guards and stale-write protection
 
 ### Added
