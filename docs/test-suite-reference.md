@@ -151,7 +151,7 @@ Covers JSON project serialization/deserialization, schema validation, migrations
 
 ### `tests/unit/test_project_store_persistence_guard.py`
 
-Protects failure paths where invalid state or write errors must leave the prior project file intact rather than partially replacing it.
+Protects failure paths where invalid state or write errors must leave the prior project file intact rather than partially replacing it. It also covers same-snapshot project revision tokens, successful guarded saves, stale exact-content rejection without overwrite, and symbolic-link destination refusal.
 
 ### `tests/unit/test_recovery_store.py`
 
@@ -159,7 +159,7 @@ Covers project recovery checkpoint snapshots and the rule that in-memory checkpo
 
 ### `tests/unit/test_project_sync.py`
 
-Covers synchronization proposal ordering, current/proposed/added/removed/reordered evidence, output-folder exclusion, backups, no-op behavior, removal approval, stale-plan rejection, symlink refusal, and persistence failures.
+Covers synchronization proposal ordering, current/proposed/added/removed/reordered evidence, output-folder exclusion, backups, no-op behavior, removal approval, stale-plan rejection, symlink refusal, semantic on-disk drift, and persistence failures.
 
 ### `tests/unit/test_project_sync_drift.py`
 
@@ -167,7 +167,7 @@ Protects reusable drift-evaluation logic used by the standalone checker/CI surfa
 
 ### `tests/unit/test_cli_project_sync.py`
 
-Covers the CLI's preview/apply semantics, second removal approval, JSON errors, and successful synchronization operation.
+Covers the CLI's preview/apply semantics, second removal approval, JSON errors, successful synchronization operation, and exact byte-level project drift rejection between the initial snapshot and apply.
 
 ### `tests/unit/test_recent_projects.py`
 
@@ -189,7 +189,7 @@ Covers allowed and rejected merge lifecycle transitions.
 
 ### `tests/unit/test_cli_workflow.py`
 
-Tests representative CLI workflow dispatch, arguments, structured results, and exit-code behavior across normal/failure paths.
+Tests representative CLI workflow dispatch, arguments, structured results, and exit-code behavior across normal/failure paths. It also protects fail-closed `project-create` persistence errors so a failed save is returned as structured JSON with exit code `2` instead of escaping as an unhandled save exception.
 
 ## Unit suite — PDF
 
