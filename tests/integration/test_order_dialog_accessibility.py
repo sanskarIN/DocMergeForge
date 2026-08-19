@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -103,30 +102,33 @@ def test_resume_project_checkpoints_only_after_guarded_save(
 
     monkeypatch.setattr(ui_main, "save_project_if_revision", guarded_save)
 
-    fake_window = SimpleNamespace()
-    fake_window._record_error = lambda _message: None
+    class FakeWindow:
+        def _record_error(self, _message: str) -> None:
+            return None
 
-    def confirm_order(
-        confirmed_project: MergeProject,
-        *,
-        checkpoint: bool = True,
-    ) -> bool:
-        assert confirmed_project is project
-        assert checkpoint is False
-        events.append("order-confirmed")
-        return True
+        def _confirm_project_order(
+            self,
+            confirmed_project: MergeProject,
+            *,
+            checkpoint: bool = True,
+        ) -> bool:
+            assert confirmed_project is project
+            assert checkpoint is False
+            events.append("order-confirmed")
+            return True
 
-    def checkpoint(checked_project: MergeProject, name: str) -> bool:
-        assert checked_project is project
-        assert name == "ordering"
-        events.append("checkpoint")
-        return True
+        def _checkpoint_project(self, checked_project: MergeProject, name: str) -> bool:
+            assert checked_project is project
+            assert name == "ordering"
+            events.append("checkpoint")
+            return True
 
-    fake_window._confirm_project_order = confirm_order
-    fake_window._checkpoint_project = checkpoint
-    fake_window._remember_project = lambda *_args: events.append("remember")
-    fake_window._run_project = lambda *_args: events.append("run")
+        def _remember_project(self, *_args: object) -> None:
+            events.append("remember")
 
-    ui_main.MainWindow._resume_project(fake_window)
+        def _run_project(self, *_args: object) -> None:
+            events.append("run")
+
+    ui_main.MainWindow._resume_project(FakeWindow())
 
     assert events == ["order-confirmed", "guarded-save", "checkpoint", "remember", "run"]
