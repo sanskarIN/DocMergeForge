@@ -224,6 +224,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Apply the reviewed proposal after creating a versioned project backup.",
     )
+    project_sync.add_argument(
+        "--allow-removals",
+        action="store_true",
+        help="Also approve removing paths currently stored in selected_files.",
+    )
 
     project_merge = sub.add_parser("merge", help="Run a reusable DocMergeForge project file.")
     project_merge.add_argument("--project", required=True, type=Path)
@@ -330,36 +335,89 @@ def _run_project(project: MergeProject, dry_run: bool) -> int:
         passwords.clear()
 
 
-def _run_project_sync(project_path: Path, apply: bool) -> int:
+def _project_sync_payload(
+    project_path: Path,
+    plan: object,
+    *,
+    applied: bool,
+    backup: Path | None,
+    approval_required: bool,
+    removal_approval_required: bool,
+    error: str | None = None,
+) -> dict[str, object]:
+    payload = plan.to_dict()
+    payload.update(
+        {
+            "project": str(project_path),
+            "applied": applied,
+            "approval_required": approval_required,
+            "removal_approval_required": removal_approval_required,
+            "backup": str(backup) if backup is not None else None,
+        }
+    )
+    if error is not None:
+        payload["error"] = error
+    return payload
+
+
+def _run_project_sync(project_path: Path, apply: bool, allow_removals: bool) -> int:
     project = load_project(project_path)
     plan = plan_project_sync(project)
+    removal_approval_required = bool(plan.removed) and not allow_removals
+    if apply and removal_approval_required:
+        print(
+            json.dumps(
+                _project_sync_payload(
+                    project_path,
+                    plan,
+                    applied=False,
+                    backup=None,
+                    approval_required=True,
+                    removal_approval_required=True,
+                    error=(
+                        "Synchronization would remove existing selected files. Review the "
+                        "removed list and repeat with --allow-removals only if intentional."
+                    ),
+                ),
+                indent=2,
+            )
+        )
+        return 2
+
     backup: Path | None = None
     if apply:
         try:
             backup = apply_project_sync(project, project_path, plan)
-        except ValueError as exc:
+        except (OSError, ValueError) as exc:
             print(
                 json.dumps(
-                    {
-                        "project": str(project_path),
-                        "applied": False,
-                        "error": str(exc),
-                    },
+                    _project_sync_payload(
+                        project_path,
+                        plan,
+                        applied=False,
+                        backup=None,
+                        approval_required=True,
+                        removal_approval_required=False,
+                        error=str(exc),
+                    ),
                     indent=2,
                 )
             )
             return 2
 
-    payload = plan.to_dict()
-    payload.update(
-        {
-            "project": str(project_path),
-            "applied": apply and plan.changed,
-            "approval_required": plan.changed and not apply,
-            "backup": str(backup) if backup is not None else None,
-        }
+    print(
+        json.dumps(
+            _project_sync_payload(
+                project_path,
+                plan,
+                applied=apply and plan.changed,
+                backup=backup,
+                approval_required=plan.changed and not apply,
+                removal_approval_required=bool(plan.removed) and not allow_removals,
+            ),
+            indent=2,
+        )
     )
-    print(json.dumps(payload, indent=2))
     return 0
 
 
@@ -483,7 +541,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "project-sync":
-        return _run_project_sync(args.project, args.apply)
+        return _run_project_sync(args.project, args.apply, args.allow_removals)
 
     if args.command == "merge":
         return _run_project(load_project(args.project), args.dry_run)
