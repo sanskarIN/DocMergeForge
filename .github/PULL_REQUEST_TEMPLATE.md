@@ -13,6 +13,7 @@ Describe the focused change and the user/problem it addresses.
 - [ ] `black --check --diff .` passes.
 - [ ] `mypy src/docmergeforge` passes.
 - [ ] `python scripts/check_docs_links.py` passes when documentation changed.
+- [ ] `python scripts/check_repository_reference.py` passes when tracked files changed.
 - [ ] Relevant unit/integration/regression tests pass.
 - [ ] Source-integrity and no-overwrite behavior remain intact where applicable.
 - [ ] Failure/cancellation/cleanup behavior has a regression when applicable.
@@ -29,6 +30,7 @@ Describe the focused change and the user/problem it addresses.
 
 ## Documentation and evidence
 - [ ] User/operator/developer documentation was updated when behavior changed.
+- [ ] Added/renamed/deleted tracked paths are reflected in `docs/repository-reference.md`.
 - [ ] `CHANGELOG.md` was updated for notable behavior.
 - [ ] `what_changed.md` was updated for meaningful development/verification work.
 - [ ] New run IDs/hashes/evidence are cited only when they were actually observed and verified.
