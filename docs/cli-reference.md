@@ -1,6 +1,6 @@
 # CLI Reference
 
-The `docmergeforge` command is the automation-oriented interface to DocMergeForge. It supports discovery/validation, direct PDF and DOCX merging, DOCX fidelity capability/acceptance checks, private fidelity-corpus execution, reusable project files, the SQL Full Mastery preset, interrupted-output recovery, manuscript audit, and output comparison.
+The `docmergeforge` command is the automation-oriented interface to DocMergeForge. It supports discovery/validation, direct PDF and DOCX merging, DOCX fidelity capability/acceptance checks, private fidelity-corpus execution, reusable project files and synchronization, the SQL Full Mastery preset, interrupted-output recovery, manuscript audit, and output comparison.
 
 ```bash
 docmergeforge --help
@@ -421,6 +421,61 @@ docmergeforge project-create \
 
 Project JSON is saved atomically. When later loaded, publication-sensitive field types and policy values are validated; for example a string value such as `"overwrite": "false"` is rejected rather than being interpreted as truthy Python data.
 
+## `project-sync`
+
+Preview or explicitly apply a deterministic automatic `selected_files` proposal for a reusable project.
+
+```bash
+docmergeforge project-sync \
+  --project FILE.json \
+  [--apply] \
+  [--allow-removals]
+```
+
+Required:
+
+- `--project` — project JSON file to inspect.
+
+Optional:
+
+- `--apply` — apply the reviewed proposal after creating a versioned project backup when a change exists.
+- `--allow-removals` — additionally approve removing paths currently present in `selected_files`; meaningful when applying a proposal that reports removals.
+
+Preview example:
+
+```bash
+docmergeforge project-sync --project "./Book.json"
+```
+
+The command is preview-only unless `--apply` is present. It discovers the project's current sources without applying the existing selected-file filter, excludes a strictly nested output subtree, and proposes only numbered PDF/DOCX files inside the project's expected range. Companion files, unsupported files, unnumbered PDF/DOCX files, and out-of-range PDF/DOCX files are not automatic synchronization candidates.
+
+The proposed ordering is deterministic by detected part number, document kind, natural filename order, then normalized full path. Preview JSON includes:
+
+- `changed`;
+- `current_count` / `proposed_count`;
+- `current` / `proposed`;
+- `added` / `removed`;
+- `reordered`;
+- `applied`;
+- `approval_required`;
+- `removal_approval_required`;
+- `backup`.
+
+If `removed` is non-empty, `--apply` by itself returns exit code `2` and does not write a backup/project. This second approval boundary protects intentionally selected unnumbered front/back matter or other manual exceptions. After reviewing every removal, apply intentionally with:
+
+```bash
+docmergeforge project-sync \
+  --project "./Book.json" \
+  --apply \
+  --allow-removals
+```
+
+For a changed approved proposal, the current project is first copied to a versioned backup such as `Book.json.bak` or `Book.json_v2.bak`, then the project is saved atomically. No-op proposals create no backup. Symlinked project files and stale in-memory selection baselines are rejected. Handled write/safety failures are printed as JSON and return exit code `2`.
+
+`project-sync` changes only project metadata. It never deletes or rewrites manuscript source files. Run `merge --dry-run` after applying a synchronization proposal and review the resolved merge order before publication.
+
+See [Project Synchronization](project-sync.md) and [Project Files](project-files.md).
+
 ## `merge`
 
 Run or preflight a reusable project.
@@ -568,7 +623,8 @@ For reliable scripting:
 
 - use `--dry-run` before project publication;
 - inspect exit codes, not only stdout text;
-- parse JSON for `validate`, project dry runs, `fidelity-capabilities`, `fidelity-roundtrip`, `fidelity-corpus`, `recover-output`, `audit`, and `compare`;
+- parse JSON for `validate`, project dry runs, `project-sync`, `fidelity-capabilities`, `fidelity-roundtrip`, `fidelity-corpus`, `recover-output`, `audit`, and `compare`;
+- review `project-sync` removals and never add `--allow-removals` mechanically;
 - review `diagnostics`/`pdf_diagnostics`/`docx_diagnostics`, especially unnumbered/out-of-range warnings;
 - avoid depending on filesystem directory listing order;
 - preserve project files and publication/fidelity evidence with release artifacts;
@@ -605,6 +661,7 @@ docmergeforge validate --input "/home/user/Books/My Series" --parts 1-120
 | `fidelity-corpus` | Run privacy-safe local external-office acceptance across a DOCX corpus |
 | `sql-preset` | Guided SQL Full Mastery 120-part publication |
 | `project-create` | Create reusable JSON project |
+| `project-sync` | Preview/apply guarded deterministic selected-file synchronization |
 | `merge` | Dry-run or execute project |
 | `recover-output` | Recover interrupted journaled publication |
 | `audit` | Local manuscript audit |
