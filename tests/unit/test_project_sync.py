@@ -70,6 +70,7 @@ def test_sync_plan_selects_only_numbered_mergeable_files_in_range(tmp_path: Path
     assert plan.added == plan.proposed
     assert plan.removed == ()
     assert plan.changed is True
+    assert plan.safe_to_apply is True
 
 
 def test_sync_plan_reports_added_removed_and_reordered_paths(tmp_path: Path) -> None:
@@ -92,6 +93,60 @@ def test_sync_plan_reports_added_removed_and_reordered_paths(tmp_path: Path) -> 
     assert plan.added == (part_3,)
     assert plan.removed == (old,)
     assert plan.reordered is True
+
+
+def test_sync_plan_reports_same_kind_duplicate_parts(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    root = project.source_folders[0]
+    discovered = [
+        _document(root / "Part 1.pdf", DocumentKind.PDF, 1),
+        _document(root / "Part 1 copy.pdf", DocumentKind.PDF, 1),
+        _document(root / "Part 1.docx", DocumentKind.DOCX, 1),
+        _document(root / "Part 2.docx", DocumentKind.DOCX, 2),
+    ]
+
+    plan = plan_project_sync(project, discovered)
+
+    assert plan.duplicate_pdf_parts == (1,)
+    assert plan.duplicate_docx_parts == ()
+    assert plan.safe_to_apply is False
+    assert plan.to_dict()["duplicate_parts"] == {"pdf": [1], "docx": []}
+
+
+def test_sync_plan_allows_same_part_number_across_pdf_and_docx(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    root = project.source_folders[0]
+    discovered = [
+        _document(root / "Part 1.pdf", DocumentKind.PDF, 1),
+        _document(root / "Part 1.docx", DocumentKind.DOCX, 1),
+    ]
+
+    plan = plan_project_sync(project, discovered)
+
+    assert plan.duplicate_pdf_parts == ()
+    assert plan.duplicate_docx_parts == ()
+    assert plan.safe_to_apply is True
+
+
+def test_apply_sync_rejects_ambiguous_duplicate_parts_without_backup(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    root = project.source_folders[0]
+    project_path = tmp_path / "Book.json"
+    save_project(project, project_path)
+    plan = plan_project_sync(
+        project,
+        [
+            _document(root / "Part 1.pdf", DocumentKind.PDF, 1),
+            _document(root / "Part 1 copy.pdf", DocumentKind.PDF, 1),
+        ],
+    )
+
+    with pytest.raises(ValueError, match="duplicate PDF/DOCX part numbers"):
+        apply_project_sync(project, project_path, plan)
+
+    assert not (tmp_path / "Book.json.bak").exists()
+    assert load_project(project_path).selected_files == []
+    assert project.selected_files == []
 
 
 def test_apply_sync_creates_backup_and_replaces_project_atomically(tmp_path: Path) -> None:
