@@ -40,6 +40,34 @@ def _is_within(path: Path, directory: Path) -> bool:
     return True
 
 
+def _is_excluded(path: Path, excluded: tuple[Path, ...]) -> bool:
+    return any(_is_within(path, directory) for directory in excluded)
+
+
+def _iter_directory(
+    root: Path,
+    recursive: bool,
+    excluded: tuple[Path, ...],
+) -> Iterable[Path]:
+    if not recursive:
+        for path in root.glob("*"):
+            if not _is_excluded(path, excluded) and path.is_file():
+                yield path
+        return
+
+    for directory, directory_names, file_names in os.walk(root, followlinks=False):
+        directory_path = Path(directory)
+        directory_names[:] = [
+            name
+            for name in directory_names
+            if not _is_excluded(directory_path / name, excluded)
+        ]
+        for name in file_names:
+            path = directory_path / name
+            if not _is_excluded(path, excluded):
+                yield path
+
+
 def iter_files(
     roots: Iterable[Path],
     recursive: bool = True,
@@ -48,17 +76,13 @@ def iter_files(
 ) -> Iterable[Path]:
     excluded = tuple(_resolved(path) for path in exclude_roots)
     for root in roots:
-        if any(_is_within(root, directory) for directory in excluded):
+        if _is_excluded(root, excluded):
             continue
         if root.is_file():
             yield root
             continue
-        iterator = root.rglob("*") if recursive else root.glob("*")
-        for path in iterator:
-            if any(_is_within(path, directory) for directory in excluded):
-                continue
-            if path.is_file():
-                yield path
+        if root.is_dir():
+            yield from _iter_directory(root, recursive, excluded)
 
 
 def _path_identity(path: Path) -> str:
