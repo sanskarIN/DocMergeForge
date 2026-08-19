@@ -20,6 +20,9 @@ The master specification is larger than a single safe implementation step. Work 
 - Dry-run/preflight evidence and storage planning.
 - Output comparison workflow and manuscript audit/preview support.
 - Explicit keyboard shortcuts, screen-reader names/descriptions, and search-label buddy navigation are implemented for the order editor.
+- Explicit project selection uses platform-aware path normalization rather than unconditional case folding, so case-distinct POSIX inputs remain individually selectable while duplicate aliases of the same path are rejected.
+- Project checkpoint state is updated in memory only after its recovery snapshot has been persisted successfully.
+- Expected-part ranges use one shared bounded contract across project loading, project saving, CLI parsing, and validation: six-digit maximum part numbers and at most 10,000 expected parts per range.
 - Remaining gate: complete keyboard-only and assistive-technology acceptance of reorder behavior on all supported desktop platforms.
 
 ## v0.3.x — Publication tooling — substantially implemented
@@ -28,6 +31,7 @@ The master specification is larger than a single safe implementation step. Work 
 - DOCX heading/section/style inventory and collision analysis.
 - Repeated-front-matter detection and publication audit UI.
 - Merge profiles and publication-oriented output naming/settings.
+- Windows device-name output protection covers reserved prefixes before the first dot, including names such as `CON.txt` and `COM1.release`.
 - Remaining gate: broad real-world manuscript fidelity regression coverage before stable-release claims.
 
 ## v0.4.x — Fidelity adapters — implementation advanced / production certification pending
@@ -75,8 +79,12 @@ The master specification is larger than a single safe implementation step. Work 
 - Linux package jobs install the same required Qt/EGL runtime prerequisite used by desktop smoke CI.
 - macOS packaging handles the native `.app` bundle layout when present instead of assuming the Linux/Windows onedir path.
 - Mixed-format document outputs and publication evidence are staged and batch-promoted transactionally, including rollback of earlier replacements when a later promotion fails.
+- Completed binary staging artifacts are explicitly flushed with `fsync` before atomic single-file or batch promotion; the output-destination preflight probe writes, flushes, and `fsync`s a byte rather than only creating an empty file.
 - Promotion is journaled before final-path mutation. Interrupted `promoting` journals have fail-closed recovery and an explicit `docmergeforge recover-output` CLI path; new transactions refuse to start while journaled recovery is pending.
+- Recovery journal parsing is strict about JSON types, positive sizes, hexadecimal SHA-256 values, safe child/final paths, duplicate targets, reused child names, and journal self-reference.
+- Recovery refuses symlinked journal files and symlinked/non-file staging or backup children, and pending-transaction discovery ignores symlinked staging directories.
 - Publication and recovery share a non-blocking OS-level output-directory lock, preventing two independent DocMergeForge processes from concurrently staging/promoting/recovering the same destination.
+- The output lock file is opened fail-closed against pre-existing symlinks and uses `O_NOFOLLOW` where the platform exposes it.
 - Recovery Acceptance performs real abrupt child-process termination with `os._exit()` on Windows, macOS, and Ubuntu at multiple promotion boundaries. Run `32022863454` passed all configured phases on all three platforms.
 - Destination writeability is probed before expensive project work, fault-injected `ENOSPC` coverage verifies atomic cleanup, and Disk Full Acceptance uses a real 32 MiB Linux tmpfs to verify kernel `ENOSPC` behavior.
 - A scalable synthetic stress-fixture generator and manually dispatchable stress workflow are implemented for measured large-run acceptance.
