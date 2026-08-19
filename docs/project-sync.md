@@ -25,7 +25,7 @@ It does **not**:
 docmergeforge project-sync --project "./Book.json"
 ```
 
-The preview scans the project's configured source folders recursively. If the output folder is strictly nested below a source root, the output subtree is excluded so old publications and staging/report artifacts cannot become synchronization candidates.
+The preview scans the project's configured source folders recursively. If the output folder is strictly nested below a source root, the scanner excludes that output subtree **before hashing or PDF inspection** so old publications, staging/report artifacts, and transaction residue do not become synchronization candidates or consume document-inspection work.
 
 The automatic proposal contains only files that are:
 
@@ -74,12 +74,48 @@ The preview keeps all detected candidates visible instead of silently picking a 
 
 An apply with an ambiguous same-kind duplicate set exits with code `2` before removal approval, backup creation, or project replacement. Resolve/rename/remove the unintended duplicate source candidate, preview again, and only then consider applying the new selection.
 
+## Missing-part evidence
+
+Synchronization also compares the automatic proposal with the project's expected inclusive part range for every manuscript kind that is actually present.
+
+For expected Parts 1–3:
+
+```text
+Part 1.pdf
+Part 3.pdf
+```
+
+produces:
+
+```json
+{
+  "missing_parts": {
+    "pdf": [2],
+    "docx": []
+  },
+  "numbering_complete_for_available_kinds": false
+}
+```
+
+If the project currently contains no DOCX synchronization candidates, the preview does not fabricate Parts 1–3 as missing DOCX items. Missing-part evidence is calculated only for a kind that has at least one eligible source candidate.
+
+`numbering_complete_for_available_kinds=true` requires:
+
+- at least one proposed mergeable source;
+- no same-kind duplicate part numbers; and
+- no missing expected part numbers for each available manuscript kind.
+
+Missing parts do **not** make a synchronization plan unsafe to write. `safe_to_apply` is intentionally limited to synchronization ambiguity such as duplicate candidates. An operator may need to persist a partial work-in-progress selection while Parts are still arriving. Therefore a preview can report `safe_to_apply=true` and `numbering_complete_for_available_kinds=false` at the same time.
+
+That does not make the project publishable. Project dry-run/preflight remains the authoritative merge-readiness gate.
+
 ## Preview JSON
 
 A preview reports fields including:
 
 - `changed`;
 - `safe_to_apply`;
+- `numbering_complete_for_available_kinds`;
 - `current_count`;
 - `proposed_count`;
 - `current`;
@@ -89,13 +125,15 @@ A preview reports fields including:
 - `reordered`;
 - `duplicate_parts.pdf`;
 - `duplicate_parts.docx`;
+- `missing_parts.pdf`;
+- `missing_parts.docx`;
 - `project`;
 - `applied`;
 - `approval_required`;
 - `removal_approval_required`;
 - `backup`.
 
-`safe_to_apply` is a synchronization-ambiguity signal, not a publication-readiness claim. A safe synchronization proposal can still have missing parts, encrypted inputs, corrupt documents, insufficient storage, or other conditions that later project preflight must reject.
+`safe_to_apply` is a synchronization-ambiguity signal, not a publication-readiness claim. `numbering_complete_for_available_kinds` is only numbered-source completeness evidence. Even when both are true, encrypted inputs, corrupt documents, insufficient storage, output conflicts, or other conditions can still cause project preflight to reject publication.
 
 Paths can reveal private workstation information. Treat saved preview logs as potentially sensitive metadata.
 
@@ -156,6 +194,7 @@ Duplicate-part ambiguity is checked before the removal-approval gate. `--allow-r
 The apply path has additional safeguards:
 
 - same-kind duplicate numbered candidates block apply before any write;
+- nested project output files are excluded before scanner hashing/PDF inspection;
 - a project file addressed through a symbolic link is refused;
 - the synchronization plan records its current-selection baseline;
 - if that selection changes before apply, the stale plan is rejected;
@@ -172,23 +211,26 @@ The apply path has additional safeguards:
 2. Run `project-sync` without `--apply`.
 3. Review `current`, `proposed`, `added`, `removed`, and `reordered`.
 4. Confirm `safe_to_apply=true` and both `duplicate_parts` lists are empty.
-5. Confirm that the expected part range is still correct.
-6. If no removals are proposed, apply with `--apply` when desired.
-7. If removals are proposed, verify each path and use `--allow-removals` only when all removals are intentional.
-8. Keep the generated `.bak` project file until the changed project has been validated.
-9. Run project preflight:
+5. Review `missing_parts` and `numbering_complete_for_available_kinds`; understand that incomplete numbering can still be synchronized but cannot be treated as publication readiness.
+6. Confirm that the expected part range is still correct.
+7. If no removals are proposed, apply with `--apply` when desired.
+8. If removals are proposed, verify each path and use `--allow-removals` only when all removals are intentional.
+9. Keep the generated `.bak` project file until the changed project has been validated.
+10. Run project preflight:
 
 ```bash
 docmergeforge merge --project "./Book.json" --dry-run
 ```
 
-10. Review ordered PDF/DOCX inputs, missing/duplicate diagnostics, encrypted-input status, output paths, and storage evidence.
-11. Only then run the full publication command.
+11. Review ordered PDF/DOCX inputs, missing/duplicate diagnostics, encrypted-input status, output paths, and storage evidence.
+12. Only then run the full publication command.
 
 ## Exit behavior
 
 - `0`: preview succeeded, an unambiguous no-op succeeded, or an approved apply succeeded.
 - `2`: duplicate-part ambiguity blocks apply, an apply requires removal approval, or a handled synchronization write/safety failure occurred.
+
+A missing-part report does not by itself change the synchronization command's exit code; publication readiness belongs to project preflight.
 
 Malformed/unreadable project files can still fail during project loading according to the normal project-file validation rules.
 
