@@ -230,3 +230,30 @@ def test_cli_project_sync_apply_is_noop_when_selection_is_current(
     assert payload["applied"] is False
     assert payload["backup"] is None
     assert not (tmp_path / "Book.json.bak").exists()
+
+
+def test_cli_project_sync_rejects_byte_level_drift_after_snapshot(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_path, _source = _write_project(tmp_path)
+    real_plan = cli.plan_project_sync
+
+    def plan_then_reformat(project: MergeProject):
+        plan = real_plan(project)
+        current = project_path.read_text(encoding="utf-8")
+        project_path.write_text(current + "\n", encoding="utf-8")
+        return plan
+
+    monkeypatch.setattr(cli, "plan_project_sync", plan_then_reformat)
+
+    exit_code = cli.main(["project-sync", "--project", str(project_path), "--apply"])
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 2
+    assert payload["applied"] is False
+    assert payload["backup"] is None
+    assert "changed on disk" in payload["error"]
+    assert load_project(project_path).selected_files == []
+    assert not (tmp_path / "Book.json.bak").exists()
