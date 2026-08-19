@@ -217,6 +217,17 @@ class MainWindow(QMainWindow):
         project.settings.pdf.optimization = self.app_settings.pdf_optimization
         project.settings.docx.fidelity_mode = self.app_settings.docx_fidelity_mode
 
+    def _checkpoint_project(self, project: MergeProject, name: str) -> bool:
+        if not self.app_settings.crash_recovery:
+            return True
+        try:
+            self.recovery.checkpoint(project, name)
+        except (OSError, ValueError) as exc:
+            self._record_error(str(exc))
+            QMessageBox.critical(self, "Recovery checkpoint failed", str(exc))
+            return False
+        return True
+
     def _confirm_project_order(self, project: MergeProject) -> bool:
         try:
             discovered = self.service.discover(project)
@@ -243,8 +254,8 @@ class MainWindow(QMainWindow):
         if order_dialog.exec() != int(order_dialog.DialogCode.Accepted):
             return False
         project.selected_files = order_dialog.ordered_paths()
-        if self.app_settings.crash_recovery:
-            self.recovery.checkpoint(project, "ordering")
+        if not self._checkpoint_project(project, "ordering"):
+            return False
         return True
 
     def _new_project(self, initial_source: Path | None = None) -> None:
@@ -267,7 +278,12 @@ class MainWindow(QMainWindow):
         if not project_file:
             return
         path = Path(project_file)
-        save_project(project, path)
+        try:
+            save_project(project, path)
+        except (OSError, ValueError) as exc:
+            self._record_error(str(exc))
+            QMessageBox.critical(self, "Project could not be saved", str(exc))
+            return
         self._remember_project(project, path)
         self._run_project(project)
 
@@ -450,8 +466,8 @@ class MainWindow(QMainWindow):
         if wizard.exec() != int(wizard.DialogCode.Accepted):
             return
         project = wizard.project()
-        if self.app_settings.crash_recovery:
-            self.recovery.checkpoint(project, "sql-preflight")
+        if not self._checkpoint_project(project, "sql-preflight"):
+            return
         self._run_project(project)
 
     def _validate_files(self) -> None:
