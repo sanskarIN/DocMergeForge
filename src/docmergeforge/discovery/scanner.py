@@ -64,7 +64,7 @@ def _iter_directory(
         ]
         for name in file_names:
             path = directory_path / name
-            if not _is_excluded(path, excluded):
+            if not _is_excluded(path, excluded) and path.is_file():
                 yield path
 
 
