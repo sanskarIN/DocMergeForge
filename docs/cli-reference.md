@@ -447,17 +447,19 @@ Preview example:
 docmergeforge project-sync --project "./Book.json"
 ```
 
-The command is preview-only unless `--apply` is present. It discovers the project's current sources without applying the existing selected-file filter, excludes a strictly nested output subtree, and proposes only numbered PDF/DOCX files inside the project's expected range. Companion files, unsupported files, unnumbered PDF/DOCX files, and out-of-range PDF/DOCX files are not automatic synchronization candidates.
+The command is preview-only unless `--apply` is present. It discovers the project's current sources without applying the existing selected-file filter. When the project output folder is strictly nested below a source root, that subtree is excluded at scanner enumeration time so its files do not reach hashing or PDF inspection. Synchronization proposes only numbered PDF/DOCX files inside the project's expected range. Companion files, unsupported files, unnumbered PDF/DOCX files, and out-of-range PDF/DOCX files are not automatic synchronization candidates.
 
 The proposed ordering is deterministic by detected part number, document kind, natural filename order, then normalized full path. Preview JSON includes:
 
 - `changed`;
 - `safe_to_apply`;
+- `numbering_complete_for_available_kinds`;
 - `current_count` / `proposed_count`;
 - `current` / `proposed`;
 - `added` / `removed`;
 - `reordered`;
 - `duplicate_parts.pdf` / `duplicate_parts.docx`;
+- `missing_parts.pdf` / `missing_parts.docx`;
 - `applied`;
 - `approval_required`;
 - `removal_approval_required`;
@@ -467,7 +469,11 @@ Duplicate part numbers are evaluated separately for PDF and DOCX. Two PDF candid
 
 When `safe_to_apply=false`, `--apply` returns exit code `2` before removal approval, backup creation, or project replacement. The command does not silently choose a duplicate candidate, and `--allow-removals` cannot override duplicate ambiguity. Resolve the duplicate source membership/filename issue and preview again.
 
-`safe_to_apply=true` means the synchronization proposal itself is not ambiguous. It is not a claim that the resulting project is publication-ready; missing parts, encrypted/corrupt documents, storage conditions, and other project-preflight checks remain separate.
+Missing expected part numbers are reported only for manuscript kinds that have at least one eligible synchronization candidate. `numbering_complete_for_available_kinds=true` requires at least one proposal path, no same-kind duplicates, and no missing expected numbers for every available kind.
+
+Missing parts do not by themselves set `safe_to_apply=false` or make `project-sync` return exit code `2`. Synchronization is a metadata-maintenance operation and can persist a work-in-progress partial source selection. `numbering_complete_for_available_kinds` is evidence for review, not a replacement for `merge --dry-run` validation.
+
+`safe_to_apply=true` means the synchronization proposal itself is not ambiguous. It is not a claim that the resulting project is publication-ready; encrypted/corrupt documents, storage conditions, output conflicts, and other project-preflight checks remain separate.
 
 If `removed` is non-empty, `--apply` by itself returns exit code `2` and does not write a backup/project. This second approval boundary protects intentionally selected unnumbered front/back matter or other manual exceptions. After reviewing every removal, apply intentionally with:
 
@@ -478,7 +484,11 @@ docmergeforge project-sync \
   --allow-removals
 ```
 
-For a changed approved proposal, the current project is first copied to a versioned backup such as `Book.json.bak` or `Book.json_v2.bak`, then the project is saved atomically. Unambiguous no-op proposals create no backup. Symlinked project files and stale in-memory selection baselines are rejected. Handled write/safety failures are printed as JSON and return exit code `2`.
+For a changed approved proposal, synchronization first verifies that the project currently on disk is semantically identical to the project instance that was loaded for the preview/apply operation. If another process/editor changed project settings, source folders, output folder, state, warnings, checkpoints, or selected files in the meantime, apply fails closed and asks for a fresh load/preview rather than overwriting the observed external edit.
+
+After that revision check, the current project is copied to a versioned backup such as `Book.json.bak` or `Book.json_v2.bak`, then the project is saved atomically. Unambiguous no-op proposals create no backup. Symlinked project files and stale in-memory selection baselines are rejected. Handled write/safety failures are printed as JSON and return exit code `2`.
+
+The semantic on-disk revision check protects changes observed before the final write path; it is not represented as a universal lock against arbitrary external programs that ignore DocMergeForge coordination. Normal project persistence remains an atomic, last-writer-wins mechanism rather than a collaborative multi-writer editing protocol.
 
 `project-sync` changes only project metadata. It never deletes or rewrites manuscript source files. Run `merge --dry-run` after applying a synchronization proposal and review the resolved merge order before publication.
 
@@ -510,7 +520,7 @@ Dry-run JSON contains:
 - DOCX conflict count;
 - `pdf_diagnostics` and `docx_diagnostics`, including warnings for discovered-but-excluded unnumbered/out-of-range material.
 
-If the project output folder is strictly nested under a configured source root, that output subtree is excluded from project discovery so prior publications/staging files are not fed back into a later run.
+If the project output folder is strictly nested under a configured source root, that output subtree is excluded before scanner file hashing/PDF inspection so prior publications/staging files are not fed back into a later run or needlessly inspected as source candidates.
 
 When `selected_files` is populated, the persisted reviewed selection/order is authoritative and can intentionally contain unnumbered front/back matter. Those explicitly selected files remain subject to zero-byte, encryption, source-integrity, and engine validation checks.
 
@@ -633,7 +643,9 @@ For reliable scripting:
 - inspect exit codes, not only stdout text;
 - parse JSON for `validate`, project dry runs, `project-sync`, `fidelity-capabilities`, `fidelity-roundtrip`, `fidelity-corpus`, `recover-output`, `audit`, and `compare`;
 - require `safe_to_apply=true` and empty `duplicate_parts` before considering a `project-sync` apply;
+- treat `numbering_complete_for_available_kinds` and `missing_parts` as separate completeness evidence, not as a substitute for project preflight;
 - review `project-sync` removals and never add `--allow-removals` mechanically;
+- if a sync apply reports that the project changed on disk, reload and generate a fresh preview instead of retrying against stale state;
 - review `diagnostics`/`pdf_diagnostics`/`docx_diagnostics`, especially unnumbered/out-of-range warnings;
 - avoid depending on filesystem directory listing order;
 - preserve project files and publication/fidelity evidence with release artifacts;
