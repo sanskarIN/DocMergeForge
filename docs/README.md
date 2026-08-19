@@ -17,6 +17,7 @@ This directory is the canonical documentation set for DocMergeForge. It covers e
 - [Architecture](architecture.md)
 - [Merge Pipeline](merge-pipeline.md)
 - [Project Files](project-files.md)
+- [Project Synchronization](project-sync.md)
 - [Discovery and Ordering](discovery-and-ordering.md)
 - [Validation and Preflight](validation-and-preflight.md)
 - [Output Artifacts](output-artifacts.md)
@@ -107,6 +108,7 @@ DocMergeForge currently exposes:
 - the `docmergeforge` command-line application;
 - the `docmergeforge-gui` PySide6 desktop application;
 - reusable JSON project files;
+- preview-first project synchronization for rebuilding explicit numbered/in-range source selections;
 - the SQL Full Mastery 120-part guided preset;
 - PyInstaller-based desktop packaging helpers;
 - automated Quality, Regression, Build Smoke, Security, Recovery Acceptance, Disk Full Acceptance, DOCX Fidelity Acceptance, Package Desktop, and Onefile Acceptance workflows;
