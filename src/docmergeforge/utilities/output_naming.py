@@ -40,13 +40,18 @@ def _bounded_basename(value: str) -> str:
     return f"{prefix}{suffix}"
 
 
+def _is_windows_reserved_name(value: str) -> bool:
+    device_name = value.split(".", 1)[0]
+    return device_name.upper() in _RESERVED
+
+
 def safe_basename(value: str) -> str:
     cleaned = _INVALID_FILENAME.sub("_", value)
     cleaned = _WHITESPACE.sub("_", cleaned)
     cleaned = re.sub(r"_+", "_", cleaned).strip(" ._")
     if not cleaned:
         cleaned = "DocMergeForge_Master"
-    if cleaned.upper() in _RESERVED:
+    if _is_windows_reserved_name(cleaned):
         cleaned = f"_{cleaned}"
     return _bounded_basename(cleaned)
 
