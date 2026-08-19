@@ -31,7 +31,7 @@ from docmergeforge.pdf.passwords import verify_pdf_password
 from docmergeforge.presets.sql_full_mastery import PRESET_NAME, create_sql_full_mastery_project
 from docmergeforge.project.selection import automatic_numbered_documents, project_merge_documents
 from docmergeforge.project.store import load_project, save_project
-from docmergeforge.project.sync import apply_project_sync, plan_project_sync
+from docmergeforge.project.sync import ProjectSyncPlan, apply_project_sync, plan_project_sync
 from docmergeforge.utilities.output_transaction import recover_interrupted_output_transactions
 from docmergeforge.validation.compare import compare_docx, compare_pdf
 from docmergeforge.validation.service import validate_part_set
@@ -337,7 +337,7 @@ def _run_project(project: MergeProject, dry_run: bool) -> int:
 
 def _project_sync_payload(
     project_path: Path,
-    plan: object,
+    plan: ProjectSyncPlan,
     *,
     applied: bool,
     backup: Path | None,
