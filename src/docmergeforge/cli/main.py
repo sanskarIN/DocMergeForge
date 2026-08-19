@@ -30,7 +30,7 @@ from docmergeforge.pdf.engine import PdfMergeEngine
 from docmergeforge.pdf.passwords import verify_pdf_password
 from docmergeforge.presets.sql_full_mastery import PRESET_NAME, create_sql_full_mastery_project
 from docmergeforge.project.selection import automatic_numbered_documents, project_merge_documents
-from docmergeforge.project.store import load_project, save_project
+from docmergeforge.project.store import load_project, load_project_snapshot, save_project
 from docmergeforge.project.sync import ProjectSyncPlan, apply_project_sync, plan_project_sync
 from docmergeforge.utilities.output_transaction import recover_interrupted_output_transactions
 from docmergeforge.validation.compare import compare_docx, compare_pdf
@@ -361,7 +361,7 @@ def _project_sync_payload(
 
 
 def _run_project_sync(project_path: Path, apply: bool, allow_removals: bool) -> int:
-    project = load_project(project_path)
+    project, revision = load_project_snapshot(project_path)
     plan = plan_project_sync(project)
     if apply and not plan.safe_to_apply:
         print(
@@ -408,7 +408,12 @@ def _run_project_sync(project_path: Path, apply: bool, allow_removals: bool) -> 
     backup: Path | None = None
     if apply:
         try:
-            backup = apply_project_sync(project, project_path, plan)
+            backup = apply_project_sync(
+                project,
+                project_path,
+                plan,
+                expected_revision=revision,
+            )
         except (OSError, ValueError) as exc:
             print(
                 json.dumps(
