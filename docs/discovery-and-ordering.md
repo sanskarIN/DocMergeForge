@@ -6,7 +6,9 @@ Correct discovery and ordering are publication-safety requirements in DocMergeFo
 
 The scanner accepts one or more roots. By default it scans directories recursively. A root that is itself a file is also accepted by the internal scanner.
 
-For every discovered file, DocMergeForge records evidence including:
+The scanner also supports explicit excluded roots. A path inside an excluded root is filtered during file enumeration before file classification, PDF inspection, `stat()` evidence collection, or SHA-256 hashing.
+
+For every discovered file that survives exclusion, DocMergeForge records evidence including:
 
 - path;
 - document kind;
@@ -21,7 +23,7 @@ The SHA-256 captured during discovery contributes to later source-integrity chec
 
 ## Project output-subtree exclusion
 
-If a project's output folder is **strictly nested inside** one of its source folders, project discovery excludes that output subtree before selection/merge processing.
+If a project's output folder is **strictly nested inside** one of its source folders, project discovery passes that output folder to the scanner as an excluded root.
 
 Example:
 
@@ -33,7 +35,11 @@ Book/
     old-output.docx
 ```
 
-`Book/Master/**` is not rediscovered as source material on the next project run. This prevents prior publications, reports, transaction residue, or even an old output whose filename resembles a valid numbered part from feeding back into a future merge.
+`Book/Master/**` is filtered before file hashing or PDF inspection. This prevents prior publications, reports, transaction residue, or even an old output whose filename resembles a valid numbered part from feeding back into a future merge, while also avoiding unnecessary document inspection of those output artifacts.
+
+The same project-source discovery helper is used by normal project runs and project-selection synchronization, so both surfaces use one nested-output safety boundary rather than separate post-scan filters.
+
+The underlying recursive directory iterator can still encounter directory entries while walking the source tree; exclusion guarantees that files inside an excluded root do not proceed into DocMergeForge's per-file inspection/hashing pipeline. It is not represented as an operating-system/filesystem traversal sandbox.
 
 When source and output are exactly the same directory, the directory cannot be excluded wholesale because that would hide the real source documents. The automatic numbered-input rule below therefore remains essential in same-directory workflows. A separate output directory is still the clearest recommended layout.
 
@@ -146,6 +152,8 @@ In that mode, selected PDF/DOCX files can intentionally include unnumbered front
 
 This exception is deliberately **not** applied to ordinary automatic folder scanning. If special material must participate, select/review it explicitly instead of relying on an ambiguous filename.
 
+`docmergeforge project-sync` provides a separate preview-first way to rebuild the automatic numbered/in-range portion of `selected_files`. Its preview reports same-kind duplicate parts and missing expected parts before the user chooses whether to update project metadata. See [Project Synchronization](project-sync.md).
+
 ## Clean titles
 
 The detector derives a cleaned title from the filename stem by replacing underscore/hyphen runs with spaces and normalizing whitespace. The original path remains the authoritative file identity.
@@ -234,9 +242,11 @@ Two files of the same manuscript kind claiming the same expected part number are
 
 Do not resolve duplicates by relying on filename sorting. Determine which source is authoritative, rename/archive the obsolete one outside the scanned input, then validate again.
 
+Project synchronization also treats same-kind duplicates as an apply blocker. One PDF and one DOCX sharing a part number are not duplicates because the document formats remain separate manuscript pipelines.
+
 ## Missing part numbers
 
-A gap in the configured inclusive expected range is a blocker for that manuscript kind.
+A gap in the configured inclusive expected range is a blocker for that manuscript kind during validation/publication.
 
 For expected Parts 1–5:
 
@@ -248,6 +258,8 @@ Part 5
 ```
 
 Part 3 is missing even if four source files exist. File count alone is insufficient evidence.
+
+Project synchronization reports missing numbers for each manuscript kind that has at least one eligible candidate. It does not make missing parts a metadata-write blocker: a work-in-progress project selection can be synchronized while incomplete, but publication preflight will still reject an incomplete available manuscript kind.
 
 ## Out-of-range part numbers
 
@@ -271,9 +283,11 @@ For an encrypted PDF:
 
 If PDF inspection raises an exception, discovery retains the file and attaches a warning rather than fabricating page-count evidence.
 
+Files inside an explicit scanner exclusion root do not reach PDF inspection.
+
 ## Hashing and source integrity
 
-Every discovered file is SHA-256 hashed. This is intentionally more expensive than trusting filename/size alone because a source can change without its name changing.
+Every discovered file that survives scanner exclusion is SHA-256 hashed. This is intentionally more expensive than trusting filename/size alone because a source can change without its name changing.
 
 During full project publication, source-integrity verification is performed again before final promotion. If a tracked source changes during the run, final publication is refused instead of silently mixing versions.
 
@@ -311,7 +325,7 @@ Project/
   output/
 ```
 
-If `output/` is nested under a configured source root, project discovery excludes that subtree. Keeping source and output conceptually separate still makes manual review, backups, and external tools easier to reason about.
+If `output/` is nested under a configured source root, project discovery excludes that subtree before per-file inspection/hashing. Keeping source and output conceptually separate still makes manual review, backups, and external tools easier to reason about.
 
 ## Discovery checklist
 
