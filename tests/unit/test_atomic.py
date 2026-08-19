@@ -64,6 +64,27 @@ def test_atomic_output_preserves_published_file_on_disk_exhaustion(tmp_path: Pat
     assert not list(tmp_path.glob("*.part"))
 
 
+def test_atomic_output_preserves_published_file_when_fsync_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "out.bin"
+    target.write_bytes(b"published")
+
+    def failing_fsync(fd: int) -> None:
+        del fd
+        raise OSError(errno.EIO, "simulated fsync failure")
+
+    monkeypatch.setattr(atomic.os, "fsync", failing_fsync)
+
+    with pytest.raises(OSError, match="simulated fsync failure"), atomic_output(
+        target, overwrite=True
+    ) as temp:
+        temp.write_bytes(b"new")
+
+    assert target.read_bytes() == b"published"
+    assert not list(tmp_path.glob("*.part"))
+
+
 def test_versioned_path(tmp_path: Path) -> None:
     first = tmp_path / "Book.pdf"
     first.write_bytes(b"x")
