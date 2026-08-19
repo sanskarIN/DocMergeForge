@@ -71,6 +71,9 @@ def test_sync_plan_selects_only_numbered_mergeable_files_in_range(tmp_path: Path
     assert plan.removed == ()
     assert plan.changed is True
     assert plan.safe_to_apply is True
+    assert plan.missing_pdf_parts == (1, 3, 4, 5, 6, 7, 8, 9)
+    assert plan.missing_docx_parts == ()
+    assert plan.numbering_complete_for_available_kinds is False
 
 
 def test_sync_plan_reports_added_removed_and_reordered_paths(tmp_path: Path) -> None:
@@ -110,11 +113,17 @@ def test_sync_plan_reports_same_kind_duplicate_parts(tmp_path: Path) -> None:
     assert plan.duplicate_pdf_parts == (1,)
     assert plan.duplicate_docx_parts == ()
     assert plan.safe_to_apply is False
+    assert plan.numbering_complete_for_available_kinds is False
     assert plan.to_dict()["duplicate_parts"] == {"pdf": [1], "docx": []}
 
 
 def test_sync_plan_allows_same_part_number_across_pdf_and_docx(tmp_path: Path) -> None:
-    project = _project(tmp_path)
+    project = MergeProject(
+        name="Book",
+        source_folders=[tmp_path / "Book"],
+        output_folder=tmp_path / "Master",
+        settings=MergeSettings(expected_start=1, expected_end=1),
+    )
     root = project.source_folders[0]
     discovered = [
         _document(root / "Part 1.pdf", DocumentKind.PDF, 1),
@@ -125,7 +134,41 @@ def test_sync_plan_allows_same_part_number_across_pdf_and_docx(tmp_path: Path) -
 
     assert plan.duplicate_pdf_parts == ()
     assert plan.duplicate_docx_parts == ()
+    assert plan.missing_pdf_parts == ()
+    assert plan.missing_docx_parts == ()
     assert plan.safe_to_apply is True
+    assert plan.numbering_complete_for_available_kinds is True
+
+
+def test_sync_plan_reports_missing_parts_only_for_available_kinds(tmp_path: Path) -> None:
+    project = MergeProject(
+        name="Book",
+        source_folders=[tmp_path / "Book"],
+        output_folder=tmp_path / "Master",
+        settings=MergeSettings(expected_start=1, expected_end=3),
+    )
+    root = project.source_folders[0]
+    discovered = [
+        _document(root / "Part 1.pdf", DocumentKind.PDF, 1),
+        _document(root / "Part 3.pdf", DocumentKind.PDF, 3),
+    ]
+
+    plan = plan_project_sync(project, discovered)
+
+    assert plan.missing_pdf_parts == (2,)
+    assert plan.missing_docx_parts == ()
+    assert plan.numbering_complete_for_available_kinds is False
+    assert plan.to_dict()["missing_parts"] == {"pdf": [2], "docx": []}
+
+
+def test_sync_plan_without_mergeable_sources_is_not_numbering_complete(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+
+    plan = plan_project_sync(project, [])
+
+    assert plan.missing_pdf_parts == ()
+    assert plan.missing_docx_parts == ()
+    assert plan.numbering_complete_for_available_kinds is False
 
 
 def test_apply_sync_rejects_ambiguous_duplicate_parts_without_backup(tmp_path: Path) -> None:
