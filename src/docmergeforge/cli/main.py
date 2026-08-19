@@ -562,7 +562,20 @@ def main(argv: list[str] | None = None) -> int:
                 output_folder=args.output_dir,
                 settings=MergeSettings(expected_start=start, expected_end=end),
             )
-        save_project(project, args.project_file)
+        try:
+            save_project(project, args.project_file)
+        except (OSError, ValueError) as exc:
+            print(
+                json.dumps(
+                    {
+                        "created": False,
+                        "project": str(args.project_file),
+                        "error": str(exc),
+                    },
+                    indent=2,
+                )
+            )
+            return 2
         print(str(args.project_file))
         return 0
 
