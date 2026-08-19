@@ -4,6 +4,59 @@ This file records the current DocMergeForge development pass, verification evide
 
 An item is not treated as finished merely because code was pushed. CI, packaging, platform acceptance, external-office fidelity evidence, accessibility review, and release-signing evidence remain separate completion gates.
 
+## 2026-08-19 — Guarded project synchronization and actionable selection maintenance
+
+### Added
+- Added `src/docmergeforge/project/discovery.py` so project synchronization can inspect the current raw source tree without first applying persisted `selected_files`, while still excluding a strictly nested output subtree.
+- Added `src/docmergeforge/project/sync.py` with a typed `ProjectSyncPlan` that reports `current`, `proposed`, `added`, `removed`, and `reordered` selection evidence.
+- Added deterministic automatic synchronization ordering across detected part number, document kind, natural filename, and normalized full path.
+- Added `docmergeforge project-sync --project FILE.json` as a preview-only project-maintenance command.
+- Added explicit `--apply` mutation approval and a separate `--allow-removals` approval whenever synchronization would remove an existing selected path.
+- Added versioned project backups before changed synchronization writes. Existing `.bak` files are preserved with `_v2`, `_v3`, and later version names instead of being replaced.
+- Added `PROJECT_STATE.md` as a compact durable continuation checkpoint for future repository-development sessions.
+- Added `docs/project-sync.md` as the dedicated synchronization safety/operator guide.
+- Added unit/CLI regression coverage for synchronization eligibility/order/diffs, nested-output exclusion, backup creation/versioning, no-op behavior, stale-plan rejection, symlink refusal, preview/apply semantics, removal approval, approved removals, and structured write failures.
+
+### Changed
+- The CLI now exposes a reviewable path from current project sources to an explicit deterministic `selected_files` proposal instead of leaving audit/compare findings with no maintained project-selection refresh workflow.
+- Project synchronization considers only numbered PDF/DOCX files inside the project's configured expected range. Unnumbered/out-of-range explicit selections are intentionally visible as proposed removals rather than silently retained or silently dropped.
+- `--apply` now fails closed with exit code `2` when `removed` is non-empty unless `--allow-removals` is supplied after review.
+- Synchronization apply rejects project files addressed through symbolic links and refuses a plan whose in-memory selected-file baseline changed after planning.
+- Project-sync backup/write `OSError`s and maintained safety `ValueError`s are surfaced as structured JSON failures instead of unhandled write-path tracebacks.
+- `docs/project-files.md`, `docs/cli-reference.md`, `docs/audit-and-compare.md`, `docs/development-phases.md`, root `README.md`, and `docs/README.md` now describe/link the guarded synchronization workflow and its privacy/approval boundaries.
+
+### Fixed / Hardened
+- Closed the project-workflow gap where current source membership/order could be reviewed but there was no maintained, explicit, backup-backed CLI mechanism to apply a refreshed selection to a reusable project.
+- Prevented a single apply flag from dropping intentionally selected prefaces, appendices, covers, or other manual exceptions that fall outside the automatic numbered/in-range proposal.
+- Prevented an existing synchronization backup from being overwritten by later applies.
+- Prevented unchanged synchronization proposals from creating unnecessary backup/project writes.
+- Added a stale in-memory selection guard so a plan cannot be applied after its selection baseline changes during the same process.
+- Preserved the existing project file through the maintained atomic text-save path and restore the caller's in-memory selection if final project saving fails.
+
+### Verification Status
+- Implementation/documentation checkpoint immediately before this development-record update: `2be1d665065ecf53b83a453d571fd8111776967c`.
+- The repository commit chain confirms the synchronization implementation, tests, safety hardening, documentation, and project-state commits are present on `main`.
+- Focused regression tests were added for every synchronization behavior listed above, but committed test source is not represented as a passing run by itself.
+- The available connector did not expose a current push-triggered Quality run through its commit-run wrapper, and combined commit status did not provide a passing check set at the inspected synchronization checkpoints. Therefore no current-head Ruff, Black, strict mypy, documentation-link, pytest, Quality, Regression, Build Smoke, or Security/CodeQL pass is claimed here.
+- External-office production flags remain unchanged: `libreoffice.production_ready=false` and `word.production_ready=false`.
+- The repository remains pre-stable at `0.1.0`; this pass does not claim signed/notarized release artifacts or `v1.0.0` readiness.
+
+### Remaining Project-Synchronization Work
+- Obtain and review current-head source CI; fix any synchronization-specific lint/type/test/link failures without weakening repository rules.
+- Consider safely routing `MergeApplicationService.discover()` through the new raw discovery helper to remove duplicated nested-output exclusion logic after regression evidence is available.
+- Consider a project-file revision/concurrency guard if synchronized project JSON is expected to support multi-writer editing; normal project persistence is still documented as last-writer-wins rather than collaborative locking.
+- Evaluate whether desktop project/order workflows should expose the same preview/apply/second-removal-approval model.
+
+### Remaining Release-Gate Work
+- Execute and review the maintained supervised LibreOffice UNO multi-document and process-cleanup workflows, then expand representative real-world fidelity evidence for sections, page styles, headers/footers, numbering, advanced OOXML, fonts, and interoperability behavior.
+- Execute and review the controlled Microsoft Word native normal-merge and real timeout-cleanup workflow on the dedicated Windows/Word environment; then run representative private corpora and exact-version human rendering/repair-prompt acceptance.
+- Execute and record a genuinely measured multi-gigabyte stress run.
+- Complete human keyboard-only, screen-reader, high-contrast, display-scaling, reduced-motion, and localization-readiness acceptance.
+- Complete representative clean-machine interactive packaged-app acceptance, platform-specific distribution polish, Windows production signing, macOS signing/notarization/stapling, final post-signing hashes, and signature verification.
+- Perform additional physical power-loss, storage-device disconnect, and network/multi-host filesystem acceptance only where those semantics are intended to be claimed.
+- Enable appropriate GitHub branch protection/rulesets and required status checks through repository administration if enforced review/CI policy on `main` is desired.
+- Do not set LibreOffice or Word to `production_ready=true`, and do not claim `v1.0.0`, until the corresponding full application/release acceptance matrix is actually verified.
+
 ## 2026-08-19 — Durability, transaction recovery, path identity, naming, and range hardening
 
 ### Added
