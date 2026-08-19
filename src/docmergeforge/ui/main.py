@@ -228,7 +228,7 @@ class MainWindow(QMainWindow):
             return False
         return True
 
-    def _confirm_project_order(self, project: MergeProject) -> bool:
+    def _confirm_project_order(self, project: MergeProject, *, checkpoint: bool = True) -> bool:
         try:
             discovered = self.service.discover(project)
         except (OSError, ValueError) as exc:
@@ -254,7 +254,7 @@ class MainWindow(QMainWindow):
         if order_dialog.exec() != int(order_dialog.DialogCode.Accepted):
             return False
         project.selected_files = order_dialog.ordered_paths()
-        if not self._checkpoint_project(project, "ordering"):
+        if checkpoint and not self._checkpoint_project(project, "ordering"):
             return False
         return True
 
@@ -570,13 +570,15 @@ class MainWindow(QMainWindow):
             self._record_error(str(exc))
             QMessageBox.critical(self, "Project could not be opened", str(exc))
             return
-        if not self._confirm_project_order(project):
+        if not self._confirm_project_order(project, checkpoint=False):
             return
         try:
             save_project_if_revision(project, path, revision)
         except (OSError, ValueError) as exc:
             self._record_error(str(exc))
             QMessageBox.critical(self, "Project changed on disk", str(exc))
+            return
+        if not self._checkpoint_project(project, "ordering"):
             return
         self._remember_project(project, path)
         self._run_project(project)
