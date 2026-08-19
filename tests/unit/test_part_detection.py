@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from docmergeforge.core.part_range import MAX_PART_NUMBER
 from docmergeforge.discovery.part_detection import detect_part, sort_documents_naturally
 
 
@@ -14,6 +15,11 @@ def test_detects_common_part_names() -> None:
     }
     for name, expected in cases.items():
         assert detect_part(Path(name)).number == expected
+
+
+def test_detector_boundary_matches_supported_part_number_limit() -> None:
+    assert detect_part(Path(f"Part {MAX_PART_NUMBER}.pdf")).number == MAX_PART_NUMBER
+    assert detect_part(Path(f"Part {MAX_PART_NUMBER + 1}.pdf")).number is None
 
 
 def test_natural_sort_orders_2_before_10() -> None:
