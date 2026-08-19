@@ -11,7 +11,7 @@ from types import TracebackType
 from typing import Any, Self
 
 from docmergeforge.core.exceptions import TransactionRecoveryError
-from docmergeforge.utilities.atomic import versioned_path
+from docmergeforge.utilities.atomic import fsync_completed_file, versioned_path
 from docmergeforge.utilities.hashing import sha256_file
 from docmergeforge.utilities.output_lock import OutputDirectoryLock
 
@@ -19,6 +19,7 @@ STAGING_PREFIX = ".docmergeforge-staging-"
 JOURNAL_FILENAME = "transaction.json"
 JOURNAL_VERSION = 1
 JOURNAL_PHASES = {"promoting", "committed", "rolled-back"}
+_HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
 
 
 @dataclass(slots=True, frozen=True)
@@ -36,24 +37,44 @@ class RecoveryResult:
     removed_paths: tuple[Path, ...] = ()
 
 
+def _path_identity(path: Path) -> str:
+    try:
+        resolved = path.resolve(strict=False)
+    except OSError:
+        resolved = path.absolute()
+    return os.path.normcase(str(resolved))
+
+
 def _is_within(path: Path, folder: Path) -> bool:
     try:
-        path.resolve().relative_to(folder.resolve())
-    except ValueError:
+        path.resolve(strict=False).relative_to(folder.resolve(strict=False))
+    except (OSError, ValueError):
         return False
     return True
 
 
 def _safe_child(folder: Path, name: str) -> Path:
     candidate = Path(name)
-    if candidate.is_absolute() or candidate.name != name:
+    if (
+        not name
+        or name in {".", ".."}
+        or candidate.is_absolute()
+        or candidate.name != name
+        or len(candidate.parts) != 1
+    ):
         raise TransactionRecoveryError(f"Unsafe transaction journal child path: {name!r}")
     return folder / candidate
 
 
 def _safe_final(output_folder: Path, relative_name: str) -> Path:
     candidate = output_folder / relative_name
-    if not _is_within(candidate, output_folder):
+    try:
+        same_as_output = candidate.resolve(strict=False) == output_folder.resolve(strict=False)
+    except OSError as exc:
+        raise TransactionRecoveryError(
+            f"Could not resolve transaction journal output path: {relative_name!r}"
+        ) from exc
+    if same_as_output or not _is_within(candidate, output_folder):
         raise TransactionRecoveryError(
             f"Transaction journal references a path outside the output folder: {relative_name!r}"
         )
@@ -73,7 +94,7 @@ def pending_output_transactions(output_folder: Path) -> list[Path]:
     return sorted(
         path
         for path in output_folder.glob(f"{STAGING_PREFIX}*")
-        if path.is_dir() and (path / JOURNAL_FILENAME).is_file()
+        if not path.is_symlink() and path.is_dir() and (path / JOURNAL_FILENAME).is_file()
     )
 
 
@@ -85,10 +106,17 @@ def _load_journal(transaction_folder: Path) -> dict[str, Any]:
         raise TransactionRecoveryError(
             f"Could not read transaction recovery journal: {journal_path}: {exc}"
         ) from exc
-    if not isinstance(payload, dict) or payload.get("version") != JOURNAL_VERSION:
+    if not isinstance(payload, dict):
         raise TransactionRecoveryError(f"Unsupported transaction recovery journal: {journal_path}")
-    if payload.get("phase") not in JOURNAL_PHASES:
+
+    version = payload.get("version")
+    if not isinstance(version, int) or isinstance(version, bool) or version != JOURNAL_VERSION:
+        raise TransactionRecoveryError(f"Unsupported transaction recovery journal: {journal_path}")
+
+    phase = payload.get("phase")
+    if not isinstance(phase, str) or phase not in JOURNAL_PHASES:
         raise TransactionRecoveryError(f"Invalid transaction recovery phase in: {journal_path}")
+
     entries = payload.get("entries")
     if not isinstance(entries, list) or not entries:
         raise TransactionRecoveryError(
@@ -97,34 +125,89 @@ def _load_journal(transaction_folder: Path) -> dict[str, Any]:
     return payload
 
 
+def _entry_string(raw: dict[str, Any], key: str) -> str:
+    value = raw.get(key)
+    if not isinstance(value, str) or not value:
+        raise TransactionRecoveryError(f"Transaction journal field '{key}' must be a string.")
+    return value
+
+
+def _entry_bool(raw: dict[str, Any], key: str) -> bool:
+    value = raw.get(key)
+    if not isinstance(value, bool):
+        raise TransactionRecoveryError(f"Transaction journal field '{key}' must be a boolean.")
+    return value
+
+
+def _entry_size(raw: dict[str, Any]) -> int:
+    value = raw.get("staged_size")
+    if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+        raise TransactionRecoveryError(
+            "Transaction journal field 'staged_size' must be a positive integer."
+        )
+    return value
+
+
+def _entry_digest(raw: dict[str, Any]) -> str:
+    digest = _entry_string(raw, "staged_sha256")
+    if len(digest) != 64 or any(char not in _HEX_DIGITS for char in digest):
+        raise TransactionRecoveryError("Transaction journal fingerprint is invalid.")
+    return digest.casefold()
+
+
+def _entry_backup_name(raw: dict[str, Any]) -> str | None:
+    value = raw.get("backup_name")
+    if value is not None and (not isinstance(value, str) or not value):
+        raise TransactionRecoveryError(
+            "Transaction journal field 'backup_name' must be a string or null."
+        )
+    return value
+
+
 def _recover_promoting_transaction(
     output_folder: Path,
     transaction_folder: Path,
     payload: dict[str, Any],
 ) -> RecoveryResult:
     actions: list[tuple[str, Path, Path | None]] = []
+    seen_finals: set[str] = set()
+    seen_children: set[str] = set()
 
     for raw in payload["entries"]:
         if not isinstance(raw, dict):
             raise TransactionRecoveryError("Transaction journal entry is not an object.")
-        try:
-            staging_name = str(raw["staging_name"])
-            final_relative = str(raw["final_relative"])
-            had_existing = bool(raw["had_existing"])
-            staged_size = int(raw["staged_size"])
-            staged_sha256 = str(raw["staged_sha256"])
-            backup_name = raw.get("backup_name")
-        except (KeyError, TypeError, ValueError) as exc:
-            raise TransactionRecoveryError("Transaction journal entry is incomplete.") from exc
 
-        if staged_size < 0 or len(staged_sha256) != 64:
-            raise TransactionRecoveryError("Transaction journal fingerprint is invalid.")
+        staging_name = _entry_string(raw, "staging_name")
+        final_relative = _entry_string(raw, "final_relative")
+        _entry_bool(raw, "overwrite")
+        had_existing = _entry_bool(raw, "had_existing")
+        staged_size = _entry_size(raw)
+        staged_sha256 = _entry_digest(raw)
+        backup_name = _entry_backup_name(raw)
+
+        if staging_name == JOURNAL_FILENAME or backup_name == JOURNAL_FILENAME:
+            raise TransactionRecoveryError("Transaction journal cannot reference its own file.")
 
         staging = _safe_child(transaction_folder, staging_name)
         final = _safe_final(output_folder, final_relative)
-        backup = (
-            _safe_child(transaction_folder, str(backup_name)) if backup_name is not None else None
-        )
+        backup = _safe_child(transaction_folder, backup_name) if backup_name is not None else None
+
+        final_identity = _path_identity(final)
+        if final_identity in seen_finals:
+            raise TransactionRecoveryError(
+                f"Transaction journal references the same output more than once: {final}"
+            )
+        seen_finals.add(final_identity)
+
+        for child in (staging, backup):
+            if child is None:
+                continue
+            child_identity = _path_identity(child)
+            if child_identity in seen_children:
+                raise TransactionRecoveryError(
+                    f"Transaction journal reuses a staging/backup path: {child.name}"
+                )
+            seen_children.add(child_identity)
 
         if backup is not None and backup.exists():
             if final.exists() and not _matches_staged_fingerprint(
@@ -289,6 +372,10 @@ class OutputTransaction:
             raise ValueError(
                 f"Output transaction target must stay inside {self.output_folder}: {final_path}"
             )
+        final_identity = _path_identity(final_path)
+        if any(_path_identity(entry.final_path) == final_identity for entry in self._entries):
+            raise ValueError(f"Output transaction target is already staged: {final_path}")
+
         staging_path = self._staging_folder / f"{len(self._entries):03d}-{final_path.name}"
         entry = StagedOutput(staging_path, final_path, overwrite)
         self._entries.append(entry)
@@ -327,6 +414,7 @@ class OutputTransaction:
                 raise FileExistsError(
                     f"Reserved output path became occupied before promotion: {entry.final_path}"
                 )
+            fsync_completed_file(entry.staging_path)
             had_existing = entry.final_path.exists()
             backup_name = (
                 f"backup-{index:03d}-{entry.final_path.name}"
