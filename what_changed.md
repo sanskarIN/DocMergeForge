@@ -18,23 +18,30 @@ An item is not treated as finished merely because code was pushed. CI, packaging
 
 ### Changed
 - The primary Quality matrix now runs `python scripts/check_repository_reference.py` after local Markdown link validation, turning repository-file documentation completeness into an enforced CI contract instead of a one-time manual inventory.
+- `.pre-commit-config.yaml` now runs the repository-reference checker as an `always_run` local hook, so source/config/test/workflow/asset additions, renames, and deletions can be caught before CI even when no Markdown file itself is staged.
+- `docs/testing-and-ci.md` now lists the repository-reference checker in local quality commands, unit-test coverage, Quality workflow behavior, a dedicated documentation-coverage section, and the stable-release CI evidence matrix.
+- `docs/configuration-reference.md` now documents the exact local documentation-integrity hooks, why the repository-reference hook uses `always_run: true`, and why local execution is not remote CI evidence.
+- Root `README.md` now links the complete documentation catalog plus source, test, automation, configuration, and every-file references, and includes the repository-reference checker in the public quality command set.
 - `docs/README.md` now exposes a dedicated Repository Internals section linking the documentation catalog, complete file reference, source reference, test reference, automation reference, and configuration/governance reference.
 - `CONTRIBUTING.md` now requires both documentation-link validation and repository-reference coverage locally, directs contributors to the new internals references, and requires path additions/renames/deletions to update the complete repository inventory.
 - `.github/PULL_REQUEST_TEMPLATE.md` now asks contributors/reviewers to confirm repository-reference coverage when tracked paths change.
 - `docs/development.md` now documents the repository documentation-integrity model, complete internals references, local coverage commands, and a definition-of-done item for repository-reference coverage.
+- `PROJECT_STATE.md` now carries the repository-documentation checkpoint and remaining evidence boundaries for future continuation sessions.
 
 ### Documentation coverage contract
 - Coverage is based on Git-tracked files rather than filesystem traversal, so generated caches, local virtual environments, build outputs, private corpora, and other untracked local state are intentionally excluded.
 - A path is considered explicitly cataloged only when the exact repository-relative path appears in backticks in `docs/repository-reference.md`; vague directory-level prose is not enough to satisfy the automated guard.
 - The guard checks path coverage, not semantic prose quality. Reviewers remain responsible for ensuring the description of each tracked file is accurate and that behavior belongs in the correct canonical guide.
 - New files are expected to update the inventory in the same focused change, preventing gradual documentation drift as the codebase grows.
+- The same contract is now visible in contributor guidance, PR review, local pre-commit, direct developer commands, and the remote Quality workflow.
 
 ### Verification Status
-- Implementation/documentation checkpoint immediately before this development-record update: `e1eace6420afdbee1ef698d9d5d5e7662b38722c`.
-- The recursive `main` tree inspected at that checkpoint contained the newly added repository reference, source-code reference, automation reference, test-suite reference, configuration reference, documentation catalog, coverage checker, coverage-check tests, and Quality workflow update.
-- The connector's combined-status endpoint returned no status checks for that inspected checkpoint. The available commit-workflow helper is scoped to pull-request-triggered runs and therefore does not establish the state of a push-triggered Quality run on `main`.
+- Latest implementation/documentation checkpoint immediately before this final development-record update: `ee8b356e3c445b42614ba900d3fc9956ee0e1e1b`.
+- The earlier recursive `main` tree inspection confirmed the newly added repository reference, source-code reference, automation reference, test-suite reference, configuration reference, documentation catalog, coverage checker, coverage-check tests, and Quality workflow update were tracked. Later commits in this pass changed existing tracked paths only and did not introduce additional undocumented paths.
+- GitHub's combined-status endpoint returned no status checks for `ee8b356e3c445b42614ba900d3fc9956ee0e1e1b`. The available commit-workflow helper is scoped to pull-request-triggered runs and therefore does not establish the state of a push-triggered Quality run on `main`.
+- A direct local `git clone` attempt from the execution sandbox could not resolve `github.com`; that environment limitation is not represented as a repository test failure or pass.
 - No fresh Ruff, Black, strict mypy, documentation-link, repository-reference, pytest, Quality, Regression, Build Smoke, or Security/CodeQL pass is claimed from this documentation pass until an actual current-head run is visible and reviewed.
-- The added test source and CI command demonstrate intended enforcement but are not represented as passing execution evidence by themselves.
+- The added test source, pre-commit hook, and CI command demonstrate intended enforcement but are not represented as passing execution evidence by themselves.
 - External-office production flags remain unchanged: `libreoffice.production_ready=false` and `word.production_ready=false`.
 - The repository remains pre-stable at `0.1.0`; documentation completeness does not by itself establish `v1.0.0`, signing, notarization, native-office fidelity, accessibility certification, or clean-machine production readiness.
 
