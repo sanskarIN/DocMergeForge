@@ -26,6 +26,7 @@ Start with:
 - [Getting Started](docs/getting-started.md)
 - [Desktop User Guide](docs/desktop-guide.md)
 - [CLI Reference](docs/cli-reference.md)
+- [Project Synchronization](docs/project-sync.md)
 - [Operator Runbook](docs/operator-runbook.md)
 - [Building Executables](docs/building-executables.md)
 - [Troubleshooting](docs/troubleshooting.md)
@@ -143,6 +144,20 @@ docmergeforge docx \
   --parts 1-120 \
   --output "./Master/SQL_Full_Mastery_Complete_120_Part_Master_Edition.docx"
 ```
+
+Preview project selected-file synchronization:
+
+```bash
+docmergeforge project-sync --project "./Book.json"
+```
+
+Apply a reviewed addition/reorder-only proposal:
+
+```bash
+docmergeforge project-sync --project "./Book.json" --apply
+```
+
+If the preview reports removals, review them individually before approving both mutation and removals with `--apply --allow-removals`. Synchronization changes project metadata only; it does not delete manuscript source files. See [Project Synchronization](docs/project-sync.md).
 
 Inspect DOCX fidelity capabilities:
 
@@ -313,7 +328,7 @@ Common private corpus/evidence directories plus local transaction state are igno
 
 Fidelity corpus reports replace corpus/output roots with relative/placeheld paths, but generated DOCX copies, hashes, filenames, process/environment evidence, and third-party office errors can still be sensitive and should be reviewed before sharing.
 
-Review paths/filenames in project files, reports, manifests, diagnostics, audit output, and fidelity evidence before sharing them publicly.
+Review paths/filenames in project files, project-sync previews, reports, manifests, diagnostics, audit output, and fidelity evidence before sharing them publicly.
 
 - [Privacy](docs/privacy.md)
 - [Security Model](docs/security.md)
@@ -357,7 +372,3 @@ MIT — see [LICENSE](LICENSE).
 - Business: `sanskarin@outlook.in`
 - Business: `sanskarin.business@gmail.com`
 - Support: `supportramsandesh@gmail.com`
-
-Complete support guidance: [docs/support.md](docs/support.md).
-
-**The PDFs are merged. The DOCX files are merged. The code remains separate.**
