@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from docmergeforge.core.models import DocumentKind, InputDocument, MergeProject
@@ -8,11 +9,12 @@ _MERGEABLE_KINDS = {DocumentKind.PDF, DocumentKind.DOCX}
 
 
 def _path_key(path: Path) -> str:
-    """Return a stable comparison key without requiring the path to still exist."""
+    """Return a stable platform-aware comparison key without requiring existence."""
     try:
-        return str(path.resolve(strict=False)).casefold()
+        resolved = path.resolve(strict=False)
     except OSError:
-        return str(path.absolute()).casefold()
+        resolved = path.absolute()
+    return os.path.normcase(str(resolved))
 
 
 def automatic_numbered_documents(
