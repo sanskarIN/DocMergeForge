@@ -57,6 +57,35 @@ def test_scan_excludes_nested_pdf_before_pdf_inspection(
     assert [item.path for item in discovered] == [included_file]
 
 
+def test_recursive_iter_files_prunes_excluded_directory_before_descent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "Book"
+    source.mkdir()
+    excluded = source / "Master"
+    content = source / "Content"
+    directory_names = ["Master", "Content"]
+    walk_calls: list[tuple[Path, bool]] = []
+
+    def fake_walk(
+        root: Path,
+        *,
+        followlinks: bool,
+    ) -> object:
+        walk_calls.append((root, followlinks))
+        yield str(source), directory_names, ["root.txt"]
+        assert directory_names == ["Content"]
+        yield str(content), [], ["Part 1.docx"]
+
+    monkeypatch.setattr(scanner.os, "walk", fake_walk)
+
+    discovered = list(scanner.iter_files([source], exclude_roots=[excluded]))
+
+    assert discovered == [source / "root.txt", content / "Part 1.docx"]
+    assert walk_calls == [(source, False)]
+
+
 def test_iter_files_skips_root_that_is_inside_excluded_tree(tmp_path: Path) -> None:
     excluded = tmp_path / "Master"
     nested = excluded / "nested"
@@ -66,6 +95,22 @@ def test_iter_files_skips_root_that_is_inside_excluded_tree(tmp_path: Path) -> N
     discovered = list(scanner.iter_files([nested], exclude_roots=[excluded]))
 
     assert discovered == []
+
+
+def test_non_recursive_iter_files_still_honors_excluded_root(tmp_path: Path) -> None:
+    source = tmp_path / "Book"
+    excluded = source / "Master"
+    excluded.mkdir(parents=True)
+    included = source / "Part 1.docx"
+    excluded_file = excluded / "Part 2.docx"
+    included.write_text("one", encoding="utf-8")
+    excluded_file.write_text("two", encoding="utf-8")
+
+    discovered = list(
+        scanner.iter_files([source], recursive=False, exclude_roots=[excluded])
+    )
+
+    assert discovered == [included]
 
 
 def test_scan_without_exclusions_preserves_existing_behavior(tmp_path: Path) -> None:
