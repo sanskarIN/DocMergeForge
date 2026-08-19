@@ -68,6 +68,8 @@ List of paths scanned for PDF, DOCX, companion, and other files.
 
 Paths are serialized as strings. They can be relative or absolute depending on how the project was created/saved. For portable project files, prefer a stable directory layout and test the project after moving it.
 
+Explicit selected-path identity follows platform path normalization rather than unconditional case folding. This avoids incorrectly treating case-distinct POSIX paths as the same source while retaining normal case-insensitive behavior where the platform path rules provide it.
+
 ### `output_folder`
 
 Destination directory for the publication bundle.
@@ -81,6 +83,8 @@ Nested merge/PDF/DOCX settings described below.
 ### `selected_files`
 
 Optional explicit list of selected paths. The desktop order-selection workflow can use this to preserve chosen file/order information instead of silently replacing it with a fresh automatic order.
+
+A repeated selected path is rejected rather than merged twice. Path aliases that resolve to the same path are treated as the same selection.
 
 ### `state`
 
@@ -102,6 +106,8 @@ Project state is useful for workflow/recovery UX; it is not a substitute for val
 ### `last_successful_checkpoint`
 
 Optional checkpoint identifier used by recovery/resume workflows.
+
+Checkpoint persistence is ordered conservatively: the recovery snapshot is saved first, and the live in-memory project is updated to the new checkpoint only after the save succeeds. A failed checkpoint write therefore does not falsely claim a newer persisted recovery boundary.
 
 ### `warnings`
 
@@ -129,6 +135,15 @@ The `settings` object currently supports:
 
 Inclusive numbered-part range expected during validation.
 
+The range is deliberately bounded at every maintained entry point:
+
+- part numbers must be positive;
+- `expected_end` must be greater than or equal to `expected_start`;
+- the largest supported numbered part is **999,999**, matching the six-digit filename detector boundary;
+- one expected range may contain at most **10,000 parts**.
+
+The 10,000-part span limit prevents malformed project/CLI input from forcing validation to materialize unbounded missing-part lists and diagnostics. Normal book/manuscript projects are far below this bound. Project loading, project saving, CLI `--parts` parsing, and validation services all enforce the same shared range contract.
+
 ### `checksum_generation`
 
 Controls checksum evidence generation for project publication where supported.
@@ -151,7 +166,9 @@ Publication/profile label. Default: `Exact Preservation`.
 
 Base naming template used by project output naming. Default: `{series}_Master`.
 
-Rendered output basenames are normalized for cross-platform-invalid characters and Windows reserved device names. Very long names are capped at **180 UTF-8 bytes** before the final extension/version suffix is added. When truncation is necessary, DocMergeForge appends a deterministic 12-hex SHA-256-derived suffix so two different long names are unlikely to collapse to the same truncated basename.
+Rendered output basenames are normalized for cross-platform-invalid characters and Windows reserved device names. Windows device-name protection applies to the component before the first dot, so names such as `CON`, `CON.txt`, `COM1.release`, and `LPT9.final.copy` are made safe instead of only checking exact extensionless names.
+
+Very long names are capped at **180 UTF-8 bytes** before the final extension/version suffix is added. When truncation is necessary, DocMergeForge appends a deterministic 12-hex SHA-256-derived suffix so two different long names are unlikely to collapse to the same truncated basename.
 
 This bound is a conservative filename-component safety measure; complete path limits still depend on the selected operating system, filesystem, mount, and parent-directory depth. Preflight/output write checks remain authoritative for the actual destination.
 
@@ -201,9 +218,11 @@ See [DOCX Engine](docx-engine.md).
 
 ## Atomic project saving
 
-Project saving uses the shared atomic text-persistence helper. Each save creates a **unique sibling temporary file**, writes UTF-8 JSON, flushes and `fsync`s that temporary file, and promotes it with `os.replace(...)` only after the write completes.
+Project saving first validates the shared expected-part range contract, then uses the shared atomic text-persistence helper. Each save creates a **unique sibling temporary file**, writes UTF-8 JSON, flushes and `fsync`s that temporary file, and promotes it with `os.replace(...)` only after the write completes.
 
-If writing or replacement fails, the temporary file is removed and the previously published project file remains intact. Multiple writers no longer contend on one predictable `<project>.tmp` filename, although concurrent saves are still logically last-writer-wins and should not be used as a collaborative editing protocol.
+If range validation, writing, or replacement fails, an invalid new project file is not published. Write/promotion failures remove the temporary file and preserve the previously published project file.
+
+Multiple writers no longer contend on one predictable `<project>.tmp` filename, although concurrent saves are still logically last-writer-wins and should not be used as a collaborative editing protocol.
 
 The project file itself is still not a backup of the source manuscript. Back up important project files independently.
 
@@ -224,7 +243,7 @@ Do not hand-edit production project files without validation.
 Project JSON is human-readable, but editing it directly can create:
 
 - invalid paths;
-- inverted/incorrect part ranges;
+- inverted, oversized, or otherwise unsupported part ranges;
 - unsupported fidelity modes/policies;
 - accidental overwrite behavior;
 - selected-file ordering that no longer matches source folders;
