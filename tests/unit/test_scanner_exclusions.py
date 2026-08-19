@@ -107,9 +107,26 @@ def test_non_recursive_iter_files_still_honors_excluded_root(tmp_path: Path) -> 
     included.write_text("one", encoding="utf-8")
     excluded_file.write_text("two", encoding="utf-8")
 
-    discovered = list(scanner.iter_files([source], recursive=False, exclude_roots=[excluded]))
+    discovered = list(
+        scanner.iter_files([source], recursive=False, exclude_roots=[excluded])
+    )
 
     assert discovered == [included]
+
+
+def test_recursive_iter_files_skips_broken_file_symlink(tmp_path: Path) -> None:
+    source = tmp_path / "Book"
+    source.mkdir()
+    target = source / "missing.docx"
+    link = source / "Part 1.docx"
+    try:
+        link.symlink_to(target)
+    except OSError:
+        pytest.skip("symbolic links are not available on this test host")
+
+    discovered = list(scanner.iter_files([source]))
+
+    assert discovered == []
 
 
 def test_scan_without_exclusions_preserves_existing_behavior(tmp_path: Path) -> None:
