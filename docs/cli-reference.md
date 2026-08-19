@@ -452,14 +452,22 @@ The command is preview-only unless `--apply` is present. It discovers the projec
 The proposed ordering is deterministic by detected part number, document kind, natural filename order, then normalized full path. Preview JSON includes:
 
 - `changed`;
+- `safe_to_apply`;
 - `current_count` / `proposed_count`;
 - `current` / `proposed`;
 - `added` / `removed`;
 - `reordered`;
+- `duplicate_parts.pdf` / `duplicate_parts.docx`;
 - `applied`;
 - `approval_required`;
 - `removal_approval_required`;
 - `backup`.
+
+Duplicate part numbers are evaluated separately for PDF and DOCX. Two PDF candidates for Part 1 or two DOCX candidates for Part 1 set `safe_to_apply=false`. One PDF Part 1 plus one DOCX Part 1 is valid because those are separate manuscript pipelines.
+
+When `safe_to_apply=false`, `--apply` returns exit code `2` before removal approval, backup creation, or project replacement. The command does not silently choose a duplicate candidate, and `--allow-removals` cannot override duplicate ambiguity. Resolve the duplicate source membership/filename issue and preview again.
+
+`safe_to_apply=true` means the synchronization proposal itself is not ambiguous. It is not a claim that the resulting project is publication-ready; missing parts, encrypted/corrupt documents, storage conditions, and other project-preflight checks remain separate.
 
 If `removed` is non-empty, `--apply` by itself returns exit code `2` and does not write a backup/project. This second approval boundary protects intentionally selected unnumbered front/back matter or other manual exceptions. After reviewing every removal, apply intentionally with:
 
@@ -470,7 +478,7 @@ docmergeforge project-sync \
   --allow-removals
 ```
 
-For a changed approved proposal, the current project is first copied to a versioned backup such as `Book.json.bak` or `Book.json_v2.bak`, then the project is saved atomically. No-op proposals create no backup. Symlinked project files and stale in-memory selection baselines are rejected. Handled write/safety failures are printed as JSON and return exit code `2`.
+For a changed approved proposal, the current project is first copied to a versioned backup such as `Book.json.bak` or `Book.json_v2.bak`, then the project is saved atomically. Unambiguous no-op proposals create no backup. Symlinked project files and stale in-memory selection baselines are rejected. Handled write/safety failures are printed as JSON and return exit code `2`.
 
 `project-sync` changes only project metadata. It never deletes or rewrites manuscript source files. Run `merge --dry-run` after applying a synchronization proposal and review the resolved merge order before publication.
 
@@ -624,6 +632,7 @@ For reliable scripting:
 - use `--dry-run` before project publication;
 - inspect exit codes, not only stdout text;
 - parse JSON for `validate`, project dry runs, `project-sync`, `fidelity-capabilities`, `fidelity-roundtrip`, `fidelity-corpus`, `recover-output`, `audit`, and `compare`;
+- require `safe_to_apply=true` and empty `duplicate_parts` before considering a `project-sync` apply;
 - review `project-sync` removals and never add `--allow-removals` mechanically;
 - review `diagnostics`/`pdf_diagnostics`/`docx_diagnostics`, especially unnumbered/out-of-range warnings;
 - avoid depending on filesystem directory listing order;
