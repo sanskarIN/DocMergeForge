@@ -28,14 +28,21 @@ class ProjectSyncPlan:
     added: tuple[Path, ...]
     removed: tuple[Path, ...]
     reordered: bool
+    duplicate_pdf_parts: tuple[int, ...]
+    duplicate_docx_parts: tuple[int, ...]
 
     @property
     def changed(self) -> bool:
         return tuple(map(_path_key, self.current)) != tuple(map(_path_key, self.proposed))
 
+    @property
+    def safe_to_apply(self) -> bool:
+        return not self.duplicate_pdf_parts and not self.duplicate_docx_parts
+
     def to_dict(self) -> dict[str, object]:
         return {
             "changed": self.changed,
+            "safe_to_apply": self.safe_to_apply,
             "current_count": len(self.current),
             "proposed_count": len(self.proposed),
             "current": [str(path) for path in self.current],
@@ -43,6 +50,10 @@ class ProjectSyncPlan:
             "added": [str(path) for path in self.added],
             "removed": [str(path) for path in self.removed],
             "reordered": self.reordered,
+            "duplicate_parts": {
+                "pdf": list(self.duplicate_pdf_parts),
+                "docx": list(self.duplicate_docx_parts),
+            },
         }
 
 
@@ -76,6 +87,18 @@ def _eligible_documents(project: MergeProject, discovered: list[InputDocument]) 
     )
 
 
+def _duplicate_parts(
+    documents: list[InputDocument],
+    kind: DocumentKind,
+) -> tuple[int, ...]:
+    counts: dict[int, int] = {}
+    for item in documents:
+        if item.kind != kind or item.part.number is None:
+            continue
+        counts[item.part.number] = counts.get(item.part.number, 0) + 1
+    return tuple(sorted(part for part, count in counts.items() if count > 1))
+
+
 def plan_project_sync(
     project: MergeProject,
     discovered: list[InputDocument] | None = None,
@@ -88,8 +111,9 @@ def plan_project_sync(
     if discovered is None:
         discovered = discover_project_sources(project)
 
+    eligible = _eligible_documents(project, discovered)
     current = tuple(project.selected_files)
-    proposed = tuple(item.path for item in _eligible_documents(project, discovered))
+    proposed = tuple(item.path for item in eligible)
     current_keys = tuple(_path_key(path) for path in current)
     proposed_keys = tuple(_path_key(path) for path in proposed)
     current_set = set(current_keys)
@@ -112,6 +136,8 @@ def plan_project_sync(
         added=added,
         removed=removed,
         reordered=common_current != common_proposed,
+        duplicate_pdf_parts=_duplicate_parts(eligible, DocumentKind.PDF),
+        duplicate_docx_parts=_duplicate_parts(eligible, DocumentKind.DOCX),
     )
 
 
@@ -121,6 +147,11 @@ def apply_project_sync(
     plan: ProjectSyncPlan,
 ) -> Path | None:
     """Apply an approved plan with a durable backup and atomic project replacement."""
+    if not plan.safe_to_apply:
+        raise ValueError(
+            "Refusing to apply an ambiguous synchronization plan with duplicate PDF/DOCX "
+            "part numbers. Resolve duplicate source parts and preview again."
+        )
     if not plan.changed:
         return None
     if project_path.is_symlink():
