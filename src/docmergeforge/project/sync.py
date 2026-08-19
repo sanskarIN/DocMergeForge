@@ -30,6 +30,8 @@ class ProjectSyncPlan:
     reordered: bool
     duplicate_pdf_parts: tuple[int, ...]
     duplicate_docx_parts: tuple[int, ...]
+    missing_pdf_parts: tuple[int, ...]
+    missing_docx_parts: tuple[int, ...]
 
     @property
     def changed(self) -> bool:
@@ -39,10 +41,20 @@ class ProjectSyncPlan:
     def safe_to_apply(self) -> bool:
         return not self.duplicate_pdf_parts and not self.duplicate_docx_parts
 
+    @property
+    def numbering_complete_for_available_kinds(self) -> bool:
+        return (
+            bool(self.proposed)
+            and self.safe_to_apply
+            and not self.missing_pdf_parts
+            and not self.missing_docx_parts
+        )
+
     def to_dict(self) -> dict[str, object]:
         return {
             "changed": self.changed,
             "safe_to_apply": self.safe_to_apply,
+            "numbering_complete_for_available_kinds": self.numbering_complete_for_available_kinds,
             "current_count": len(self.current),
             "proposed_count": len(self.proposed),
             "current": [str(path) for path in self.current],
@@ -53,6 +65,10 @@ class ProjectSyncPlan:
             "duplicate_parts": {
                 "pdf": list(self.duplicate_pdf_parts),
                 "docx": list(self.duplicate_docx_parts),
+            },
+            "missing_parts": {
+                "pdf": list(self.missing_pdf_parts),
+                "docx": list(self.missing_docx_parts),
             },
         }
 
@@ -99,6 +115,22 @@ def _duplicate_parts(
     return tuple(sorted(part for part, count in counts.items() if count > 1))
 
 
+def _missing_parts(
+    documents: list[InputDocument],
+    kind: DocumentKind,
+    start: int,
+    end: int,
+) -> tuple[int, ...]:
+    found = {
+        item.part.number
+        for item in documents
+        if item.kind == kind and item.part.number is not None
+    }
+    if not found:
+        return ()
+    return tuple(part for part in range(start, end + 1) if part not in found)
+
+
 def plan_project_sync(
     project: MergeProject,
     discovered: list[InputDocument] | None = None,
@@ -129,6 +161,8 @@ def plan_project_sync(
     )
     common_current = tuple(key for key in current_keys if key in proposed_set)
     common_proposed = tuple(key for key in proposed_keys if key in current_set)
+    start = project.settings.expected_start
+    end = project.settings.expected_end
 
     return ProjectSyncPlan(
         current=current,
@@ -138,6 +172,8 @@ def plan_project_sync(
         reordered=common_current != common_proposed,
         duplicate_pdf_parts=_duplicate_parts(eligible, DocumentKind.PDF),
         duplicate_docx_parts=_duplicate_parts(eligible, DocumentKind.DOCX),
+        missing_pdf_parts=_missing_parts(eligible, DocumentKind.PDF, start, end),
+        missing_docx_parts=_missing_parts(eligible, DocumentKind.DOCX, start, end),
     )
 
 
