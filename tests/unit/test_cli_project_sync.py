@@ -26,12 +26,13 @@ def _write_project(tmp_path: Path) -> tuple[Path, Path]:
 
 def test_cli_parser_supports_project_sync_apply() -> None:
     args = cli.build_parser().parse_args(
-        ["project-sync", "--project", "Book.json", "--apply"]
+        ["project-sync", "--project", "Book.json", "--apply", "--allow-removals"]
     )
 
     assert args.command == "project-sync"
     assert args.project == Path("Book.json")
     assert args.apply is True
+    assert args.allow_removals is True
 
 
 def test_cli_project_sync_previews_without_mutating_project(
@@ -75,6 +76,70 @@ def test_cli_project_sync_apply_creates_backup_and_persists_order(
         source / "Part 2.docx",
     ]
     assert load_project(tmp_path / "Book.json.bak").selected_files == []
+
+
+def test_cli_project_sync_blocks_removal_without_second_approval(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    project_path, source = _write_project(tmp_path)
+    preface = source / "Preface.docx"
+    preface.write_text("preface", encoding="utf-8")
+    project = load_project(project_path)
+    project.selected_files = [preface, source / "Part 1.docx", source / "Part 2.docx"]
+    save_project(project, project_path)
+
+    exit_code = cli.main(["project-sync", "--project", str(project_path), "--apply"])
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 2
+    assert payload["applied"] is False
+    assert payload["removal_approval_required"] is True
+    assert payload["removed"] == [str(preface)]
+    assert "--allow-removals" in payload["error"]
+    assert load_project(project_path).selected_files == [
+        preface,
+        source / "Part 1.docx",
+        source / "Part 2.docx",
+    ]
+    assert not (tmp_path / "Book.json.bak").exists()
+
+
+def test_cli_project_sync_applies_removal_after_second_approval(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    project_path, source = _write_project(tmp_path)
+    preface = source / "Preface.docx"
+    preface.write_text("preface", encoding="utf-8")
+    project = load_project(project_path)
+    project.selected_files = [preface, source / "Part 1.docx", source / "Part 2.docx"]
+    save_project(project, project_path)
+
+    exit_code = cli.main(
+        [
+            "project-sync",
+            "--project",
+            str(project_path),
+            "--apply",
+            "--allow-removals",
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert payload["applied"] is True
+    assert payload["removal_approval_required"] is False
+    assert payload["removed"] == [str(preface)]
+    assert load_project(project_path).selected_files == [
+        source / "Part 1.docx",
+        source / "Part 2.docx",
+    ]
+    assert load_project(tmp_path / "Book.json.bak").selected_files == [
+        preface,
+        source / "Part 1.docx",
+        source / "Part 2.docx",
+    ]
 
 
 def test_cli_project_sync_apply_is_noop_when_selection_is_current(
