@@ -174,7 +174,7 @@ Builds and validates Word-native merge evidence, including section/page-number/s
 
 ### `project/store.py`
 
-Loads, validates, migrates, and saves versioned JSON project files. Persistence is designed to fail closed for invalid schema/range/path conditions and to use maintained atomic text-save semantics.
+Loads, validates, and saves JSON project files. Persistence rejects project destinations addressed through symbolic links, validates project/range structure, and uses the maintained atomic text-save semantics. It also provides exact SHA-256 content-revision tokens, same-snapshot project/revision loading, and guarded saves that refuse an existing project file whose bytes changed after it was opened. These revision checks are optimistic stale-write protection, not a universal multi-process lock.
 
 ### `project/selection.py`
 
@@ -186,11 +186,11 @@ Stores durable recovery checkpoints/snapshots. Checkpoint state should only adva
 
 ### `project/discovery.py`
 
-Discovers the current raw source tree for synchronization planning without first constraining discovery to the already-persisted `selected_files` list.
+Discovers the current raw source tree for synchronization planning without first constraining discovery to the already-persisted `selected_files` list. The application service uses this shared project-aware discovery path so normal project runs and synchronization share the same nested-output exclusion boundary.
 
 ### `project/sync.py`
 
-Builds a typed preview plan containing current/proposed/added/removed/reordered selections and applies reviewed changes through guarded persistence. Removals require a second explicit approval and changed writes create versioned backups.
+Builds a typed preview plan containing current/proposed/added/removed/reordered selections and applies reviewed changes through guarded persistence. Removals require a second explicit approval and changed writes create versioned backups. CLI apply can carry the exact project revision captured at load, performs exact and semantic stale-state checks, and rechecks the expected revision before final atomic persistence.
 
 ### `project/drift.py`
 
@@ -300,7 +300,7 @@ Provides storage/free-space/writeability checks. The maintained output probe per
 
 ### `ui/main.py`
 
-Creates the main desktop window and connects user actions to application workflows, workers, dialogs, progress state, recent projects, and output/report presentation.
+Creates the main desktop window and connects user actions to application workflows, workers, dialogs, progress state, recent projects, and output/report presentation. Existing-project resume loads the project and exact content revision together and refuses to overwrite a project changed on disk while the user reviews ordering. Direct desktop project-save and recovery-checkpoint failures are surfaced to the user and stop the affected workflow.
 
 ### `ui/dialogs.py`
 
