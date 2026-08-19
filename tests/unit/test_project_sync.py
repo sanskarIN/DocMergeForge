@@ -113,6 +113,43 @@ def test_apply_sync_creates_backup_and_replaces_project_atomically(tmp_path: Pat
     assert project.selected_files == [new]
 
 
+def test_apply_sync_versions_existing_backup_instead_of_replacing_it(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    root = project.source_folders[0]
+    old = root / "Part 2.pdf"
+    new = root / "Part 1.pdf"
+    project.selected_files = [old]
+    project_path = tmp_path / "Book.json"
+    save_project(project, project_path)
+    first_backup = tmp_path / "Book.json.bak"
+    first_backup.write_text("keep this backup", encoding="utf-8")
+    plan = plan_project_sync(project, [_document(new, DocumentKind.PDF, 1)])
+
+    backup = apply_project_sync(project, project_path, plan)
+
+    assert backup == tmp_path / "Book.json_v2.bak"
+    assert first_backup.read_text(encoding="utf-8") == "keep this backup"
+    assert load_project(backup).selected_files == [old]
+
+
+def test_apply_sync_rejects_plan_when_selection_changed_after_preview(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    root = project.source_folders[0]
+    old = root / "Part 2.pdf"
+    new = root / "Part 1.pdf"
+    project.selected_files = [old]
+    project_path = tmp_path / "Book.json"
+    save_project(project, project_path)
+    plan = plan_project_sync(project, [_document(new, DocumentKind.PDF, 1)])
+    project.selected_files = [root / "Preface.pdf", old]
+
+    with pytest.raises(ValueError, match="changed after"):
+        apply_project_sync(project, project_path, plan)
+
+    assert not (tmp_path / "Book.json.bak").exists()
+    assert load_project(project_path).selected_files == [old]
+
+
 def test_apply_sync_noop_does_not_require_or_write_project_file(tmp_path: Path) -> None:
     project = _project(tmp_path)
     plan = plan_project_sync(project, [])
