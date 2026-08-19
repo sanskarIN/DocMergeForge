@@ -39,6 +39,62 @@ Full execution:
 docmergeforge merge --project "./Book.json"
 ```
 
+## Synchronize selected files from current sources
+
+`project-sync` is an explicit project-maintenance workflow for rebuilding `selected_files` from the numbered PDF/DOCX files currently present in the configured source folders. It is deliberately **preview-only by default**.
+
+Preview the proposed selection:
+
+```bash
+docmergeforge project-sync --project "./Book.json"
+```
+
+The command scans the project source roots, excludes a strictly nested project output subtree, and proposes only mergeable PDF/DOCX files that:
+
+- have a detected part number;
+- fall inside the project's configured inclusive expected range; and
+- resolve to a unique platform-aware path identity.
+
+The proposed order is deterministic: part number first, then document kind, natural filename ordering, and normalized full path as the final tie breaker.
+
+Preview JSON includes `current`, `proposed`, `added`, `removed`, `reordered`, counts, and approval flags. A preview never writes the project or a backup.
+
+After reviewing the complete proposal, apply an addition/reorder-only change with:
+
+```bash
+docmergeforge project-sync --project "./Book.json" --apply
+```
+
+If the proposal would remove any path already stored in `selected_files`, `--apply` fails closed with exit code `2`. This matters because an existing selection can intentionally contain unnumbered prefaces, appendices, covers, or other manually reviewed material that the automatic numbered-source proposal does not include.
+
+Only after reviewing the `removed` list should intentional removals be approved with both flags:
+
+```bash
+docmergeforge project-sync \
+  --project "./Book.json" \
+  --apply \
+  --allow-removals
+```
+
+A changed project is backed up before replacement. The first backup is normally `Book.json.bak`; existing backups are preserved with versioned names such as `Book.json_v2.bak`. The new project file is then saved through the same atomic text-persistence path used by normal project saving.
+
+Additional safeguards:
+
+- unchanged proposals are true no-ops and create no backup;
+- synchronization refuses to write a project file addressed through a symbolic link;
+- a synchronization plan is rejected if the in-memory selection changed after the plan was created;
+- backup/project write `OSError`s are reported as structured CLI JSON failures;
+- a failed project replacement leaves the already-created backup available for recovery and restores the caller's in-memory selection;
+- synchronization changes only project metadata; it does not rename, delete, move, convert, or modify manuscript source files.
+
+`project-sync` is not a replacement for project preflight. After applying a proposal, run:
+
+```bash
+docmergeforge merge --project "./Book.json" --dry-run
+```
+
+and review the resolved PDF/DOCX order, validation diagnostics, and storage evidence before publication.
+
 ## Top-level schema
 
 A saved project contains these top-level fields:
@@ -85,6 +141,8 @@ Nested merge/PDF/DOCX settings described below.
 Optional explicit list of selected paths. The desktop order-selection workflow can use this to preserve chosen file/order information instead of silently replacing it with a fresh automatic order.
 
 A repeated selected path is rejected rather than merged twice. Path aliases that resolve to the same path are treated as the same selection.
+
+When `project-sync` is used, its proposal represents the current automatic numbered/in-range PDF/DOCX source set. Existing explicit material outside that automatic rule appears in `removed`; it is never deleted from disk, but replacing `selected_files` with the proposal would stop that path from participating as an explicit merge selection. That is why an apply containing removals requires the separate `--allow-removals` approval.
 
 ### `state`
 
@@ -279,6 +337,8 @@ They should not contain:
 - API secrets;
 - access tokens;
 - private manuscript body content beyond what is inherently present in filenames/paths.
+
+Project synchronization does not copy manuscript content into the project file, but its JSON preview can reveal source paths. Review captured CLI logs before sharing them publicly.
 
 ## Version-control guidance
 
