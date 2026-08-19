@@ -9,6 +9,7 @@ from docmergeforge.core.models import (
     InputDocument,
     ValidationResult,
 )
+from docmergeforge.core.part_range import validate_expected_part_range
 
 
 def validate_part_set(
@@ -20,6 +21,7 @@ def validate_part_set(
     allow_encrypted_pdf: bool = False,
     merge_documents: list[InputDocument] | None = None,
 ) -> ValidationResult:
+    expected_start, expected_end = validate_expected_part_range(expected_start, expected_end)
     selected = [item for item in documents if item.kind == kind]
     merge_selected = (
         selected
