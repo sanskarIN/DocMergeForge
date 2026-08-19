@@ -248,6 +248,30 @@ def test_apply_sync_rejects_plan_when_selection_changed_after_preview(tmp_path: 
     assert load_project(project_path).selected_files == [old]
 
 
+def test_apply_sync_rejects_project_changed_on_disk_after_preview(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    root = project.source_folders[0]
+    old = root / "Part 2.pdf"
+    new = root / "Part 1.pdf"
+    project.selected_files = [old]
+    project_path = tmp_path / "Book.json"
+    save_project(project, project_path)
+    plan = plan_project_sync(project, [_document(new, DocumentKind.PDF, 1)])
+
+    externally_changed = load_project(project_path)
+    externally_changed.settings.filename_template = "Externally Changed {series}"
+    save_project(externally_changed, project_path)
+
+    with pytest.raises(ValueError, match="changed on disk"):
+        apply_project_sync(project, project_path, plan)
+
+    persisted = load_project(project_path)
+    assert persisted.settings.filename_template == "Externally Changed {series}"
+    assert persisted.selected_files == [old]
+    assert not (tmp_path / "Book.json.bak").exists()
+    assert project.settings.filename_template != persisted.settings.filename_template
+
+
 def test_apply_sync_noop_does_not_require_or_write_project_file(tmp_path: Path) -> None:
     project = _project(tmp_path)
     plan = plan_project_sync(project, [])
