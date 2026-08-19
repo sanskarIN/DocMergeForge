@@ -4,6 +4,56 @@ This file records the current DocMergeForge development pass, verification evide
 
 An item is not treated as finished merely because code was pushed. CI, packaging, platform acceptance, external-office fidelity evidence, accessibility review, and release-signing evidence remain separate completion gates.
 
+## 2026-08-19 — Repository-wide documentation mapping and coverage enforcement
+
+### Added
+- Added `docs/repository-reference.md` as a literal repository-wide inventory documenting every tracked root file, GitHub metadata/workflow, branding asset, documentation page, script, runtime module, helper, integration test, regression test, and unit test.
+- Added `docs/source-code-reference.md` with package-by-package and module-by-module runtime responsibilities, architectural dependency direction, safety boundaries, and maintenance expectations.
+- Added `docs/test-suite-reference.md` with the complete test-file map, evidence-layer distinctions, behavior ownership, test-placement guidance, and the difference between committed tests and observed passing evidence.
+- Added `docs/automation-reference.md` covering every maintained script and GitHub Actions workflow, including normal operating environment, evidence scope, and production-readiness boundaries.
+- Added `docs/configuration-reference.md` covering `pyproject.toml`, formatting/type/test configuration, Git/GitHub metadata, governance/community files, Dependabot, development records, and branding assets.
+- Added `docs/documentation-catalog.md` mapping every maintained documentation file by audience and task, plus a task-oriented lookup table for users, developers, operators, and release maintainers.
+- Added `scripts/check_repository_reference.py`, which reads the actual Git-tracked path set with `git ls-files` and fails when a path is not explicitly backticked in `docs/repository-reference.md`.
+- Added `tests/unit/test_repository_reference.py` covering exact-path matching, deterministic missing-path reporting, successful command behavior, missing-path failure behavior, and unreadable-reference handling.
+
+### Changed
+- The primary Quality matrix now runs `python scripts/check_repository_reference.py` after local Markdown link validation, turning repository-file documentation completeness into an enforced CI contract instead of a one-time manual inventory.
+- `docs/README.md` now exposes a dedicated Repository Internals section linking the documentation catalog, complete file reference, source reference, test reference, automation reference, and configuration/governance reference.
+- `CONTRIBUTING.md` now requires both documentation-link validation and repository-reference coverage locally, directs contributors to the new internals references, and requires path additions/renames/deletions to update the complete repository inventory.
+- `.github/PULL_REQUEST_TEMPLATE.md` now asks contributors/reviewers to confirm repository-reference coverage when tracked paths change.
+- `docs/development.md` now documents the repository documentation-integrity model, complete internals references, local coverage commands, and a definition-of-done item for repository-reference coverage.
+
+### Documentation coverage contract
+- Coverage is based on Git-tracked files rather than filesystem traversal, so generated caches, local virtual environments, build outputs, private corpora, and other untracked local state are intentionally excluded.
+- A path is considered explicitly cataloged only when the exact repository-relative path appears in backticks in `docs/repository-reference.md`; vague directory-level prose is not enough to satisfy the automated guard.
+- The guard checks path coverage, not semantic prose quality. Reviewers remain responsible for ensuring the description of each tracked file is accurate and that behavior belongs in the correct canonical guide.
+- New files are expected to update the inventory in the same focused change, preventing gradual documentation drift as the codebase grows.
+
+### Verification Status
+- Implementation/documentation checkpoint immediately before this development-record update: `e1eace6420afdbee1ef698d9d5d5e7662b38722c`.
+- The recursive `main` tree inspected at that checkpoint contained the newly added repository reference, source-code reference, automation reference, test-suite reference, configuration reference, documentation catalog, coverage checker, coverage-check tests, and Quality workflow update.
+- The connector's combined-status endpoint returned no status checks for that inspected checkpoint. The available commit-workflow helper is scoped to pull-request-triggered runs and therefore does not establish the state of a push-triggered Quality run on `main`.
+- No fresh Ruff, Black, strict mypy, documentation-link, repository-reference, pytest, Quality, Regression, Build Smoke, or Security/CodeQL pass is claimed from this documentation pass until an actual current-head run is visible and reviewed.
+- The added test source and CI command demonstrate intended enforcement but are not represented as passing execution evidence by themselves.
+- External-office production flags remain unchanged: `libreoffice.production_ready=false` and `word.production_ready=false`.
+- The repository remains pre-stable at `0.1.0`; documentation completeness does not by itself establish `v1.0.0`, signing, notarization, native-office fidelity, accessibility certification, or clean-machine production readiness.
+
+### Remaining Documentation / Maintenance Work
+- Review the next visible current-head Quality run and fix any formatter, lint, test, link, or repository-reference failure without weakening the maintained rules.
+- Keep `docs/repository-reference.md`, `docs/documentation-catalog.md`, and the appropriate subsystem reference synchronized whenever paths or responsibilities change.
+- Update `CHANGELOG.md` and other release-facing summaries when the repository reaches the next externally meaningful release checkpoint; do not invent a release solely for documentation expansion.
+- Continue to record real acceptance evidence separately from implementation descriptions so documentation never turns configured automation into claimed observed results.
+
+### Remaining Release-Gate Work
+- Execute and review the maintained supervised LibreOffice UNO multi-document and process-cleanup workflows, then expand representative real-world fidelity evidence for sections, page styles, headers/footers, numbering, advanced OOXML, fonts, and interoperability behavior.
+- Execute and review the controlled Microsoft Word native normal-merge and real timeout-cleanup workflow on the dedicated Windows/Word environment; then run representative private corpora and exact-version human rendering/repair-prompt acceptance.
+- Execute and record a genuinely measured multi-gigabyte stress run.
+- Complete human keyboard-only, screen-reader, high-contrast, display-scaling, reduced-motion, and localization-readiness acceptance.
+- Complete representative clean-machine interactive packaged-app acceptance, platform-specific distribution polish, Windows production signing, macOS signing/notarization/stapling, final post-signing hashes, and signature verification.
+- Perform additional physical power-loss, storage-device disconnect, and network/multi-host filesystem acceptance only where those semantics are intended to be claimed.
+- Enable appropriate GitHub branch protection/rulesets and required status checks through repository administration if enforced review/CI policy on `main` is desired.
+- Do not set LibreOffice or Word to `production_ready=true`, and do not claim `v1.0.0`, until the corresponding full application/release acceptance matrix is actually verified.
+
 ## 2026-08-19 — Guarded project synchronization and actionable selection maintenance
 
 ### Added
