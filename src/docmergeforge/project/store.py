@@ -12,6 +12,7 @@ from docmergeforge.core.models import (
     MergeState,
     PdfSettings,
 )
+from docmergeforge.core.part_range import validate_expected_part_range
 from docmergeforge.utilities.atomic import atomic_write_text
 
 
@@ -59,11 +60,12 @@ def _positive_range(settings_data: dict[str, Any]) -> tuple[int, int]:
         or isinstance(start, bool)
         or not isinstance(end, int)
         or isinstance(end, bool)
-        or start < 1
-        or end < start
     ):
-        raise ValueError("Project expected part range must be positive and non-decreasing.")
-    return start, end
+        raise ValueError("Project expected part range values must be integers.")
+    try:
+        return validate_expected_part_range(start, end)
+    except ValueError as exc:
+        raise ValueError(f"Project {exc}") from exc
 
 
 def _bool_value(data: dict[str, Any], key: str, default: bool, label: str) -> bool:
