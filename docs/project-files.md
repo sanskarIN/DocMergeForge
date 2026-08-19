@@ -25,6 +25,8 @@ docmergeforge project-create \
   --sql-preset
 ```
 
+If project creation cannot publish the project file, the CLI reports a structured JSON error and exits with code `2` instead of representing the project as created.
+
 ## Run a project
 
 Dry-run/preflight:
@@ -48,6 +50,8 @@ Preview the proposed selection:
 ```bash
 docmergeforge project-sync --project "./Book.json"
 ```
+
+The project and a SHA-256 content-revision token are loaded from the same exact byte snapshot before synchronization planning begins. A later changed apply carries that revision through the write path so a project file changed after load is not silently replaced.
 
 The command scans the project source roots and proposes only mergeable PDF/DOCX files that:
 
@@ -84,9 +88,9 @@ docmergeforge project-sync \
 
 `--allow-removals` cannot override duplicate-part ambiguity.
 
-Before a changed synchronization is written, the project currently on disk is loaded again and compared semantically with the project instance used for the operation. If settings, source/output locations, selection, state, warnings, or checkpoint data changed on disk after load, synchronization refuses the stale write and requires a fresh load/preview.
+Before a changed synchronization is written, the exact project content revision captured at load is checked against the current file. Byte-level drift, including an external reformat that still parses to equivalent project data, is treated as a stale snapshot and requires a fresh preview. The project is also loaded again and compared semantically with the in-memory project as an additional defense.
 
-A changed approved project is backed up before replacement. The first backup is normally `Book.json.bak`; existing backups are preserved with versioned names such as `Book.json_v2.bak`. The new project file is then saved through the same atomic text-persistence path used by normal project saving.
+A changed approved project is backed up before replacement. The first backup is normally `Book.json.bak`; existing backups are preserved with versioned names such as `Book.json_v2.bak`. The final project save checks the expected content revision again before entering the same atomic text-persistence path used by normal project saving.
 
 Additional safeguards:
 
@@ -94,12 +98,13 @@ Additional safeguards:
 - unchanged unambiguous proposals are true no-ops and create no backup;
 - synchronization refuses to write a project file addressed through a symbolic link;
 - a synchronization plan is rejected if the in-memory selection changed after the plan was created;
-- a project changed semantically on disk after load is rejected instead of being overwritten;
+- exact byte-revision changes after load are rejected instead of being overwritten;
+- a semantic on-disk comparison remains in place in addition to exact revision checks;
 - backup/project write `OSError`s are reported as structured CLI JSON failures;
-- a failed project replacement leaves the already-created backup available for recovery and restores the caller's in-memory selection;
+- a failed project replacement leaves an already-created backup available for recovery and restores the caller's in-memory selection;
 - synchronization changes only project metadata; it does not rename, delete, move, convert, or modify manuscript source files.
 
-The on-disk comparison reduces stale-write risk but is not a universal lock against arbitrary external editors. Normal project persistence remains atomic and logically last-writer-wins rather than a collaborative multi-writer protocol.
+The exact revision checks are optimistic stale-write guards, not a universal cross-process lock. An arbitrary external writer that changes the file in the small interval after a final revision check and before atomic replacement is not participating in a coordinated lock protocol. Do not treat project JSON as a collaborative database.
 
 `project-sync` is not a replacement for project preflight. After applying a proposal, run:
 
@@ -180,6 +185,8 @@ Project state is useful for workflow/recovery UX; it is not a substitute for val
 Optional checkpoint identifier used by recovery/resume workflows.
 
 Checkpoint persistence is ordered conservatively: the recovery snapshot is saved first, and the live in-memory project is updated to the new checkpoint only after the save succeeds. A failed checkpoint write therefore does not falsely claim a newer persisted recovery boundary.
+
+Desktop ordering and SQL-preset entry points surface checkpoint persistence failures to the user and stop the affected workflow rather than continuing after a recovery snapshot could not be saved.
 
 ### `warnings`
 
@@ -288,13 +295,19 @@ Default DOCX settings:
 
 See [DOCX Engine](docx-engine.md).
 
-## Atomic project saving
+## Atomic and guarded project saving
 
-Project saving first validates the shared expected-part range contract, then uses the shared atomic text-persistence helper. Each save creates a **unique sibling temporary file**, writes UTF-8 JSON, flushes and `fsync`s that temporary file, and promotes it with `os.replace(...)` only after the write completes.
+Project saving first rejects a project destination addressed through a symbolic link, validates the shared expected-part range contract, and then uses the shared atomic text-persistence helper. Each save creates a **unique sibling temporary file**, writes UTF-8 JSON, flushes and `fsync`s that temporary file, and promotes it with `os.replace(...)` only after the write completes.
 
 If range validation, writing, or replacement fails, an invalid new project file is not published. Write/promotion failures remove the temporary file and preserve the previously published project file.
 
-Multiple writers no longer contend on one predictable `<project>.tmp` filename, although concurrent saves are still logically last-writer-wins and should not be used as a collaborative editing protocol. `project-sync` adds a semantic on-disk recheck immediately before its backup/write path, but arbitrary external writers that change the file after that check are still outside a universal coordinated lock.
+For workflows that edit an existing project after an interaction interval, the persistence layer also exposes an optimistic exact-content revision guard. The project and its revision can be loaded from one exact byte snapshot and later saved only if the on-disk bytes still match that revision.
+
+The desktop **Resume Project** workflow uses this guarded form. It loads the selected project and revision together, lets the user review/edit document order, then refuses the save if the project file changed on disk during that interaction. The user must reload and review the current file instead of overwriting newer content.
+
+`project-sync` uses the same exact revision idea in addition to its semantic stale-state protections and versioned backup behavior.
+
+Multiple writers no longer contend on one predictable `<project>.tmp` filename, but generic unguarded saves remain logically last-writer-wins and the revision guard itself is not a universal lock. Project files should not be used as a collaborative multi-writer data store without an external coordination protocol.
 
 The project file itself is still not a backup of the source manuscript. Back up important project files independently.
 
@@ -326,6 +339,8 @@ Prefer the desktop settings UI or `project-create` for normal changes. If manual
 ```bash
 docmergeforge merge --project "./Book.json" --dry-run
 ```
+
+If another process/application may also modify the same project, coordinate those edits externally. A guarded DocMergeForge workflow will reject a stale revision when it notices one, but it does not lock arbitrary editors out of the file.
 
 ## Moving a project
 
