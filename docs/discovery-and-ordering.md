@@ -6,7 +6,7 @@ Correct discovery and ordering are publication-safety requirements in DocMergeFo
 
 The scanner accepts one or more roots. By default it scans directories recursively. A root that is itself a file is also accepted by the internal scanner.
 
-The scanner also supports explicit excluded roots. A path inside an excluded root is filtered during file enumeration before file classification, PDF inspection, `stat()` evidence collection, or SHA-256 hashing.
+The scanner also supports explicit excluded roots. During recursive scans, excluded directory subtrees are pruned from descent. A file inside an excluded root therefore does not reach file classification, PDF inspection, `stat()` evidence collection, or SHA-256 hashing.
 
 For every discovered file that survives exclusion, DocMergeForge records evidence including:
 
@@ -35,11 +35,11 @@ Book/
     old-output.docx
 ```
 
-`Book/Master/**` is filtered before file hashing or PDF inspection. This prevents prior publications, reports, transaction residue, or even an old output whose filename resembles a valid numbered part from feeding back into a future merge, while also avoiding unnecessary document inspection of those output artifacts.
+`Book/Master/**` is pruned from recursive discovery. This prevents prior publications, reports, transaction residue, or even an old output whose filename resembles a valid numbered part from feeding back into a future merge, while also avoiding recursive descent and unnecessary document inspection/hashing of those output artifacts.
 
 The same project-source discovery helper is used by normal project runs and project-selection synchronization, so both surfaces use one nested-output safety boundary rather than separate post-scan filters.
 
-The underlying recursive directory iterator can still encounter directory entries while walking the source tree; exclusion guarantees that files inside an excluded root do not proceed into DocMergeForge's per-file inspection/hashing pipeline. It is not represented as an operating-system/filesystem traversal sandbox.
+Recursive enumeration uses `os.walk(..., followlinks=False)`, so directory symlinks encountered below a scanned root are not followed. Candidate file entries still pass the regular-file check before being yielded, preserving the previous behavior for broken file symlinks and non-file entries. Exclusion remains a source-discovery rule, not a general operating-system access-control boundary.
 
 When source and output are exactly the same directory, the directory cannot be excluded wholesale because that would hide the real source documents. The automatic numbered-input rule below therefore remains essential in same-directory workflows. A separate output directory is still the clearest recommended layout.
 
@@ -325,7 +325,7 @@ Project/
   output/
 ```
 
-If `output/` is nested under a configured source root, project discovery excludes that subtree before per-file inspection/hashing. Keeping source and output conceptually separate still makes manual review, backups, and external tools easier to reason about.
+If `output/` is nested under a configured source root, project discovery prunes that subtree during recursive enumeration before per-file inspection/hashing. Keeping source and output conceptually separate still makes manual review, backups, and external tools easier to reason about.
 
 ## Discovery checklist
 
