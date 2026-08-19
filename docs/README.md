@@ -74,6 +74,17 @@ This directory is the canonical documentation set for DocMergeForge. It covers e
 - [Operator Runbook](operator-runbook.md)
 - [Development Phases](development-phases.md)
 
+## Repository internals
+
+- **[Documentation Catalog](documentation-catalog.md)** — every maintained guide mapped by audience and task.
+- **[Complete Repository File Reference](repository-reference.md)** — every tracked repository file and its responsibility.
+- [Source Code Reference](source-code-reference.md) — module-by-module runtime architecture and maintenance contracts.
+- [Test Suite Reference](test-suite-reference.md) — every test file, its evidence layer, and the behavior it protects.
+- [Automation and Workflow Reference](automation-reference.md) — every script and GitHub Actions workflow, including evidence boundaries.
+- [Configuration, Governance, and Asset Reference](configuration-reference.md) — package/tool configuration, GitHub metadata, policies, and branding assets.
+
+The Quality workflow enforces repository-file documentation coverage with `python scripts/check_repository_reference.py`. A newly tracked file must be named in the complete repository reference in the same change.
+
 ## Reference
 
 - [FAQ](faq.md)
