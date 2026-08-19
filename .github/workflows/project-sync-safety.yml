@@ -1,0 +1,99 @@
+name: Project Sync Safety
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/docmergeforge/project/**"
+      - "src/docmergeforge/discovery/**"
+      - "src/docmergeforge/cli/**"
+      - "scripts/check_project_sync.py"
+      - "tests/unit/test_project_sync*.py"
+      - "tests/unit/test_scanner_exclusions.py"
+      - "docs/project-sync*.md"
+      - ".github/workflows/project-sync-safety.yml"
+  pull_request:
+    paths:
+      - "src/docmergeforge/project/**"
+      - "src/docmergeforge/discovery/**"
+      - "src/docmergeforge/cli/**"
+      - "scripts/check_project_sync.py"
+      - "tests/unit/test_project_sync*.py"
+      - "tests/unit/test_scanner_exclusions.py"
+      - "docs/project-sync*.md"
+      - ".github/workflows/project-sync-safety.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  focused-safety:
+    name: Focused safety (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install development dependencies
+        run: python -m pip install -e ".[dev]"
+
+      - name: Check focused formatting
+        run: >-
+          python -m black --check --diff
+          src/docmergeforge/project/sync.py
+          src/docmergeforge/project/drift.py
+          src/docmergeforge/project/discovery.py
+          src/docmergeforge/discovery/scanner.py
+          src/docmergeforge/cli/main.py
+          scripts/check_project_sync.py
+          tests/unit/test_project_sync.py
+          tests/unit/test_cli_project_sync.py
+          tests/unit/test_project_sync_drift.py
+          tests/unit/test_scanner_exclusions.py
+
+      - name: Check focused lint
+        run: >-
+          python -m ruff check
+          src/docmergeforge/project/sync.py
+          src/docmergeforge/project/drift.py
+          src/docmergeforge/project/discovery.py
+          src/docmergeforge/discovery/scanner.py
+          src/docmergeforge/cli/main.py
+          scripts/check_project_sync.py
+          tests/unit/test_project_sync.py
+          tests/unit/test_cli_project_sync.py
+          tests/unit/test_project_sync_drift.py
+          tests/unit/test_scanner_exclusions.py
+
+      - name: Check focused types
+        run: >-
+          python -m mypy
+          src/docmergeforge/project/sync.py
+          src/docmergeforge/project/drift.py
+          src/docmergeforge/project/discovery.py
+          src/docmergeforge/discovery/scanner.py
+          src/docmergeforge/cli/main.py
+          scripts/check_project_sync.py
+
+      - name: Run focused regression tests
+        run: >-
+          python -m pytest -q
+          tests/unit/test_project_sync.py
+          tests/unit/test_cli_project_sync.py
+          tests/unit/test_project_sync_drift.py
+          tests/unit/test_scanner_exclusions.py
