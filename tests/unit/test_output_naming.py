@@ -12,6 +12,13 @@ def test_safe_basename_removes_cross_platform_invalid_characters() -> None:
     assert safe_basename("  ") == "DocMergeForge_Master"
 
 
+def test_safe_basename_rejects_windows_device_prefix_with_extension() -> None:
+    assert safe_basename("CON.txt") == "_CON.txt"
+    assert safe_basename("com1.release") == "_com1.release"
+    assert safe_basename("LPT9.final.copy") == "_LPT9.final.copy"
+    assert safe_basename("CONSOLE.txt") == "CONSOLE.txt"
+
+
 def test_safe_basename_bounds_long_unicode_names_with_stable_hash_suffix() -> None:
     original = "पुस्तक" * 80
 
