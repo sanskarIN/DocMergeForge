@@ -363,6 +363,27 @@ def _project_sync_payload(
 def _run_project_sync(project_path: Path, apply: bool, allow_removals: bool) -> int:
     project = load_project(project_path)
     plan = plan_project_sync(project)
+    if apply and not plan.safe_to_apply:
+        print(
+            json.dumps(
+                _project_sync_payload(
+                    project_path,
+                    plan,
+                    applied=False,
+                    backup=None,
+                    approval_required=True,
+                    removal_approval_required=False,
+                    error=(
+                        "Synchronization is ambiguous because one or more PDF/DOCX part "
+                        "numbers have multiple candidates. Resolve duplicate source parts "
+                        "and preview again before applying."
+                    ),
+                ),
+                indent=2,
+            )
+        )
+        return 2
+
     removal_approval_required = bool(plan.removed) and not allow_removals
     if apply and removal_approval_required:
         print(
