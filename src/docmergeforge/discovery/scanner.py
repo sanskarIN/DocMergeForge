@@ -25,23 +25,44 @@ def classify(path: Path) -> DocumentKind:
     return DocumentKind.OTHER
 
 
-def iter_files(roots: Iterable[Path], recursive: bool = True) -> Iterable[Path]:
+def _resolved(path: Path) -> Path:
+    try:
+        return path.resolve(strict=False)
+    except OSError:
+        return path.absolute()
+
+
+def _is_within(path: Path, directory: Path) -> bool:
+    try:
+        _resolved(path).relative_to(directory)
+    except ValueError:
+        return False
+    return True
+
+
+def iter_files(
+    roots: Iterable[Path],
+    recursive: bool = True,
+    *,
+    exclude_roots: Iterable[Path] = (),
+) -> Iterable[Path]:
+    excluded = tuple(_resolved(path) for path in exclude_roots)
     for root in roots:
+        if any(_is_within(root, directory) for directory in excluded):
+            continue
         if root.is_file():
             yield root
             continue
         iterator = root.rglob("*") if recursive else root.glob("*")
         for path in iterator:
+            if any(_is_within(path, directory) for directory in excluded):
+                continue
             if path.is_file():
                 yield path
 
 
 def _path_identity(path: Path) -> str:
-    try:
-        resolved = path.resolve(strict=False)
-    except OSError:
-        resolved = path.absolute()
-    return os.path.normcase(str(resolved))
+    return os.path.normcase(str(_resolved(path)))
 
 
 def _pdf_info(path: Path) -> tuple[int | None, bool, list[str]]:
@@ -59,10 +80,15 @@ def _pdf_info(path: Path) -> tuple[int | None, bool, list[str]]:
         return None, False, warnings
 
 
-def scan(roots: Iterable[Path], recursive: bool = True) -> list[InputDocument]:
+def scan(
+    roots: Iterable[Path],
+    recursive: bool = True,
+    *,
+    exclude_roots: Iterable[Path] = (),
+) -> list[InputDocument]:
     results: list[InputDocument] = []
     seen: set[str] = set()
-    for path in iter_files(roots, recursive=recursive):
+    for path in iter_files(roots, recursive=recursive, exclude_roots=exclude_roots):
         identity = _path_identity(path)
         if identity in seen:
             continue
