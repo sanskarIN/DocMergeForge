@@ -17,6 +17,10 @@ from docmergeforge.utilities.atomic import atomic_write_text
 
 
 def save_project(project: MergeProject, path: Path) -> None:
+    validate_expected_part_range(
+        project.settings.expected_start,
+        project.settings.expected_end,
+    )
     data = asdict(project)
     data["source_folders"] = [str(item) for item in project.source_folders]
     data["output_folder"] = str(project.output_folder)
