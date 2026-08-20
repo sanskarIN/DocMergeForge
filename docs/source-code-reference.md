@@ -4,7 +4,7 @@ This page documents the runtime Python package under `src/docmergeforge/` by res
 
 ## Package entry points
 
-`src/docmergeforge/__init__.py` exposes package metadata, while `src/docmergeforge/__main__.py` provides the `python -m docmergeforge` path. `src/docmergeforge/py.typed` marks the installed distribution as typed under PEP 561. The executable entry points declared in `pyproject.toml` are `docmergeforge` for the CLI, `docmergeforge-gui` for the desktop UI, and `docmergeforge-web` for the responsive browser host.
+`src/docmergeforge/__init__.py` exposes package metadata, while `src/docmergeforge/__main__.py` provides the `python -m docmergeforge` path. `src/docmergeforge/py.typed` marks the installed distribution as typed under PEP 561. The executable entry points declared in `pyproject.toml` are `docmergeforge` for the CLI, `docmergeforge-gui` for the synchronization-enabled desktop UI, and `docmergeforge-web` for the responsive browser host.
 
 ## Architectural dependency direction
 
@@ -190,7 +190,7 @@ Discovers the current raw source tree for synchronization planning without first
 
 ### `project/sync.py`
 
-Builds a typed preview plan containing current/proposed/added/removed/reordered selections and applies reviewed changes through guarded persistence. Removals require a second explicit approval and changed writes create versioned backups. CLI apply can carry the exact project revision captured at load, performs exact and semantic stale-state checks, and rechecks the expected revision before final atomic persistence.
+Builds a typed preview plan containing current/proposed/added/removed/reordered selections and applies reviewed changes through guarded persistence. Same-kind duplicate part numbers block apply, while missing parts remain review evidence rather than a metadata-write prohibition. Changed writes create versioned backups. CLI and desktop apply paths carry the exact project revision captured at load, preserve a separate removal-approval gate, perform exact and semantic stale-state checks, and recheck the expected revision before final atomic persistence.
 
 ### `project/drift.py`
 
@@ -258,7 +258,7 @@ Classifies and organizes companion/source-code material. Its key contract is sep
 
 ### `packaging/desktop.py`
 
-Builds the maintained PyInstaller command/configuration used by the desktop build helper.
+Builds the maintained PyInstaller command/configuration used by the desktop build helper. Build-root validation requires the base window, synchronization-enabled desktop entry, synchronization preview dialog, and packaged entry so an incomplete desktop source tree fails preflight before PyInstaller starts.
 
 ### `packaging/provenance.py`
 
@@ -332,7 +332,15 @@ Defines the web package surface without eagerly starting the server.
 
 ### `ui/main.py`
 
-Creates the main desktop window and connects user actions to application workflows, workers, dialogs, progress state, recent projects, and output/report presentation. Existing-project resume loads the project and exact content revision together and refuses to overwrite a project changed on disk while the user reviews ordering. Direct desktop project-save and recovery-checkpoint failures are surfaced to the user and stop the affected workflow.
+Creates the established base desktop window and connects project creation/resume, merge, workers, dialogs, progress state, recent projects, and output/report presentation. Existing-project resume loads the project and exact content revision together and refuses to overwrite a project changed on disk while the user reviews ordering. Direct desktop project-save and recovery-checkpoint failures are surfaced to the user and stop the affected workflow.
+
+### `ui/desktop_entry.py`
+
+Provides the maintained `docmergeforge-gui` startup and `ProjectSyncMainWindow` extension. The extension adds **Synchronize Project Sources** without duplicating `project.sync` logic: it loads a project/revision snapshot, builds the shared synchronization plan, opens the review dialog, refuses ambiguous duplicate-part proposals, requires a second explicit confirmation for removals, carries the exact revision into `apply_project_sync(...)`, records successful metadata maintenance in recent-project history, and surfaces stale/write failures instead of silently retrying.
+
+### `ui/project_sync_dialog.py`
+
+Provides the accessible read-only desktop synchronization preview. It displays current/proposed counts, added/removed paths, proposed order, reordering state, duplicate/missing part evidence, and the metadata-only safety boundary. The Apply button is enabled only for a changed unambiguous proposal; removals are not authorized by this dialog alone and require the separate confirmation in `desktop_entry.py`.
 
 ### `ui/dialogs.py`
 
@@ -392,7 +400,7 @@ Runs long operations away from the UI thread and communicates completion/failure
 
 ### `ui/packaged_entry.py`
 
-Provides packaged-application startup behavior and diagnostics that differ from normal source execution.
+Provides packaged-application startup behavior and diagnostics that differ from normal source execution. Normal packaged startup delegates to the synchronization-enabled desktop entry, and packaged smoke instantiates the same extended window before exercising the real temporary PDF/DOCX publication smoke.
 
 ## Change checklist for runtime modules
 
@@ -403,6 +411,6 @@ When changing runtime code, review all of the following before claiming the chan
 3. failure/rollback/cleanup behavior;
 4. logging, authentication, and privacy implications;
 5. docs for the affected subsystem;
-6. `docs/repository-reference.md` if files are added/renamed/deleted;
+6. the maintained repository-reference corpus if files are added/renamed/deleted;
 7. `what_changed.md` for the current development pass;
 8. release-evidence documents only when real acceptance evidence exists.
