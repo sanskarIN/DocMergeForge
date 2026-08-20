@@ -174,9 +174,10 @@ self.addEventListener('fetch', event => {
 
 
 def safe_filename(name: str | None, *, fallback: str = "upload") -> str:
-    """Return a single safe filename component without preserving path traversal."""
+    """Return one safe filename component for POSIX- and Windows-style upload names."""
 
-    candidate = Path(name or fallback).name
+    normalized = (name or fallback).replace("\\", "/")
+    candidate = Path(normalized).name
     candidate = _SAFE_NAME.sub("_", candidate).strip(" .")
     if not candidate:
         candidate = fallback
