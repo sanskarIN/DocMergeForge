@@ -78,7 +78,7 @@ def _run_packaged_smoke() -> int:
 
     from docmergeforge.diagnostics.logging import configure_logging
     from docmergeforge.settings.config import AppSettings
-    from docmergeforge.ui.main import MainWindow
+    from docmergeforge.ui.desktop_entry import ProjectSyncMainWindow
     from docmergeforge.ui.paths import log_path, settings_path
     from docmergeforge.ui.theme import apply_text_scale, apply_theme
 
@@ -93,7 +93,7 @@ def _run_packaged_smoke() -> int:
     apply_theme(app, settings.theme)
     apply_text_scale(app, settings.text_scale_percent)
 
-    window = MainWindow()
+    window = ProjectSyncMainWindow()
     window.close()
     app.processEvents()
     _run_publication_smoke()
@@ -104,7 +104,7 @@ def main() -> int:
     if PACKAGED_SMOKE_ARGUMENT in sys.argv[1:]:
         return _run_packaged_smoke()
 
-    from docmergeforge.ui.main import main as desktop_main
+    from docmergeforge.ui.desktop_entry import main as desktop_main
 
     return desktop_main()
 
