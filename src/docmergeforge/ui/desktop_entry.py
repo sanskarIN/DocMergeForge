@@ -29,35 +29,35 @@ class ProjectSyncMainWindow(ui_main.MainWindow):
 
     def __init__(self) -> None:
         super().__init__()
-        browse_button = QPushButton("Synchronize Project Sources")
-        browse_button.setAccessibleName("Synchronize project sources")
-        browse_button.setAccessibleDescription(
+        self.sync_project_button = QPushButton("Synchronize Project Sources")
+        self.sync_project_button.setAccessibleName("Synchronize project sources")
+        self.sync_project_button.setAccessibleDescription(
             "Browse for a saved project, preview source-selection changes, and optionally apply them."
         )
-        browse_button.setMinimumHeight(58)
-        browse_button.clicked.connect(self._synchronize_project)
+        self.sync_project_button.setMinimumHeight(58)
+        self.sync_project_button.clicked.connect(self._synchronize_project)
 
-        recent_button = QPushButton("Synchronize Recent Project")
-        recent_button.setAccessibleName("Synchronize recent project")
-        recent_button.setAccessibleDescription(
+        self.sync_recent_project_button = QPushButton("Synchronize Recent Project")
+        self.sync_recent_project_button.setAccessibleName("Synchronize recent project")
+        self.sync_recent_project_button.setAccessibleDescription(
             "Choose a saved recent project, then use the same guarded synchronization preview."
         )
-        recent_button.setMinimumHeight(58)
-        recent_button.clicked.connect(self._synchronize_recent_project)
+        self.sync_recent_project_button.setMinimumHeight(58)
+        self.sync_recent_project_button.clicked.connect(self._synchronize_recent_project)
 
         sync_row = QHBoxLayout()
-        sync_row.addWidget(browse_button)
-        sync_row.addWidget(recent_button)
+        sync_row.addWidget(self.sync_project_button)
+        sync_row.addWidget(self.sync_recent_project_button)
 
         central = self.centralWidget()
         layout = central.layout() if central is not None else None
         if isinstance(layout, QVBoxLayout):
             layout.insertLayout(max(0, layout.count() - 1), sync_row)
         else:
-            browse_button.setParent(central)
-            recent_button.setParent(central)
-            browse_button.show()
-            recent_button.show()
+            self.sync_project_button.setParent(central)
+            self.sync_recent_project_button.setParent(central)
+            self.sync_project_button.show()
+            self.sync_recent_project_button.show()
 
     def _synchronize_project(self) -> None:
         project_file, _ = QFileDialog.getOpenFileName(
