@@ -19,12 +19,13 @@ This addendum extends the main [Complete Repository File Reference](repository-r
 - `tests/unit/test_platforms.py` — verifies the maintained platform matrix and privacy-safe runtime payload contract.
 - `tests/unit/test_web_main.py` — verifies loopback recognition and safe web-server defaults.
 - `tests/integration/test_web_app.py` — exercises browser API health/platform responses, PDF merging, DOCX merging, token protection, POSIX/Windows-style filename safety, and mixed-format rejection.
-- `tests/integration/test_project_sync_desktop.py` — verifies the accessible desktop synchronization preview, duplicate-part apply blocking, exact-revision propagation, separate removal approval, and cancellation-without-write behavior.
+- `tests/integration/test_project_sync_desktop.py` — verifies the accessible desktop synchronization preview/action, duplicate-part apply blocking, unchanged no-op behavior, exact-revision propagation, separate removal approval, cancellation-without-write behavior, and stale-write failure surfacing.
 
-## Cross-platform documentation
+## Cross-platform documentation and history
 
 - `docs/platform-support.md` — authoritative delivery-mode support matrix for Windows, macOS, Linux, Android, iOS/iPadOS, ChromeOS, and modern browsers, including LAN security and native-mobile claim boundaries.
 - `docs/repository-reference-cross-platform.md` — this addendum and explicit inventory of files introduced by the cross-platform implementation and related follow-up work.
+- `docs/history/what_changed-through-2026-08-20-cross-platform.md` — preserved verbatim top-level development record through the completed cross-platform web-hardening continuation, archived before the later desktop project-synchronization continuation reset the active `what_changed.md` checkpoint.
 
 ## Existing files changed by this implementation
 
