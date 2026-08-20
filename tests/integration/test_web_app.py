@@ -26,6 +26,7 @@ def _docx_bytes(text: str) -> bytes:
 
 def test_safe_filename_drops_path_components() -> None:
     assert safe_filename("../../Part 1.pdf") == "Part 1.pdf"
+    assert safe_filename(r"..\..\Part 1.pdf") == "Part 1.pdf"
     assert output_filename("../unsafe", kind=DocumentKind.PDF) == "unsafe.pdf"
 
 
