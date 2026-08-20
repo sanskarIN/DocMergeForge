@@ -4,7 +4,7 @@ This file records the current DocMergeForge development pass, verification evide
 
 An item is not treated as finished merely because code was pushed. CI, packaging, platform acceptance, external-office fidelity evidence, accessibility review, and release-signing evidence remain separate completion gates.
 
-## 2026-08-20 — Cross-platform browser security, LAN token safety, and reference synchronization
+## 2026-08-20 — Cross-platform browser security, LAN token safety, and documentation synchronization
 
 ### Changed
 - Hardened `src/docmergeforge/web/app.py` so LAN access tokens are no longer read from `?token=...` query parameters. The browser now provides an explicit masked **Access token (LAN only)** field and supports one-time `#token=...` fragment bootstrap instead.
@@ -27,11 +27,17 @@ An item is not treated as finished merely because code was pushed. CI, packaging
 - Existing `tests/unit/test_platforms.py` continues to protect the maintained platform capability matrix.
 
 ### Documentation synchronized
+- `README.md` now presents the actual delivery model on the repository front page: native Windows/macOS/Linux desktop + CLI and responsive Android/iOS/iPadOS/ChromeOS/desktop browser access through a DocMergeForge Python host. It includes secure LAN startup, token-entry, HTTPS, mobile-packaging, accessibility, and release-boundary wording.
 - `docs/platform-support.md` now documents browser token entry, fragment handoff, the query-string warning, upload-handle cleanup, generic remote failure details, shell security headers, and the HTTPS/trusted-network boundary.
 - `docs/security.md` now treats browser-to-host traffic, web access tokens, and reverse-proxy/network configuration as explicit trust boundaries and documents the maintained browser security controls.
+- `docs/privacy.md` now documents exactly what crosses the browser-to-host boundary, tab-scoped token handling, original multipart filename metadata, shared PDF-password transport, host-log sensitivity, and temporary-workspace privacy behavior.
 - `docs/installation.md` now gives a safe LAN token workflow, a `#token=...` example, the `?token=...` prohibition, and HTTPS guidance for traffic outside a trusted local environment.
+- `docs/architecture.md` now models desktop, CLI, and responsive web as three maintained user surfaces, distinguishes the full project transaction pipeline from the focused browser request lifecycle, and documents platform/network boundaries without pretending browser mode is a native mobile engine.
 - `docs/source-code-reference.md` now includes the third executable entry point (`docmergeforge-web`), `src/docmergeforge/platforms.py`, and the complete `src/docmergeforge/web/` package with its security/cleanup contracts.
 - `docs/test-suite-reference.md` now maps `tests/integration/test_web_app.py`, `tests/unit/test_platforms.py`, and `tests/unit/test_web_main.py` instead of leaving the cross-platform runtime tests outside the document that claims to map the complete maintained suite.
+- `docs/testing-and-ci.md` now records the real Quality `.[dev,web]` dependency installation, FastAPI integration coverage, the `docmergeforge-web --help` cross-platform Build Smoke step, and the explicit boundary between automated host evidence and manual device/browser acceptance.
+- `docs/known-limitations.md` now explicitly states that mobile support is browser-hosted rather than APK/AAB/IPA packaging, access tokens are not transport encryption, the application upload-copy limit is not a complete edge request-body firewall, and automated host tests are not universal browser/device acceptance.
+- `PROJECT_STATE.md` was advanced during the pass so future continuations start from the cross-platform web hardening checkpoint rather than the older project-persistence checkpoint.
 
 ### Commits in this continuation
 - `a05b677fef448d01e46eb288b7c2381caa806ba5` — `fix(web): harden LAN token and error handling`.
@@ -42,19 +48,31 @@ An item is not treated as finished merely because code was pushed. CI, packaging
 - `b7a5b2a919b59cee08f67ba0da1b66d908a1d33a` — `feat(web): print safer LAN token guidance`.
 - `92c839c618caeaecb0a5c8b6ee6cd75cfb415676` — `docs(reference): cover platform and web runtime modules`.
 - `b9602545ccebd2ec99f0dce0333dc2babd2825eb` — `docs(test): map web and platform regression coverage`.
+- `d24dc60a73d26ce3654b7329b56c84798ede2ce4` — `docs(progress): record cross-platform web hardening pass`.
+- `f4097934fc755b34625a04d2dc247ae37669d60b` — `docs(state): advance cross-platform hardening checkpoint`.
+- `85271716302853de2fd69e24f4ecc1e77f59f449` — `docs(readme): expose secure cross-platform web access`.
+- `a599d06a0c50bf66f0e7f2c0e205706662856242` — `docs(architecture): integrate responsive web delivery layer`.
+- `b9f4ed0621c4f50f854be84198757dee0db1eb2e` — `docs(privacy): document browser-to-host data boundary`.
+- `bb9d16f4937d85c8a47fa25fe47e90f7283b9aa4` — `docs(limitations): state browser and mobile support boundaries`.
+- `bb7703b436083d87c912a8ccbdc7d3c059aadca0` — `docs(ci): map responsive web quality and smoke coverage`.
 
 ### Verification Status
 - This continuation started from cross-platform documentation checkpoint `2156997c4acf3ba8ec3cbf3a551c7293ab65177a` on `main`.
-- Latest implementation/test/documentation checkpoint immediately before this development-record update: `b9602545ccebd2ec99f0dce0333dc2babd2825eb`.
+- Latest implementation/test/documentation checkpoint immediately before this final development-record update: `bb7703b436083d87c912a8ccbdc7d3c059aadca0`.
+- A commit comparison after the initial ten commits showed the branch was ahead of the starting checkpoint with only focused modifications to existing runtime/test/documentation paths; no unrelated path additions/deletions were introduced by that tranche. The later public-documentation commits likewise modified existing tracked paths only.
+- The actual `.github/workflows/quality.yml` was inspected and confirms `pip install -e ".[dev,web]"` plus Ruff, Black, strict mypy, documentation-link validation, repository-reference validation, and full pytest/coverage on Python 3.12 and 3.13.
+- The actual `.github/workflows/build-smoke.yml` was inspected and confirms `pip install -e ".[build,web]"` plus `docmergeforge --help`, `docmergeforge-web --help`, accessibility smoke, and packaging preflight on Ubuntu, Windows, and macOS.
+- GitHub's combined-status endpoint exposed no status contexts for both the earlier state checkpoint `f4097934fc755b34625a04d2dc247ae37669d60b` and later checkpoint `bb7703b436083d87c912a8ccbdc7d3c059aadca0`. This is not represented as a pass or failure; it simply does not provide current-head execution evidence through that status surface.
 - The repository still declares version `0.1.0` and remains pre-stable. This hardening pass does not create or claim a `v1.0.0` release.
 - The source and regression tests above are committed implementation evidence. No fresh current-head Ruff, Black, strict mypy, documentation-link, repository-reference, pytest/coverage, Quality, 120-Part Regression, Build Smoke, Security/CodeQL, or browser/device acceptance pass is claimed here without an observed run for the applicable checkpoint.
 - Browser support continues to mean a responsive client connected to a DocMergeForge Python host. This work does not claim a native Android APK/AAB or iOS IPA, and it does not claim fully offline in-browser document processing.
 - The LAN access token authenticates merge requests but is not transport encryption. HTTPS remains required when confidentiality is needed across an untrusted network.
+- `--max-upload-mib` limits bytes copied into the application request workspace; it is not documented as a substitute for reverse-proxy request-size, timeout, connection, or resource controls on exposed deployments.
 
 ### Remaining cross-platform / release work
 - Observe and review a current-head Quality run and fix any lint, formatting, typing, test, documentation-link, or repository-reference failure without weakening maintained rules.
 - Perform representative manual browser/device acceptance across Android, iOS/iPadOS, ChromeOS, and desktop browsers before turning the automated host/API coverage into a broader compatibility claim.
-- Keep the built-in server limited to loopback/trusted LAN usage unless it is deployed behind an appropriately hardened HTTPS reverse proxy/authentication boundary.
+- Keep the built-in server limited to loopback/trusted LAN usage unless it is deployed behind an appropriately hardened HTTPS reverse proxy/authentication/request-limit boundary.
 - Continue independent release gates for native-office fidelity, measured multi-gigabyte stress, human accessibility, clean-machine packaged applications, Windows signing, macOS signing/notarization, and final release evidence.
 - Do not represent browser-delivered mobile access as native mobile packaging unless separate native packages, storage/lifecycle behavior, signing/store distribution, and real-device acceptance are implemented and verified.
 
