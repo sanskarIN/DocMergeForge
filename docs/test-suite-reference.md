@@ -26,7 +26,7 @@ A subprocess helper that intentionally interrupts a publication transaction duri
 
 - `tests/integration/test_build_desktop_script.py` — verifies the maintained desktop build script entry point and its interaction with packaging helpers.
 - `tests/integration/test_build_provenance_cli.py` — exercises build-provenance generation through its command/script surface.
-- `tests/integration/test_packaged_entry_smoke.py` — checks packaged GUI entry behavior and packaged-runtime resource/startup assumptions.
+- `tests/integration/test_packaged_entry_smoke.py` — checks packaged GUI entry behavior and packaged-runtime resource/startup assumptions. The packaged smoke now instantiates the synchronization-enabled desktop window before running the existing real temporary PDF/DOCX publication smoke.
 
 ### Companion and publication integration
 
@@ -68,6 +68,7 @@ Actual Word automation still requires the controlled Windows/Word environment de
 ### Desktop integration and accessibility
 
 - `tests/integration/test_order_dialog_accessibility.py` — checks important accessible/keyboard-facing properties of the ordering dialog using the real Qt widget layer, and protects **Resume Project** persistence ordering so the exact-revision guarded project save occurs before a new recovery checkpoint is written.
+- `tests/integration/test_project_sync_desktop.py` — covers the synchronization-enabled desktop action and preview with real offscreen Qt widgets plus controlled workflow doubles. It verifies the accessible home action, complete review preview, disabled apply for ambiguous duplicate parts, separate removal confirmation before persistence, exact project-revision propagation into apply, cancellation without project writes, and stale-write failure surfacing.
 
 Automated widget/workflow assertions do not replace human screen-reader/high-contrast/display-scaling acceptance.
 
@@ -361,7 +362,7 @@ Tests the repository-reference coverage checker, including exact backticked-path
 
 ### `tests/unit/test_version_metadata.py`
 
-Ensures package/runtime version metadata stays internally consistent with maintained project metadata expectations.
+Ensures package/runtime version metadata stays internally consistent and pins the maintained public CLI, desktop, and web console-script entry targets.
 
 ## Unit suite — settings, UI resources, and build metadata
 
@@ -375,7 +376,7 @@ Protects resource lookup for both source-tree and packaged desktop execution.
 
 ### `tests/unit/test_build_desktop.py`
 
-Covers packaging command construction without requiring every unit test run to build an executable.
+Covers packaging command construction and build-root validation without requiring every unit-test run to build an executable. The build-root tests require `main.py`, the synchronization-enabled desktop entry, the synchronization preview dialog, and the packaged entry so packaging preflight cannot accept an incomplete desktop source tree.
 
 ### `tests/unit/test_build_provenance.py`
 
