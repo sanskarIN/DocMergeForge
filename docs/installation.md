@@ -98,7 +98,15 @@ For another computer, phone, tablet, or Chromebook on the same trusted LAN, a no
 docmergeforge-web --host 0.0.0.0 --token auto
 ```
 
-The command prints a generated token and reminds you to open the host computer's LAN IP on port `8765`. The exact mobile/browser support and security boundaries are documented in [Platform Support](platform-support.md).
+The command prints a generated token and reminds you to open the host computer's LAN IP on port `8765`. Open that LAN address, enter the generated value in **Access token (LAN only)**, choose PDF/DOCX files, and merge normally.
+
+A trusted one-time link can put the token in a URL fragment because fragments are not sent to the HTTP server:
+
+```text
+http://HOST-LAN-IP:8765/#token=YOUR_LONG_RANDOM_TOKEN
+```
+
+Do not use `?token=...`. Query parameters can be retained in HTTP access logs, proxies, browser history, or other infrastructure before the page has a chance to change its visible URL. The exact mobile/browser support and security boundaries are documented in [Platform Support](platform-support.md) and [Security Model](security.md).
 
 The built-in web server is not intended to be directly exposed to the public Internet. Remote deployments need HTTPS, authentication, reverse-proxy hardening, and appropriate request limits.
 
@@ -233,6 +241,8 @@ Encrypted PDFs are supported only when the user provides a valid password during
 
 The CLI collects passwords interactively. The responsive web interface accepts one optional shared password for the PDFs in that browser merge request. If encrypted files use different passwords, use another supported workflow rather than persisting passwords in a project.
 
+When browser traffic is not confined to loopback or a trusted LAN, use HTTPS so the PDF password, access token header, and manuscript upload are protected in transit.
+
 ## Optional high-fidelity office suites
 
 Portable DOCX composition is the production-supported mode in the current repository. LibreOffice and Microsoft Word fidelity modes may be detected as capabilities, but their automation adapters are not yet accepted as production-ready and must not be treated as transparent fallbacks.
@@ -266,6 +276,8 @@ Before starting production work, confirm:
 - `docmergeforge-gui` starts when native desktop GUI use is required;
 - `docmergeforge-web --help` works when browser/mobile access is required;
 - non-loopback web binds use a strong access token and a trusted network;
+- browser tokens are entered in the LAN-token field or passed in a `#token=...` fragment, never a query parameter;
+- HTTPS protects browser traffic when it leaves a trusted local environment;
 - the source folders are readable;
 - the output/temp locations have sufficient free space;
 - the correct project/preset and part range are selected;
