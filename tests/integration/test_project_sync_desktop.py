@@ -309,11 +309,11 @@ def test_desktop_sync_surfaces_stale_revision_failure(
             return int(QDialog.DialogCode.Accepted)
 
     monkeypatch.setattr(desktop_entry, "ProjectSyncDialog", AcceptedDialog)
-    monkeypatch.setattr(
-        desktop_entry,
-        "apply_project_sync",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(ValueError("project changed on disk")),
-    )
+
+    def stale_apply(*_args: object, **_kwargs: object) -> Path:
+        raise ValueError("project changed on disk")
+
+    monkeypatch.setattr(desktop_entry, "apply_project_sync", stale_apply)
     monkeypatch.setattr(
         desktop_entry.QMessageBox,
         "critical",
