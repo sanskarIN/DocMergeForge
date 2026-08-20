@@ -6,14 +6,14 @@ This addendum extends the main [Complete Repository File Reference](repository-r
 
 - `src/docmergeforge/platforms.py` — typed maintained support matrix and privacy-safe runtime identification shared by diagnostics and the web API.
 - `src/docmergeforge/web/__init__.py` — package marker for the responsive browser/PWA surface.
-- `src/docmergeforge/web/app.py` — FastAPI application, responsive browser shell, PWA manifest/service worker, upload isolation, filename sanitization, access-token enforcement, platform/status endpoints, and PDF/DOCX merge/download orchestration through the existing engines.
-- `src/docmergeforge/web/main.py` — `docmergeforge-web` server entry point, loopback-safe defaults, non-loopback token requirement, upload-limit configuration, and Uvicorn startup.
+- `src/docmergeforge/web/app.py` — FastAPI application, responsive browser shell, PWA manifest/service worker, upload isolation, cross-platform filename sanitization, access-token enforcement, platform/status endpoints, and PDF/DOCX merge/download orchestration through the existing engines.
+- `src/docmergeforge/web/main.py` — `docmergeforge-web` server entry point, loopback-safe defaults, non-loopback token requirement, upload-limit configuration, LAN connection guidance, and Uvicorn startup.
 
 ## Cross-platform tests
 
 - `tests/unit/test_platforms.py` — verifies the maintained platform matrix and privacy-safe runtime payload contract.
 - `tests/unit/test_web_main.py` — verifies loopback recognition and safe web-server defaults.
-- `tests/integration/test_web_app.py` — exercises browser API health/platform responses, PDF merging, DOCX merging, token protection, filename safety, and mixed-format rejection.
+- `tests/integration/test_web_app.py` — exercises browser API health/platform responses, PDF merging, DOCX merging, token protection, POSIX/Windows-style filename safety, and mixed-format rejection.
 
 ## Cross-platform documentation
 
@@ -24,17 +24,16 @@ This addendum extends the main [Complete Repository File Reference](repository-r
 
 These paths were already documented in the main repository reference and remain covered there:
 
-- `pyproject.toml` — now declares the optional web runtime, HTTPX development dependency, web classifier/keywords, and `docmergeforge-web` console entry point.
-- `.github/workflows/quality.yml` — now installs `.[dev,web]` so browser code participates in lint, type checking, and the full test suite on Python 3.12 and 3.13.
-- `scripts/check_repository_reference.py` — now treats the main reference plus this cross-platform addendum as one coverage corpus.
-- `docs/README.md` — documentation portal updated with platform/browser guidance.
-- `README.md` — public overview updated with the cross-platform delivery matrix and web launch commands.
-- `docs/installation.md` — installation guidance updated for the optional web runtime and phone/tablet access.
-- `docs/testing-and-ci.md` — testing guidance updated for browser/API coverage.
-- `docs/source-code-reference.md` — source reference updated for platform and web modules.
-- `docs/test-suite-reference.md` — test reference updated for platform/web tests.
-- `CHANGELOG.md` — records the cross-platform feature set.
-- `PROJECT_STATE.md` — continuation checkpoint updated with the new execution surface and remaining native-mobile boundary.
-- `what_changed.md` — current development record updated with implementation and verification details.
+- `pyproject.toml` — declares the optional web runtime, HTTPX development dependency, web classifier/keywords, and `docmergeforge-web` console entry point.
+- `.github/workflows/quality.yml` — installs `.[dev,web]` so browser code participates in lint, type checking, documentation checks, and the full test suite on Python 3.12 and 3.13.
+- `.github/workflows/build-smoke.yml` — installs the web runtime and invokes `docmergeforge-web --help` on Ubuntu, Windows, and macOS in addition to the existing desktop build checks.
+- `scripts/check_repository_reference.py` — treats the main reference plus this cross-platform addendum as one coverage corpus.
+- `tests/unit/test_repository_reference.py` — verifies both explicit single-reference behavior and the maintained default multi-reference corpus.
+- `docs/README.md` — exposes the platform guide, browser execution surface, and reference addendum from the documentation portal.
+- `docs/installation.md` — covers optional web installation, phone/tablet LAN access, token requirements, storage, encrypted PDFs, and native-mobile packaging boundaries.
 
-The addendum does not redefine existing module responsibilities. It only supplies explicit coverage for paths that did not exist when the main repository reference was last expanded.
+## Documentation synchronization boundary
+
+The platform guide and this addendum are the authoritative documentation added in this implementation pass. Existing broader release/history documents such as `README.md`, `CHANGELOG.md`, `PROJECT_STATE.md`, and `what_changed.md` may be synchronized in later focused documentation commits; this addendum does not claim they were changed when they were not.
+
+The addendum does not redefine existing module responsibilities. It supplies explicit coverage for paths that did not exist when the main repository reference was last expanded and records the existing files actually modified by this cross-platform implementation.
