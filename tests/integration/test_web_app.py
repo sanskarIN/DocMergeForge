@@ -30,6 +30,20 @@ def test_safe_filename_drops_path_components() -> None:
     assert output_filename("../unsafe", kind=DocumentKind.PDF) == "unsafe.pdf"
 
 
+def test_browser_shell_uses_fragment_token_and_security_headers() -> None:
+    client = TestClient(create_app())
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert 'id="access-token"' in response.text
+    assert 'fragment.get("token")' in response.text
+    assert "queryToken" not in response.text
+    assert response.headers["referrer-policy"] == "no-referrer"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["x-frame-options"] == "DENY"
+    assert "frame-ancestors 'none'" in response.headers["content-security-policy"]
+
+
 def test_health_and_platform_routes() -> None:
     client = TestClient(create_app())
     assert client.get("/healthz").json()["status"] == "ok"
@@ -98,6 +112,33 @@ def test_access_token_is_required_when_configured() -> None:
         headers={"X-DocMergeForge-Token": "secret-token"},
     )
     assert allowed.status_code == 200
+
+
+def test_merge_failure_does_not_expose_internal_exception(monkeypatch) -> None:
+    def fail_merge(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("sensitive-host-path:/private/manuscript")
+
+    monkeypatch.setattr("docmergeforge.web.app.PdfMergeEngine.merge", fail_merge)
+    client = TestClient(create_app())
+    response = client.post(
+        "/api/merge",
+        files=[("files", ("Part 1.pdf", _pdf_bytes(), "application/pdf"))],
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == (
+        "Merge failed. Check the DocMergeForge host logs for details."
+    )
+    assert "sensitive-host-path" not in response.text
+
+
+def test_upload_size_limit_is_fail_closed() -> None:
+    client = TestClient(create_app(max_upload_bytes=1))
+    response = client.post(
+        "/api/merge",
+        files=[("files", ("Part 1.pdf", _pdf_bytes(), "application/pdf"))],
+    )
+    assert response.status_code == 413
 
 
 def test_mixed_formats_are_rejected() -> None:
