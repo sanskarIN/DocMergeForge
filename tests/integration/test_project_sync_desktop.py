@@ -10,9 +10,16 @@ from docmergeforge.project.sync import ProjectSyncPlan
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtWidgets import QApplication, QDialog, QDialogButtonBox, QMessageBox  # noqa: E402
+from PySide6.QtWidgets import (  # noqa: E402
+    QApplication,
+    QDialog,
+    QDialogButtonBox,
+    QMessageBox,
+    QPushButton,
+)
 
 from docmergeforge.ui import desktop_entry  # noqa: E402
+from docmergeforge.ui import main as ui_main  # noqa: E402
 from docmergeforge.ui.project_sync_dialog import (  # noqa: E402
     ProjectSyncDialog,
     format_project_sync_plan,
@@ -35,8 +42,9 @@ def _plan(
 ) -> ProjectSyncPlan:
     old = tmp_path / "Part 1.pdf"
     new = tmp_path / "Part 2.pdf"
+    current = (old,) if removed else ()
     return ProjectSyncPlan(
-        current=(old,),
+        current=current,
         proposed=(new,),
         added=(new,),
         removed=(old,) if removed else (),
@@ -46,6 +54,26 @@ def _plan(
         missing_pdf_parts=(),
         missing_docx_parts=(),
     )
+
+
+@pytest.mark.integration
+def test_project_sync_window_exposes_accessible_action(
+    qt_app: QApplication,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    del qt_app
+    monkeypatch.setattr(ui_main, "settings_path", lambda: tmp_path / "settings.json")
+    monkeypatch.setattr(ui_main, "recent_projects_path", lambda: tmp_path / "recent.json")
+    monkeypatch.setattr(ui_main, "recovery_dir", lambda: tmp_path / "recovery")
+
+    window = desktop_entry.ProjectSyncMainWindow()
+    buttons = window.findChildren(QPushButton)
+    sync_buttons = [item for item in buttons if item.accessibleName() == "Synchronize project sources"]
+
+    assert len(sync_buttons) == 1
+    assert sync_buttons[0].accessibleDescription()
+    window.close()
 
 
 @pytest.mark.integration
@@ -247,3 +275,64 @@ def test_desktop_sync_declined_removals_do_not_write_project(
     desktop_entry.ProjectSyncMainWindow._synchronize_project(window)
 
     assert window.bar.messages[-1] == "Project synchronization cancelled."
+
+
+@pytest.mark.integration
+def test_desktop_sync_surfaces_stale_revision_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_path = tmp_path / "Book.json"
+    project = MergeProject("Book", [tmp_path / "source"], tmp_path / "output")
+    plan = _plan(tmp_path)
+    errors: list[str] = []
+
+    monkeypatch.setattr(
+        desktop_entry.QFileDialog,
+        "getOpenFileName",
+        lambda *_args, **_kwargs: (str(project_path), ""),
+    )
+    monkeypatch.setattr(
+        desktop_entry,
+        "load_project_snapshot",
+        lambda _path: (project, "revision-123"),
+    )
+    monkeypatch.setattr(desktop_entry, "plan_project_sync", lambda _project: plan)
+
+    class AcceptedDialog:
+        DialogCode = QDialog.DialogCode
+
+        def __init__(self, _path: Path, _plan: ProjectSyncPlan) -> None:
+            pass
+
+        def exec(self) -> int:
+            return int(QDialog.DialogCode.Accepted)
+
+    monkeypatch.setattr(desktop_entry, "ProjectSyncDialog", AcceptedDialog)
+    monkeypatch.setattr(
+        desktop_entry,
+        "apply_project_sync",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(ValueError("project changed on disk")),
+    )
+    monkeypatch.setattr(
+        desktop_entry.QMessageBox,
+        "critical",
+        lambda _parent, _title, message: errors.append(message),
+    )
+
+    class FakeStatusBar:
+        def showMessage(self, _message: str, _timeout: int = 0) -> None:
+            pass
+
+    class FakeWindow:
+        bar = FakeStatusBar()
+
+        def statusBar(self) -> FakeStatusBar:
+            return self.bar
+
+        def _record_error(self, message: str) -> None:
+            errors.append(message)
+
+    desktop_entry.ProjectSyncMainWindow._synchronize_project(FakeWindow())
+
+    assert errors == ["project changed on disk", "project changed on disk"]
