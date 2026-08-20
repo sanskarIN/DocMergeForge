@@ -7,12 +7,78 @@ This file is a compact continuation checkpoint for future development sessions. 
 - Repository: `sanskarIN/DocMergeForge`
 - Branch: `main`
 - Version declared in `pyproject.toml`: `0.1.0`
-- Checkpoint immediately before this state-file commit: `54db4f228dd735d31b4125109eaa7e874317ce35`
+- Checkpoint immediately before this state-file commit: `d24dc60a73d26ce3654b7329b56c84798ede2ce4`
 - Development status: pre-stable; do not claim `v1.0.0` or production certification from source/documentation changes alone.
 
-## Latest completed feature: guarded existing-project persistence
+## Latest completed continuation: cross-platform browser security and documentation synchronization
 
-The latest continuation closed the main known stale-write gap around reusable project JSON files while preserving the existing atomic-save model.
+The repository already had the cross-platform delivery expansion before this checkpoint: native Windows/macOS/Linux desktop + CLI support and responsive browser-hosted access for Android, iOS/iPadOS, ChromeOS, desktop browsers, and other modern browser platforms. The latest continuation hardened that web boundary and synchronized the canonical internal references.
+
+Implementation/hardening:
+
+- `src/docmergeforge/web/app.py`
+  - LAN access tokens are entered through a masked browser field or bootstrapped from a `#token=...` URL fragment;
+  - the old `?token=...` query-token bootstrap is removed so the application no longer deliberately places access tokens in the HTTP request target;
+  - fragment tokens move into tab-scoped `sessionStorage` and the fragment is removed from the visible address;
+  - merge requests send the token in `X-DocMergeForge-Token`;
+  - upload handles close through a `finally` path on success and upload validation/size failures;
+  - unexpected merge-engine exceptions are logged on the host and returned to the browser as a generic `422` response rather than reflecting raw host details;
+  - the browser shell applies content-security, anti-framing, no-referrer, no-sniff, and permissions headers.
+- `src/docmergeforge/web/main.py`
+  - still defaults to loopback and refuses non-loopback binds without token protection;
+  - token-enabled startup now directs operators to the browser token field or `#token=...` fragment and explicitly warns against `?token=...`.
+
+Regression coverage:
+
+- `tests/integration/test_web_app.py`
+  - secure fragment/bootstrap shell behavior;
+  - browser security headers;
+  - PDF and DOCX web merge/download paths;
+  - access-token enforcement;
+  - generic unexpected-error privacy;
+  - upload-size fail-closed behavior;
+  - mixed-format rejection;
+  - filename/path safety;
+  - health/platform endpoints.
+- `tests/unit/test_web_main.py`
+  - loopback-host detection and safe server parser defaults.
+- `tests/unit/test_platforms.py`
+  - maintained platform capability/support matrix.
+
+Canonical documentation synchronized:
+
+- `docs/platform-support.md`;
+- `docs/security.md`;
+- `docs/installation.md`;
+- `docs/source-code-reference.md`;
+- `docs/test-suite-reference.md`;
+- `what_changed.md`.
+
+### Cross-platform support boundary
+
+Current support should be described precisely:
+
+- Windows 10/11: native desktop GUI, CLI, and responsive web client;
+- macOS: native desktop GUI, CLI, and responsive web client;
+- Linux: native desktop GUI, CLI, and responsive web client;
+- Android: responsive browser client connected to a DocMergeForge Python host; no native APK/AAB claim;
+- iPhone/iPad: responsive browser client connected to a DocMergeForge Python host; no native IPA claim;
+- ChromeOS/other modern browser platforms: responsive browser client connected to a DocMergeForge Python host.
+
+The browser shell/PWA is not the document-processing engine. PDF/DOCX processing still runs on the Python host. Do not describe the current mobile/browser path as fully offline in-browser processing or as native mobile packaging.
+
+### Browser/network security boundary
+
+- Loopback remains the safest local-first web mode.
+- Non-loopback binds require a token.
+- A token authenticates merge requests but does not encrypt manuscript bytes or PDF passwords in transit.
+- Use trusted LAN transport for plain HTTP; use HTTPS plus an appropriately hardened reverse proxy/authentication layer when traffic crosses an untrusted network.
+- Do not expose the built-in Uvicorn server directly to the public Internet.
+- Do not place access tokens in query parameters. Use the browser field or a trusted one-time fragment handoff.
+
+## Previous completed feature: guarded existing-project persistence
+
+The prior project-persistence continuation closed the main known stale-write gap around reusable project JSON files while preserving the existing atomic-save model.
 
 Implementation:
 
@@ -32,7 +98,7 @@ Implementation:
   - `project-sync` loads project + revision together and carries the revision into apply;
   - `project-create` converts handled persistence failures into structured JSON with exit code `2` instead of leaking a save exception.
 - `src/docmergeforge/ui/main.py`
-  - **Resume Project** loads project + revision together and refuses to overwrite a project changed while the user reviews/reorders inputs;
+  - **Resume Project** loads project + revision together and refuses to overwrite a project changed while the user reviews ordering;
   - resumed ordering deliberately does **not** write a recovery checkpoint before the guarded save;
   - after the guarded save succeeds, the desktop writes the `ordering` recovery checkpoint, then updates recent-project history and starts merge;
   - new-project save failures are surfaced to the desktop user;
@@ -53,15 +119,7 @@ Regression coverage added/expanded:
   - desktop resume sequence explicitly asserts order confirmation → guarded save → recovery checkpoint → recent-project update → merge start;
   - this prevents a rejected stale project from leaving a newly written stale recovery snapshot.
 
-Canonical documentation updated:
-
-- `docs/project-sync.md`;
-- `docs/project-files.md`;
-- `docs/source-code-reference.md`;
-- `docs/test-suite-reference.md`;
-- `what_changed.md`.
-
-### Important concurrency boundary
+### Important project concurrency boundary
 
 The SHA-256 project revision mechanism is an **optimistic stale-write guard**, not a universal cross-process lock. It detects project changes observed between snapshot and revision checks, including byte-only JSON drift. An arbitrary external writer can still race the tiny interval after a final revision check and before atomic replacement because that external writer is not participating in a coordinated lock protocol.
 
@@ -69,13 +127,13 @@ If true simultaneous multi-writer project editing becomes an intended supported 
 
 ## Previous completed maintenance: repository-wide documentation mapping
 
-The preceding maintenance continuation completed a repository-wide documentation mapping pass and made tracked-file documentation coverage an enforced Quality rule.
+The earlier maintenance continuation completed a repository-wide documentation mapping pass and made tracked-file documentation coverage an enforced Quality rule.
 
 Key files:
 
 - `docs/repository-reference.md` — literal inventory of every tracked repository path;
-- `docs/source-code-reference.md` — module-by-module runtime responsibility map;
-- `docs/test-suite-reference.md` — complete maintained test-file map;
+- `docs/source-code-reference.md` — module-by-module runtime responsibility map, now including platform/web modules;
+- `docs/test-suite-reference.md` — complete maintained test-file map, now including web/platform tests;
 - `docs/automation-reference.md` — scripts and GitHub Actions workflow reference;
 - `docs/configuration-reference.md` — project/tooling/governance configuration reference;
 - `docs/documentation-catalog.md` — documentation map by audience/task;
@@ -104,12 +162,11 @@ Do not re-open the old task to route normal project discovery through the shared
 
 Do not infer a green build merely from commits being present.
 
-For this continuation:
+For the latest continuation:
 
-- source, regression tests, integration coverage, and canonical documentation for the new project revision behavior are committed on `main`;
-- focused commit diffs were inspected for unintended broad rewrites;
-- the resumed-project integration regression was refined to avoid lambda assignment patterns that could conflict with enabled Ruff `E` rules;
-- `pyproject.toml` remains pre-stable at version `0.1.0` and retains Ruff, Black, strict mypy, and pytest configuration;
+- cross-platform browser hardening, regression source, and synchronized canonical documentation are committed on `main`;
+- only existing tracked paths were changed in the latest hardening pass, so no new repository-reference path entry was introduced by these commits;
+- `pyproject.toml` remains pre-stable at version `0.1.0` and retains Ruff, Black, strict mypy, pytest/coverage, documentation-link, and repository-reference configuration;
 - committed tests are implementation evidence, not execution evidence.
 
 Until an actual current-head run is observed, no fresh pass is claimed for:
@@ -123,17 +180,19 @@ Until an actual current-head run is observed, no fresh pass is claimed for:
 - Quality workflow matrix;
 - 120-Part Regression;
 - Build Smoke;
-- Security/CodeQL.
+- Security/CodeQL;
+- representative Android/iOS/iPadOS/ChromeOS/manual browser acceptance.
 
 External-office, stress, accessibility, clean-machine packaging, signing/notarization, and other release gates remain independent from source completeness.
 
 ## Recommended next development work
 
-1. Observe a current-head Quality run and fix any lint/format/test/link/reference failure without weakening repository rules.
-2. Keep `docs/repository-reference.md`, `docs/documentation-catalog.md`, and the relevant subsystem references synchronized with future path/responsibility changes.
-3. If simultaneous multi-writer project editing is explicitly required, design a coordinated lock/revision protocol; otherwise retain the current simpler optimistic revision model.
+1. Observe a current-head Quality run and fix any lint/format/type/test/link/reference failure without weakening repository rules.
+2. Perform representative manual browser/device acceptance for the current responsive client before broadening compatibility claims beyond the automated host/API coverage.
+3. Keep `docs/repository-reference.md`, `docs/documentation-catalog.md`, source/test references, platform/security/install docs, and `what_changed.md` synchronized with future path/responsibility/security changes.
 4. Evaluate whether the desktop project/order UI should expose the CLI's synchronization preview/apply/second-removal-approval model.
-5. Continue independent release-gate work for native-office fidelity, measured multi-gigabyte stress, human accessibility, clean-machine packaged applications, signing, and notarization.
+5. If simultaneous multi-writer project editing is explicitly required, design a coordinated lock/revision protocol; otherwise retain the current simpler optimistic revision model.
+6. Continue independent release-gate work for native-office fidelity, measured multi-gigabyte stress, human accessibility, clean-machine packaged applications, Windows signing, and macOS signing/notarization.
 
 ## Continuation rule
 
