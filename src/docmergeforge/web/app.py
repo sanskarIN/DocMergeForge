@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 import secrets
 import shutil
@@ -21,6 +22,7 @@ from docmergeforge.platforms import current_runtime, support_matrix
 _MAX_FILES = 500
 _CHUNK_SIZE = 1024 * 1024
 _SAFE_NAME = re.compile(r"[^A-Za-z0-9._() \-\u0080-\uffff]+")
+_LOGGER = logging.getLogger(__name__)
 
 _HTML = r"""<!doctype html>
 <html lang="en">
@@ -80,6 +82,10 @@ _HTML = r"""<!doctype html>
         </div>
       </div>
 
+      <label for="access-token">Access token (LAN only)</label>
+      <input id="access-token" type="password" autocomplete="off" aria-describedby="access-token-help">
+      <p id="access-token-help" class="muted">Leave blank for the loopback-only host. LAN tokens stay in this browser tab session and are sent only in the merge request header.</p>
+
       <button id="merge-button" type="submit">Merge and download</button>
       <div id="status" class="status" role="status" aria-live="polite"></div>
     </form>
@@ -94,24 +100,30 @@ _HTML = r"""<!doctype html>
 </main>
 <script>
 (() => {
-  const params = new URLSearchParams(location.search);
-  const queryToken = params.get("token");
-  if (queryToken) {
-    sessionStorage.setItem("docmergeforge-token", queryToken);
-    params.delete("token");
-    history.replaceState({}, "", location.pathname + (params.toString() ? "?" + params : ""));
+  const fragment = new URLSearchParams(location.hash.startsWith("#") ? location.hash.slice(1) : location.hash);
+  const fragmentToken = fragment.get("token");
+  if (fragmentToken) {
+    sessionStorage.setItem("docmergeforge-token", fragmentToken);
+    history.replaceState({}, "", location.pathname + location.search);
   }
 
   const form = document.getElementById("merge-form");
   const files = document.getElementById("files");
+  const accessToken = document.getElementById("access-token");
   const button = document.getElementById("merge-button");
   const status = document.getElementById("status");
+  accessToken.value = sessionStorage.getItem("docmergeforge-token") || "";
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!files.files.length) return;
     const data = new FormData(form);
-    const token = sessionStorage.getItem("docmergeforge-token");
+    const token = accessToken.value;
+    if (token) {
+      sessionStorage.setItem("docmergeforge-token", token);
+    } else {
+      sessionStorage.removeItem("docmergeforge-token");
+    }
     const headers = token ? {"X-DocMergeForge-Token": token} : {};
     button.disabled = true;
     status.textContent = `Uploading and merging ${files.files.length} file(s)…`;
@@ -230,27 +242,30 @@ async def _save_uploads(
     max_upload_bytes: int,
 ) -> int:
     total = 0
-    for index, upload in enumerate(uploads, start=1):
-        filename = safe_filename(upload.filename, fallback=f"upload-{index}")
-        suffix = Path(filename).suffix.casefold()
-        if suffix not in {".pdf", ".docx"}:
-            raise HTTPException(
-                status_code=415,
-                detail=f"Unsupported upload type for {filename}. Only PDF and DOCX are accepted.",
-            )
-        destination_dir = input_root / f"{index:04d}"
-        destination_dir.mkdir(parents=True, exist_ok=True)
-        destination = destination_dir / filename
-        with destination.open("wb") as handle:
-            while chunk := await upload.read(_CHUNK_SIZE):
-                total += len(chunk)
-                if total > max_upload_bytes:
-                    raise HTTPException(
-                        status_code=413,
-                        detail="Upload exceeds the configured DocMergeForge web size limit.",
-                    )
-                handle.write(chunk)
-        await upload.close()
+    try:
+        for index, upload in enumerate(uploads, start=1):
+            filename = safe_filename(upload.filename, fallback=f"upload-{index}")
+            suffix = Path(filename).suffix.casefold()
+            if suffix not in {".pdf", ".docx"}:
+                raise HTTPException(
+                    status_code=415,
+                    detail=f"Unsupported upload type for {filename}. Only PDF and DOCX are accepted.",
+                )
+            destination_dir = input_root / f"{index:04d}"
+            destination_dir.mkdir(parents=True, exist_ok=True)
+            destination = destination_dir / filename
+            with destination.open("wb") as handle:
+                while chunk := await upload.read(_CHUNK_SIZE):
+                    total += len(chunk)
+                    if total > max_upload_bytes:
+                        raise HTTPException(
+                            status_code=413,
+                            detail="Upload exceeds the configured DocMergeForge web size limit.",
+                        )
+                    handle.write(chunk)
+    finally:
+        for upload in uploads:
+            await upload.close()
     return total
 
 
@@ -277,8 +292,15 @@ def create_app(
             _HTML,
             headers={
                 "Cache-Control": "no-cache",
-                "X-Content-Type-Options": "nosniff",
+                "Content-Security-Policy": (
+                    "default-src 'self'; base-uri 'none'; form-action 'self'; "
+                    "frame-ancestors 'none'; object-src 'none'; script-src 'self' 'unsafe-inline'; "
+                    "style-src 'self' 'unsafe-inline'; connect-src 'self'; worker-src 'self'"
+                ),
+                "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
                 "Referrer-Policy": "no-referrer",
+                "X-Content-Type-Options": "nosniff",
+                "X-Frame-Options": "DENY",
             },
         )
 
@@ -397,6 +419,10 @@ def create_app(
             raise
         except Exception as exc:
             shutil.rmtree(workspace, ignore_errors=True)
-            raise HTTPException(status_code=422, detail=f"Merge failed: {exc}") from exc
+            _LOGGER.exception("Web merge failed")
+            raise HTTPException(
+                status_code=422,
+                detail="Merge failed. Check the DocMergeForge host logs for details.",
+            ) from exc
 
     return app
