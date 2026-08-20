@@ -1,6 +1,6 @@
 # Desktop User Guide
 
-The DocMergeForge desktop application is a PySide6 interface for guided publication assembly. It provides project setup, source discovery, order review, validation/preflight, merge execution, progress/cancellation, reports, audit/compare tools, recent-project handling, recovery checkpoints, settings, help/support, and the SQL Full Mastery preset.
+The DocMergeForge desktop application is a PySide6 interface for guided publication assembly. It provides project setup, source discovery, order review, guarded saved-project source synchronization, validation/preflight, merge execution, progress/cancellation, reports, audit/compare tools, recent-project handling, recovery checkpoints, settings, help/support, and the SQL Full Mastery preset.
 
 Start it from an installed environment:
 
@@ -26,6 +26,7 @@ First-run completion state is persisted so normal launches can move directly to 
 The desktop home surface exposes the primary workflows, including:
 
 - create/open a normal merge project;
+- synchronize a saved project's selected source list;
 - SQL Full Mastery guided preset;
 - validation;
 - publication audit;
@@ -74,6 +75,39 @@ Important rules:
 - do not assume Explorer/Finder folder display order is the merge order;
 - keep PDF and DOCX series internally consistent;
 - if manual ordering is used, save the project so the selection is reproducible.
+
+## Synchronize a saved project's sources
+
+Use **Synchronize Project Sources** when a saved project's source folders have changed and you want to rebuild its explicit `selected_files` list from the numbered PDF/DOCX material currently present.
+
+The desktop workflow uses the same synchronization planner and guarded persistence path as the CLI. It does not invent a second selection algorithm.
+
+Desktop synchronization works as follows:
+
+1. Choose **Synchronize Project Sources** and select the saved project JSON.
+2. DocMergeForge loads the project and its exact SHA-256 content revision from one byte snapshot.
+3. Current project sources are scanned using the maintained nested-output exclusion rules.
+4. A read-only preview shows current/proposed counts, additions, removals, reordering, same-kind duplicate part numbers, missing expected parts, and the complete proposed order.
+5. Same-kind duplicate numbered candidates make the proposal ambiguous, so **Apply synchronization** is disabled until those duplicates are resolved and a new preview is created.
+6. Missing parts remain visible but do not by themselves make metadata synchronization unsafe. A partially assembled project can therefore be synchronized while still being unready for publication.
+7. If the proposal contains removals, closing the preview is not enough authorization. After **Apply synchronization**, a second confirmation lists the paths that would be removed from `selected_files`.
+8. Approved synchronization writes a versioned backup of the project JSON and applies through the exact-revision stale-write guard.
+9. If the project changed on disk after it was loaded, the write is refused. Reopen the project and review a fresh proposal instead of retrying a stale one.
+
+Synchronization changes project metadata only. It never deletes, renames, moves, merges, or converts manuscript source files. A removal means only that a path is removed from the saved project's `selected_files` list.
+
+Automatic synchronization intentionally proposes only numbered PDF/DOCX files inside the configured expected range. Manually selected covers, prefaces, appendices, legal pages, unnumbered front/back matter, or deliberately out-of-range material can therefore appear as removals. Review every removal before approving it.
+
+A successful synchronization also does **not** mean the project is publication-ready. Run normal dry-run/preflight afterward and resolve missing parts, encrypted-input requirements, corrupt documents, storage issues, output conflicts, and other blocking conditions before publication.
+
+CLI equivalents are documented in [Project Synchronization](project-sync.md):
+
+```bash
+docmergeforge project-sync --project "./Book.json"
+docmergeforge project-sync --project "./Book.json" --apply
+```
+
+CLI removals require the separate `--allow-removals` flag; the desktop uses a separate confirmation dialog for the same safety reason.
 
 ## Validate and preflight
 
@@ -205,7 +239,7 @@ If a project path becomes unavailable, restore/move the project deliberately rat
 
 ## Settings
 
-The settings UI exposes application/project preferences supported by the current desktop code. Accessibility metadata is attached to important path fields, checkboxes, spin boxes, reports, lists, and progress controls so assistive technologies have explicit context.
+The settings UI exposes application/project preferences supported by the current desktop code. Accessibility metadata is attached to important path fields, checkboxes, spin boxes, reports, lists, synchronization previews, and progress controls so assistive technologies have explicit context.
 
 Changes that affect publication behavior should be reviewed before the next merge, especially overwrite, ordering, naming, and fidelity choices.
 
@@ -216,6 +250,7 @@ The desktop application includes automated headless accessibility checks and key
 - explicit accessible names/descriptions;
 - label-to-field relationships where appropriate;
 - keyboard operations in the order editor;
+- named synchronization preview/action controls;
 - named progress/report/recent-project controls.
 
 Automated metadata checks do not replace human acceptance with real screen readers, high-contrast modes, scaling, reduced-motion expectations, and keyboard-only workflows. Those remain release-gate verification areas.
@@ -250,6 +285,7 @@ Before clicking the final merge action:
 
 - originals are backed up;
 - project file is saved;
+- saved project source selection has been synchronized/reviewed when source membership changed;
 - source folders are correct;
 - expected part range is correct;
 - no missing/duplicate blocking errors remain;
