@@ -5,7 +5,10 @@ import subprocess
 from collections.abc import Sequence
 from pathlib import Path
 
-DEFAULT_REFERENCE = Path("docs/repository-reference.md")
+DEFAULT_REFERENCES = (
+    Path("docs/repository-reference.md"),
+    Path("docs/repository-reference-cross-platform.md"),
+)
 
 
 def tracked_files(repo_root: Path) -> list[str]:
@@ -21,13 +24,17 @@ def tracked_files(repo_root: Path) -> list[str]:
 
 
 def missing_references(reference_text: str, paths: Sequence[str]) -> list[str]:
-    """Return tracked paths that are not explicitly backticked in the reference."""
+    """Return tracked paths that are not explicitly backticked in the reference corpus."""
     return sorted(path for path in paths if f"`{path}`" not in reference_text)
+
+
+def _resolve_reference(root: Path, reference: Path) -> Path:
+    return reference if reference.is_absolute() else root / reference
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Check that every tracked file is documented in the repository reference."
+        description="Check that every tracked file is documented in the repository references."
     )
     parser.add_argument(
         "--root",
@@ -38,23 +45,26 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--reference",
         type=Path,
-        default=DEFAULT_REFERENCE,
-        help="Reference document path relative to the repository root.",
+        action="append",
+        default=None,
+        help=(
+            "Reference document path relative to the repository root. Repeat to combine "
+            "multiple references. Defaults to the main reference plus maintained addenda."
+        ),
     )
     args = parser.parse_args(argv)
 
     root = args.root.resolve()
-    reference = args.reference
-    if reference.is_absolute():
-        reference_path = reference
-    else:
-        reference_path = root / reference
-
-    try:
-        reference_text = reference_path.read_text(encoding="utf-8")
-    except OSError as exc:
-        print(f"Unable to read repository reference: {reference_path}: {exc}")
-        return 2
+    references = args.reference or list(DEFAULT_REFERENCES)
+    reference_parts: list[str] = []
+    for reference in references:
+        reference_path = _resolve_reference(root, reference)
+        try:
+            reference_parts.append(reference_path.read_text(encoding="utf-8"))
+        except OSError as exc:
+            print(f"Unable to read repository reference: {reference_path}: {exc}")
+            return 2
+    reference_text = "\n".join(reference_parts)
 
     try:
         paths = tracked_files(root)
@@ -72,12 +82,15 @@ def main(argv: list[str] | None = None) -> int:
 
     missing = missing_references(reference_text, paths)
     if missing:
-        print("Tracked files missing from docs/repository-reference.md:")
+        print("Tracked files missing from the repository reference corpus:")
         for path in missing:
             print(f"- {path}")
         return 1
 
-    print(f"Repository reference covers all {len(paths)} tracked files.")
+    print(
+        f"Repository reference corpus covers all {len(paths)} tracked files "
+        f"across {len(references)} document(s)."
+    )
     return 0
 
 
