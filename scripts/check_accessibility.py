@@ -4,13 +4,20 @@ import os
 from pathlib import Path
 
 from docmergeforge.core.models import DocumentKind, InputDocument, PartIdentity
+from docmergeforge.project.sync import ProjectSyncPlan
 from docmergeforge.settings.config import AppSettings
 from docmergeforge.ui.recent import RecentProject
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtWidgets import QApplication, QDialogButtonBox, QWidget  # noqa: E402
+from PySide6.QtWidgets import (  # noqa: E402
+    QApplication,
+    QDialogButtonBox,
+    QPushButton,
+    QWidget,
+)
 
+from docmergeforge.ui.desktop_entry import ProjectSyncMainWindow  # noqa: E402
 from docmergeforge.ui.dialogs import (  # noqa: E402
     MergeProgressDialog,
     ProjectSetupDialog,
@@ -19,6 +26,7 @@ from docmergeforge.ui.dialogs import (  # noqa: E402
     TextReportDialog,
 )
 from docmergeforge.ui.order_dialog import OrderEditorDialog  # noqa: E402
+from docmergeforge.ui.project_sync_dialog import ProjectSyncDialog  # noqa: E402
 from docmergeforge.ui.theme import apply_text_scale, apply_theme  # noqa: E402
 from docmergeforge.ui.workers import MergeWorker  # noqa: E402
 
@@ -115,6 +123,50 @@ def _check_project_setup(issues: list[str]) -> ProjectSetupDialog:
         "cancel project",
     )
     return dialog
+
+
+def _check_project_sync(issues: list[str]) -> list[QWidget]:
+    current = Path("Part 1.pdf")
+    added = Path("Part 2.pdf")
+    plan = ProjectSyncPlan(
+        current=(current,),
+        proposed=(current, added),
+        added=(added,),
+        removed=(),
+        reordered=False,
+        duplicate_pdf_parts=(),
+        duplicate_docx_parts=(),
+        missing_pdf_parts=(),
+        missing_docx_parts=(),
+    )
+    dialog = ProjectSyncDialog(Path("example-project.json"), plan)
+    _require_name(issues, dialog, "project synchronization dialog")
+    _require_name(issues, dialog.guidance, "project synchronization guidance")
+    _require_name(issues, dialog.preview, "project synchronization preview")
+    if not dialog.preview.accessibleDescription().strip():
+        issues.append("project synchronization preview: missing accessible description")
+
+    apply_button = dialog.buttons.button(QDialogButtonBox.StandardButton.Save)
+    cancel_button = dialog.buttons.button(QDialogButtonBox.StandardButton.Cancel)
+    _require_name(issues, apply_button, "apply project synchronization")
+    _require_name(issues, cancel_button, "cancel project synchronization")
+    if not apply_button.accessibleDescription().strip():
+        issues.append("apply project synchronization: missing accessible description")
+    if not apply_button.isEnabled():
+        issues.append("apply project synchronization: safe changed proposal is disabled")
+
+    window = ProjectSyncMainWindow()
+    sync_buttons = [
+        button
+        for button in window.findChildren(QPushButton)
+        if button.accessibleName() == "Synchronize project sources"
+    ]
+    if len(sync_buttons) != 1:
+        issues.append("desktop home: expected exactly one project synchronization action")
+    elif not sync_buttons[0].accessibleDescription().strip():
+        issues.append("desktop home project synchronization: missing accessible description")
+
+    return [dialog, window]
 
 
 def _check_settings(issues: list[str]) -> SettingsDialog:
@@ -241,6 +293,7 @@ def main() -> int:
     widgets: list[QWidget] = [
         _check_order_editor(issues),
         _check_project_setup(issues),
+        *_check_project_sync(issues),
         _check_settings(issues),
         *_check_secondary_dialogs(issues),
     ]
@@ -257,8 +310,8 @@ def main() -> int:
 
     print(
         "Desktop accessibility smoke passed: project setup, source picking, ordering, "
-        "settings, reports, recent projects, merge progress, theme application, text scaling, "
-        "and reduced-motion preference metadata are verified offscreen."
+        "project synchronization, settings, reports, recent projects, merge progress, theme "
+        "application, text scaling, and reduced-motion preference metadata are verified offscreen."
     )
     return 0
 
