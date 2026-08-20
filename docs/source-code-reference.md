@@ -4,20 +4,20 @@ This page documents the runtime Python package under `src/docmergeforge/` by res
 
 ## Package entry points
 
-`src/docmergeforge/__init__.py` exposes package metadata, while `src/docmergeforge/__main__.py` provides the `python -m docmergeforge` path. `src/docmergeforge/py.typed` marks the installed distribution as typed under PEP 561. The executable entry points declared in `pyproject.toml` are `docmergeforge` for the CLI and `docmergeforge-gui` for the desktop UI.
+`src/docmergeforge/__init__.py` exposes package metadata, while `src/docmergeforge/__main__.py` provides the `python -m docmergeforge` path. `src/docmergeforge/py.typed` marks the installed distribution as typed under PEP 561. The executable entry points declared in `pyproject.toml` are `docmergeforge` for the CLI, `docmergeforge-gui` for the desktop UI, and `docmergeforge-web` for the responsive browser host.
 
 ## Architectural dependency direction
 
 The intended dependency flow is broadly:
 
-1. UI and CLI collect user intent.
-2. Application services coordinate workflows.
+1. Desktop UI, CLI, and web layers collect user intent.
+2. Application services coordinate workflows where the full project/publication pipeline is required.
 3. Discovery, ordering, validation, project persistence, and settings provide domain services.
 4. PDF/DOCX engines perform format-specific work.
 5. Utility modules provide filesystem, hashing, naming, locking, and transactional publication primitives.
 6. Reports and diagnostics turn operation state into reviewable evidence.
 
-Low-level utility modules should not depend on the desktop UI. Engine code should not require a GUI. CLI/desktop layers may depend on application services, but core merge safety should remain independently testable.
+Low-level utility modules should not depend on the desktop UI or web layer. Engine code should not require a GUI or HTTP server. CLI/desktop layers may depend on application services, while the focused web merge surface may compose the shared discovery and document engines directly inside a per-request temporary workspace. Core merge safety should remain independently testable.
 
 ## `app` — workflow orchestration
 
@@ -296,6 +296,38 @@ Provides file hashing used for source identity, provenance, and transactional ev
 
 Provides storage/free-space/writeability checks. The maintained output probe performs an actual flushed write rather than treating empty-file creation alone as sufficient evidence.
 
+## `platforms.py` — maintained platform capability matrix
+
+Defines the repository's canonical runtime/delivery support descriptions for Windows, macOS, Linux, Android, iOS/iPadOS, ChromeOS/browser access, and the current host runtime. The matrix deliberately distinguishes native desktop/CLI capability from responsive browser access so documentation and API responses do not overclaim native mobile packaging.
+
+Changes to platform claims should be reflected in `docs/platform-support.md`, installation guidance, tests, and release documentation where applicable.
+
+## `web` — responsive browser host and API
+
+### `web/app.py`
+
+Creates the FastAPI browser application and focused PDF/DOCX merge API. It owns the responsive HTML/PWA shell, platform and health endpoints, upload validation, filename sanitization, natural upload ordering, per-request temporary workspace, shared-password encrypted-PDF handoff, download response, and workspace cleanup.
+
+Security-sensitive contracts include:
+
+- the merge API validates the configured `X-DocMergeForge-Token` using constant-time comparison;
+- LAN tokens are entered in a password field or bootstrapped from a `#token=...` fragment rather than request query parameters;
+- the page keeps the token only in tab-scoped session storage;
+- upload handles close on both successful and failed save paths;
+- unexpected engine exceptions are recorded in host logs but returned to remote clients as a generic error;
+- the browser shell applies content-security, anti-framing, referrer, content-type, and permissions headers;
+- temporary workspaces are removed after handled failures and after successful response completion.
+
+The web path deliberately reuses `PdfMergeEngine`, `DocxMergeEngine`, discovery, and platform capability code rather than maintaining separate browser-only document algorithms.
+
+### `web/main.py`
+
+Implements the `docmergeforge-web` command. It defaults to loopback, validates host/port/upload limits, refuses a non-loopback bind without a token, supports `--token auto`, constructs the FastAPI app, and launches Uvicorn. Token-enabled startup guidance directs users to the browser LAN-token field or fragment handoff and explicitly warns against query-string tokens.
+
+### `web/__init__.py`
+
+Defines the web package surface without eagerly starting the server.
+
 ## `ui` — PySide6 desktop application
 
 ### `ui/main.py`
@@ -367,9 +399,9 @@ Provides packaged-application startup behavior and diagnostics that differ from 
 When changing runtime code, review all of the following before claiming the change complete:
 
 1. matching unit/integration/regression tests;
-2. public CLI or desktop behavior;
-3. failure/rollback behavior;
-4. logging and privacy implications;
+2. public CLI, desktop, or web behavior;
+3. failure/rollback/cleanup behavior;
+4. logging, authentication, and privacy implications;
 5. docs for the affected subsystem;
 6. `docs/repository-reference.md` if files are added/renamed/deleted;
 7. `what_changed.md` for the current development pass;
