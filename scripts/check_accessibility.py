@@ -156,15 +156,17 @@ def _check_project_sync(issues: list[str]) -> list[QWidget]:
         issues.append("apply project synchronization: safe changed proposal is disabled")
 
     window = ProjectSyncMainWindow()
-    sync_buttons = [
-        button
-        for button in window.findChildren(QPushButton)
-        if button.accessibleName() == "Synchronize project sources"
-    ]
-    if len(sync_buttons) != 1:
-        issues.append("desktop home: expected exactly one project synchronization action")
-    elif not sync_buttons[0].accessibleDescription().strip():
-        issues.append("desktop home project synchronization: missing accessible description")
+    buttons = {button.accessibleName(): button for button in window.findChildren(QPushButton)}
+    for name, label in (
+        ("Synchronize project sources", "desktop browse project synchronization"),
+        ("Synchronize recent project", "desktop recent project synchronization"),
+    ):
+        button = buttons.get(name)
+        if button is None:
+            issues.append(f"{label}: action is missing")
+            continue
+        if not button.accessibleDescription().strip():
+            issues.append(f"{label}: missing accessible description")
 
     return [dialog, window]
 
