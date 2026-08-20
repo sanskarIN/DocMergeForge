@@ -1,8 +1,47 @@
 # Known Limitations
 
-DocMergeForge is currently a pre-stable project. The core merge, validation, project, transactional publication, recovery, reporting, desktop, CLI, CI, and packaging functionality is implemented, with increasingly strong automated acceptance. Several areas still remain intentionally excluded from a stable `v1.0.0` claim until their own evidence exists.
+DocMergeForge is currently a pre-stable project. The core merge, validation, project, transactional publication, recovery, reporting, desktop, CLI, responsive web, CI, and packaging functionality is implemented, with increasingly strong automated acceptance. Several areas still remain intentionally excluded from a stable `v1.0.0` claim until their own evidence exists.
 
 This page is deliberately conservative. It should be updated when limitations are actually removed and verified.
+
+## Responsive mobile support is browser-hosted, not native packaging
+
+Android, iOS/iPadOS, ChromeOS, and other modern browser platforms can use the responsive DocMergeForge browser client when they can reach a DocMergeForge Python host.
+
+This does **not** mean the repository currently provides:
+
+- an Android APK/AAB;
+- an iOS/iPadOS IPA;
+- native mobile filesystem/storage integration;
+- mobile background-processing guarantees;
+- app-store signing/distribution acceptance; or
+- CPython/PySide6 document engines running natively inside a mobile package.
+
+The browser shell also does not contain a fully offline in-browser PDF/DOCX merge engine. The service worker can cache the application shell where the browser allows it, but an actual merge still requires connectivity to the Python host.
+
+Any future native mobile package needs separate storage picker/sandbox/lifecycle/background-work/accessibility/signing/store/device acceptance before it should be described as native support.
+
+## Browser access tokens are authentication, not transport encryption
+
+The built-in web server defaults to loopback. A non-loopback bind requires a configured access token, and the maintained UI uses a masked token field or a `#token=...` fragment rather than a query parameter.
+
+That token controls merge requests but does not encrypt manuscript bytes or an encrypted-PDF password crossing the network. Plain HTTP should be limited to loopback or a trusted LAN. Internet/untrusted-network use requires a deliberately configured HTTPS reverse proxy/authentication/request-limit/host-hardening boundary.
+
+The built-in Uvicorn host is not represented as a hardened public-Internet production deployment.
+
+## The application upload limit is not a complete edge request-body firewall
+
+`docmergeforge-web --max-upload-mib` limits the total uploaded file bytes DocMergeForge copies into its per-request merge workspace. FastAPI/Starlette's multipart layer necessarily receives/parses the request before the route can enforce all application-level merge constraints.
+
+For an exposed reverse-proxy deployment, configure independent request-body limits, timeouts, connection controls, concurrency/resource limits, TLS, and authentication at the network edge. Do not rely on the application merge-copy limit as the only denial-of-service/resource control.
+
+## Automated web tests are not universal browser/device acceptance
+
+The maintained integration suite exercises the FastAPI host with generated PDF/DOCX uploads, token enforcement, browser-shell security headers, error privacy, upload limits, platform endpoints, and related request behavior.
+
+Those tests do not prove every Safari/Chrome/Firefox/WebView version, Android/iOS device, Chromebook, PWA install mode, screen reader, file picker, low-memory device, network transition, or mobile browser lifecycle scenario.
+
+Representative manual Android, iOS/iPadOS, ChromeOS, and desktop-browser acceptance remains a separate stable-release gate for any broad compatibility claim.
 
 ## DOCX fidelity is not universally perfect
 
@@ -76,7 +115,7 @@ That evidence still does **not** reproduce every physical/environmental failure 
 
 ## Linux real disk-full recovery is verified; other filesystems remain separate
 
-`Disk Full Acceptance` mounts an isolated 32 MiB Ubuntu tmpfs and writes/fsyncs through the real `atomic_output()` path until the kernel returns `ENOSPC`. Run `32023666826` verified the previous target remained unchanged and atomic `.part` residue was removed.
+`Disk Full Acceptance` mounts an isolated 32 MiB Ubuntu tmpfs and writes/fsyncs through the real `atomic_output()` path until the kernel returns real `ENOSPC`. Run `32023666826` verified the previous target remained unchanged and atomic `.part` residue was removed.
 
 This is real filesystem-exhaustion evidence, not only injected exceptions. It does not prove identical behavior on NTFS, APFS, removable drives, network shares, or every Linux filesystem.
 
@@ -92,13 +131,15 @@ The transaction model uses filesystem replacement/rename plus an OS-level adviso
 
 The local Windows/macOS/Linux recovery acceptance does not prove multi-host network-lock semantics. Prefer a reliable local filesystem for publication staging, then copy verified final artifacts to distribution storage unless direct-network acceptance is explicitly recorded.
 
+This filesystem limitation is separate from the responsive web network boundary. A browser can reach a Python host over a LAN while the host still writes its temporary/project files to a local filesystem.
+
 ## Accessibility is not fully human-accepted yet
 
-Automated accessibility smoke passes key metadata/keyboard checks cross-platform, but complete accessibility acceptance requires real assistive-technology testing.
+Automated accessibility smoke passes key desktop metadata/keyboard checks cross-platform, but complete accessibility acceptance requires real assistive-technology testing.
 
-Open areas include Narrator/NVDA, VoiceOver, a supported Linux screen reader, keyboard-only full workflows, high contrast, display/text scaling, reduced motion, and difficult large-list/error states.
+Open areas include Narrator/NVDA, VoiceOver, a supported Linux screen reader, mobile/desktop browser screen readers, keyboard-only full workflows, high contrast, display/text scaling, reduced motion, and difficult large-list/error states.
 
-Do not equate “accessible names exist” with full accessibility certification.
+Do not equate “accessible names exist” or a semantic browser form with full accessibility certification.
 
 ## CI packaging artifacts are unsigned
 
@@ -110,7 +151,7 @@ No current documentation should claim Windows production code signing, macOS not
 
 The current packaging helper produces PyInstaller onedir/one-file builds. CI distributes ZIP/TAR archives.
 
-A finished MSI/MSIX/DMG/PKG/AppImage/deb/rpm/etc. distribution pipeline is not currently claimed.
+A finished MSI/MSIX/DMG/PKG/AppImage/deb/rpm/etc. distribution pipeline is not currently claimed. Native Android/iOS packages are likewise not part of the current packaging pipeline.
 
 ## Native packaged execution is verified in CI; full interactive clean-machine acceptance remains
 
@@ -132,6 +173,8 @@ Intentional generated front matter/headings/TOC/sections can change counts. Huma
 
 Current CLI password collection is interactive. There is no documented non-interactive secret-provider CLI interface for unattended encrypted-PDF automation. Do not place passwords in shell scripts/project JSON as a workaround.
 
+Browser mode accepts one optional shared password for an encrypted PDF upload set; files protected by different passwords still require another supported workflow rather than persisting multiple secrets.
+
 ## Plain `validate` does not unlock encrypted PDFs
 
 The validation command does not prompt for PDF passwords. Full merge/project paths handle password collection where required.
@@ -144,9 +187,13 @@ Legacy `.doc` files generate a warning and require explicit external conversion 
 
 DocMergeForge indexes/hashes companion code archives but does not extract them, build them, run tests, malware-scan them, resolve dependencies, check code licenses, or generate an SBOM. Software-release QA remains separate.
 
+The focused browser merge API rejects companion archives entirely; it is not a network-facing companion-code upload/indexing service.
+
 ## Relative/absolute project paths are not magically portable
 
 Project JSON stores paths as strings. Moving a project between Windows/macOS/Linux can require path changes or a consistent relative directory layout. Always run dry-run after moving/importing a project.
+
+Browser mode does not make project JSON path strings portable to a phone/tablet; the focused browser merge route uploads files directly and is not the project-file execution surface.
 
 ## No bit-for-bit reproducible binary build claim
 
@@ -160,6 +207,7 @@ The loader supplies defaults for missing fields, but project/settings schema is 
 
 Before a `v1.0.0` claim, remaining acceptance should include at least:
 
+- representative Android/iOS/iPadOS/ChromeOS/desktop-browser acceptance for the responsive client and its upload/download/token/error/accessibility behavior;
 - measured large/multi-gigabyte stress/resource testing appropriate to scale claims;
 - representative real-world PDF/DOCX fidelity corpus;
 - reviewed supervised LibreOffice UNO multi-document and process-cleanup runs plus expanded section/page-layout fidelity before LibreOffice native mode is claimed;
@@ -173,6 +221,6 @@ Before a `v1.0.0` claim, remaining acceptance should include at least:
 - explicit Linux distribution compatibility/signing approach; and
 - final documentation/support/security review.
 
-Controlled abrupt-process recovery, native packaged publication smoke, cross-process local output locking, Linux real `ENOSPC` acceptance, external-office single-document round-trip infrastructure, the supervised LibreOffice UNO multi-document **acceptance prototype**, and the Word-native multi-document **acceptance prototype** are implemented. None of those facts alone converts an external-office mode into a production-ready merge engine.
+Controlled abrupt-process recovery, native packaged publication smoke, cross-process local output locking, Linux real `ENOSPC` acceptance, responsive browser host/API regression coverage, external-office single-document round-trip infrastructure, the supervised LibreOffice UNO multi-document **acceptance prototype**, and the Word-native multi-document **acceptance prototype** are implemented. None of those facts alone converts an external-office mode, browser-device matrix, or distribution target into a production-certified release.
 
-See [DOCX Fidelity Adapters and Acceptance](docx-fidelity-acceptance.md), [LibreOffice Native Multi-Document Merge Acceptance](libreoffice-native-merge-acceptance.md), [Microsoft Word Native Merge Acceptance](word-native-merge-acceptance.md), and [Release Process](release-process.md).
+See [Platform Support](platform-support.md), [Security Model](security.md), [DOCX Fidelity Adapters and Acceptance](docx-fidelity-acceptance.md), [LibreOffice Native Multi-Document Merge Acceptance](libreoffice-native-merge-acceptance.md), [Microsoft Word Native Merge Acceptance](word-native-merge-acceptance.md), and [Release Process](release-process.md).
