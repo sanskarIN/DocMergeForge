@@ -13,6 +13,8 @@ DocMergeForge processes local files supplied by the user. Important trust bounda
 - companion/source archives;
 - project JSON files;
 - output directories/filesystems;
+- browser-to-host traffic when the responsive web interface is used;
+- web access tokens and reverse-proxy configuration for non-loopback browser access;
 - external office applications if future high-fidelity adapters are used;
 - packaged binaries and CI artifacts;
 - diagnostics shared with other people.
@@ -23,9 +25,32 @@ Do not assume a file is safe simply because it has a `.pdf`, `.docx`, or archive
 
 Core merge, validation, audit, comparison, hashing, reporting, and recovery operations run locally.
 
-The application does not require an account and does not upload manuscript content as part of the normal merge workflow.
+The application does not require an account and does not upload manuscript content to a project-operated cloud service as part of the normal merge workflow.
 
-Users remain responsible for external sync folders, cloud-backed drives, endpoint backup software, operating-system telemetry, or third-party tools they choose to use around DocMergeForge.
+Browser mode is still hosted by a DocMergeForge Python process, but it creates a network boundary between the browser device and that host. On loopback they are the same computer. On a LAN bind the uploaded manuscript bytes travel across that network to the chosen host.
+
+Users remain responsible for external sync folders, cloud-backed drives, endpoint backup software, operating-system telemetry, network infrastructure, reverse proxies, or third-party tools they choose to use around DocMergeForge.
+
+## Responsive web security
+
+The built-in browser server defaults to `127.0.0.1`. Binding to a non-loopback address is rejected unless an access token is configured. This prevents accidentally starting an unauthenticated LAN merge service.
+
+For LAN use:
+
+- prefer `--token auto` or another high-entropy token;
+- enter the token in the browser's **Access token (LAN only)** field, or use a one-time `#token=...` URL fragment;
+- do not place access tokens in `?token=...` query parameters because query strings can be recorded by HTTP servers, proxies, browser history, and surrounding infrastructure;
+- the browser stores the token only in tab-scoped session storage and sends it in `X-DocMergeForge-Token` for merge requests;
+- a URL fragment is not sent in the HTTP request and is removed from the visible address after the page consumes it;
+- the access token provides request authentication but does not encrypt manuscript traffic;
+- plain HTTP should be limited to a trusted machine/network; use HTTPS plus an appropriately hardened reverse proxy/authentication layer when traffic crosses an untrusted network;
+- do not expose the built-in Uvicorn development-style deployment directly to the public Internet.
+
+The browser shell sends a restrictive content-security policy plus anti-framing, no-referrer, content-type sniffing, and browser permissions headers. Unexpected engine exceptions are logged on the host but returned to the browser as a generic error so internal host paths/details are not reflected to a remote client.
+
+Web uploads are written to a per-request temporary workspace. Upload handles are closed on success and validation/size failure paths; the workspace is removed on handled errors and after a successful download response completes.
+
+These controls reduce risk; they do not turn an untrusted network into a confidential channel and they do not replace operating-system, reverse-proxy, firewall, or host-security controls.
 
 ## Encrypted-PDF passwords
 
@@ -38,6 +63,8 @@ Current handling principles:
 - password mappings are cleared after command execution;
 - passwords are not written to project JSON;
 - normal documentation/diagnostics should never include them.
+
+The responsive browser interface accepts an optional shared PDF password in a password field for the active merge request. Browser-mode secrets cross the browser-to-host connection with that request, so use HTTPS when the connection is not confined to a trusted local environment.
 
 Do not paste passwords into issue reports or screenshots.
 
@@ -102,7 +129,7 @@ Even redacted diagnostics can contain:
 - stack traces;
 - dependency/version information.
 
-Review exported diagnostics before sharing them publicly.
+Unexpected browser merge failures are intentionally summarized generically to the remote client while the host logger receives the exception for local diagnosis. Review host logs and exported diagnostics before sharing them publicly.
 
 ## PDF/DOCX parser risk
 
@@ -164,9 +191,12 @@ Before processing confidential/high-value manuscripts:
 - store source/output files in approved locations;
 - ensure backups exist;
 - avoid public/shared temp directories;
+- keep the web server on loopback unless network access is deliberately required;
+- require a strong token for LAN web access and never place it in a query parameter;
+- use HTTPS when browser-to-host traffic leaves a trusted local environment;
 - do not share encrypted-PDF passwords;
 - inspect unexpected companion archives independently;
-- review diagnostics before exporting them;
+- review host logs/diagnostics before exporting them;
 - recover interrupted transactions using the journal-aware command;
 - verify final checksums after copying artifacts.
 
@@ -175,7 +205,8 @@ Before processing confidential/high-value manuscripts:
 - never add secrets to fixtures/tests;
 - use synthetic/public-domain test documents;
 - do not log manuscript body text unnecessarily;
-- do not persist passwords;
+- do not persist passwords or web access tokens to project files;
+- keep tokens out of request URLs/query parameters;
 - validate any new path manipulation against traversal;
 - prefer atomic writes and fail-closed recovery;
 - avoid auto-extracting untrusted archives;
