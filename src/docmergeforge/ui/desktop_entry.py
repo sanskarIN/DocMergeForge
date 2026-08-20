@@ -1,14 +1,19 @@
 from __future__ import annotations
 
-import json
+import sys
 from pathlib import Path
 
-from PySide6.QtWidgets import QFileDialog, QMessageBox, QPushButton, QVBoxLayout
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox, QPushButton, QVBoxLayout
 
+from docmergeforge.diagnostics.logging import configure_logging
 from docmergeforge.project.store import load_project_snapshot
 from docmergeforge.project.sync import apply_project_sync, plan_project_sync
+from docmergeforge.settings.config import AppSettings
 from docmergeforge.ui import main as ui_main
+from docmergeforge.ui.paths import log_path, settings_path
 from docmergeforge.ui.project_sync_dialog import ProjectSyncDialog
+from docmergeforge.ui.theme import apply_text_scale, apply_theme
 
 
 class ProjectSyncMainWindow(ui_main.MainWindow):
@@ -46,7 +51,7 @@ class ProjectSyncMainWindow(ui_main.MainWindow):
         try:
             project, revision = load_project_snapshot(path)
             plan = plan_project_sync(project)
-        except (OSError, ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        except (OSError, ValueError, UnicodeDecodeError) as exc:
             self._record_error(str(exc))
             QMessageBox.critical(self, "Project synchronization preview failed", str(exc))
             return
@@ -115,14 +120,19 @@ class ProjectSyncMainWindow(ui_main.MainWindow):
 
 
 def main() -> int:
-    """Run the normal desktop startup using the synchronization-enabled window."""
+    """Run the synchronization-enabled desktop application."""
 
-    original_window = ui_main.MainWindow
-    ui_main.MainWindow = ProjectSyncMainWindow
-    try:
-        return ui_main.main()
-    finally:
-        ui_main.MainWindow = original_window
+    app = QApplication(sys.argv)
+    app.setApplicationName("DocMergeForge")
+    app.setOrganizationName("Sanskar")
+    settings = AppSettings.load(settings_path())
+    configure_logging(log_path(), settings.logging_level)
+    apply_theme(app, settings.theme)
+    apply_text_scale(app, settings.text_scale_percent)
+    window = ProjectSyncMainWindow()
+    window.show()
+    QTimer.singleShot(0, window.show_startup_dialogs)
+    return app.exec()
 
 
 if __name__ == "__main__":
