@@ -79,6 +79,8 @@ def main() -> int:
         print(f"DocMergeForge Web: http://{args.host}:{args.port}/")
     if token:
         print("Merge API access token is enabled.")
+        print("Enter it in the browser's 'Access token (LAN only)' field.")
+        print("For a trusted one-time link use #token=<token>; never use ?token=<token>.")
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
     return 0
 
