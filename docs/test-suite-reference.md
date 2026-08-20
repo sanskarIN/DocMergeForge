@@ -4,13 +4,13 @@ This document maps the complete maintained test suite to the production behavior
 
 ## Test philosophy
 
-DocMergeForge uses several evidence layers because document publication, filesystem durability, office automation, packaging, and desktop behavior have different failure modes.
+DocMergeForge uses several evidence layers because document publication, filesystem durability, office automation, packaging, browser access, and desktop behavior have different failure modes.
 
 - **Unit tests** isolate deterministic functions, models, validation rules, filesystem safety primitives, and workflow decisions.
 - **Integration tests** exercise multiple production components or executable/script surfaces together.
 - **Regression tests** preserve known high-value scenarios that are larger or specifically tied to previous risk areas.
 - **Acceptance scripts/workflows** cover environment-dependent behavior such as real office processes, packaging, storage failures, and stress measurements.
-- **Human acceptance** remains required where automation cannot prove visual fidelity, accessibility, clean-machine usability, signing/notarization experience, or real-world interoperability.
+- **Human acceptance** remains required where automation cannot prove visual fidelity, accessibility, clean-machine usability, signing/notarization experience, browser/device interoperability, or real-world office compatibility.
 
 A test file existing in the repository is not the same as a passing result for the current commit. Release evidence must refer to actual runs.
 
@@ -35,6 +35,12 @@ A subprocess helper that intentionally interrupts a publication transaction duri
 - `tests/integration/test_docx_publication_features.py` — verifies publication-level DOCX additions through the integrated engine path.
 - `tests/integration/test_pdf_merge.py` — end-to-end PDF merge behavior with real generated PDF fixtures.
 - `tests/integration/test_pdf_publication_features.py` — verifies publication-level PDF behavior through the integrated engine path.
+
+### Responsive web integration
+
+- `tests/integration/test_web_app.py` — exercises the FastAPI/browser merge surface with generated PDF/DOCX fixtures. It covers safe cross-platform upload/output names, browser-shell security headers, fragment-based token bootstrap, platform/health endpoints, successful PDF and DOCX merge/download behavior, configured-token enforcement, generic remote failure details, upload-size fail-closed behavior, and mixed-format rejection.
+
+This integration suite proves the Python host/API behavior in the test environment. It does not replace manual acceptance in representative Android, iOS/iPadOS, ChromeOS, and desktop browsers, nor does it prove confidentiality on an untrusted network.
 
 ### Recovery and stress integration
 
@@ -190,6 +196,16 @@ Covers allowed and rejected merge lifecycle transitions.
 ### `tests/unit/test_cli_workflow.py`
 
 Tests representative CLI workflow dispatch, arguments, structured results, and exit-code behavior across normal/failure paths. It also protects fail-closed `project-create` persistence errors so a failed save is returned as structured JSON with exit code `2` instead of escaping as an unhandled save exception.
+
+## Unit suite — platform and web host
+
+### `tests/unit/test_platforms.py`
+
+Protects the maintained support matrix and runtime capability serialization so Windows/macOS/Linux native support is not confused with browser-delivered Android/iOS/web access.
+
+### `tests/unit/test_web_main.py`
+
+Covers loopback-host detection and safe `docmergeforge-web` parser defaults, including the loopback bind, port, and upload-size defaults used by the browser host.
 
 ## Unit suite — PDF
 
@@ -377,7 +393,7 @@ Covers companion-file classification and organization behavior.
 
 ## How to choose where a new test belongs
 
-Use **unit** when the behavior can be proven deterministically inside one process with controlled filesystem/test doubles. Use **integration** when the important contract crosses production modules, scripts, Qt widgets, subprocesses, or actual document libraries. Use **regression** when a larger/high-value scenario should remain permanently protected because its failure would recreate a known class of problem. Use an **acceptance workflow** when the property depends on an external office application, packaging runtime, OS process behavior, storage conditions, or measured resources.
+Use **unit** when the behavior can be proven deterministically inside one process with controlled filesystem/test doubles. Use **integration** when the important contract crosses production modules, HTTP surfaces, scripts, Qt widgets, subprocesses, or actual document libraries. Use **regression** when a larger/high-value scenario should remain permanently protected because its failure would recreate a known class of problem. Use an **acceptance workflow** when the property depends on an external office application, packaging runtime, OS process behavior, browser/device environment, storage conditions, or measured resources.
 
 ## Required coverage when adding behavior
 
@@ -387,13 +403,13 @@ A feature is not considered well-tested merely because one happy-path test exist
 2. malformed/unsupported input;
 3. boundary values;
 4. filesystem/process failures where applicable;
-5. rollback/recovery behavior for writes;
+5. rollback/recovery/cleanup behavior for writes and temporary resources;
 6. platform-specific path behavior where relevant;
-7. privacy/logging behavior for sensitive values;
-8. CLI/UI error propagation;
-9. documentation of limitations;
-10. environment-dependent acceptance when the feature relies on external applications.
+7. privacy/logging/authentication behavior for sensitive values;
+8. CLI/UI/web error propagation;
+9. documentation of limitations and trust boundaries;
+10. environment-dependent acceptance when the feature relies on external applications or browser/device behavior.
 
 ## Running the suite
 
-The normal development commands are documented in [Testing and CI](testing-and-ci.md). The primary Quality workflow runs the full pytest suite with coverage after lint, format, typing, and documentation-integrity checks. Environment-dependent acceptance workflows remain separately controlled so a portable unit-test pass is never confused with external-office or release readiness.
+The normal development commands are documented in [Testing and CI](testing-and-ci.md). The primary Quality workflow runs the full pytest suite with coverage after lint, format, typing, and documentation-integrity checks. Environment-dependent acceptance workflows remain separately controlled so a portable unit-test pass is never confused with external-office, browser-device, or release readiness.
