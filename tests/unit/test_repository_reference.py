@@ -34,10 +34,35 @@ def test_main_passes_when_every_tracked_file_is_referenced(
         lambda _root: ["alpha.py", "docs/repository-reference.md"],
     )
 
-    result = checker.main(["--root", str(tmp_path)])
+    result = checker.main(
+        [
+            "--root",
+            str(tmp_path),
+            "--reference",
+            "docs/repository-reference.md",
+        ]
+    )
 
     assert result == 0
     assert "covers all 2 tracked files" in capsys.readouterr().out
+
+
+def test_main_combines_default_reference_addendum(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "repository-reference.md").write_text("`alpha.py`\n", encoding="utf-8")
+    (docs / "repository-reference-cross-platform.md").write_text("`beta.py`\n", encoding="utf-8")
+    monkeypatch.setattr(checker, "tracked_files", lambda _root: ["alpha.py", "beta.py"])
+
+    result = checker.main(["--root", str(tmp_path)])
+
+    assert result == 0
+    output = capsys.readouterr().out
+    assert "across 2 document(s)" in output
 
 
 def test_main_reports_missing_tracked_files(
@@ -50,7 +75,14 @@ def test_main_reports_missing_tracked_files(
     reference.write_text("`alpha.py`\n", encoding="utf-8")
     monkeypatch.setattr(checker, "tracked_files", lambda _root: ["alpha.py", "beta.md"])
 
-    result = checker.main(["--root", str(tmp_path)])
+    result = checker.main(
+        [
+            "--root",
+            str(tmp_path),
+            "--reference",
+            "docs/repository-reference.md",
+        ]
+    )
 
     assert result == 1
     output = capsys.readouterr().out
@@ -59,7 +91,14 @@ def test_main_reports_missing_tracked_files(
 
 
 def test_main_reports_missing_reference_file(tmp_path: Path, capsys) -> None:
-    result = checker.main(["--root", str(tmp_path)])
+    result = checker.main(
+        [
+            "--root",
+            str(tmp_path),
+            "--reference",
+            "docs/repository-reference.md",
+        ]
+    )
 
     assert result == 2
     assert "Unable to read repository reference" in capsys.readouterr().out
