@@ -28,8 +28,13 @@ def test_validate_build_root_accepts_required_layout(tmp_path: Path) -> None:
     (tmp_path / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
     ui = tmp_path / "src" / "docmergeforge" / "ui"
     ui.mkdir(parents=True)
-    (ui / "main.py").write_text("def main():\n    return 0\n", encoding="utf-8")
-    (ui / "packaged_entry.py").write_text("def main():\n    return 0\n", encoding="utf-8")
+    for filename in (
+        "main.py",
+        "desktop_entry.py",
+        "project_sync_dialog.py",
+        "packaged_entry.py",
+    ):
+        (ui / filename).write_text("def main():\n    return 0\n", encoding="utf-8")
 
     assert validate_build_root(tmp_path) == tmp_path.resolve()
 
@@ -42,4 +47,6 @@ def test_validate_build_root_reports_missing_files(tmp_path: Path) -> None:
     assert "pyproject.toml" in message
     assert "src" in message
     assert "main.py" in message
+    assert "desktop_entry.py" in message
+    assert "project_sync_dialog.py" in message
     assert "packaged_entry.py" in message
