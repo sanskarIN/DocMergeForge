@@ -7,12 +7,12 @@ This file is a compact continuation checkpoint for future development sessions. 
 - Repository: `sanskarIN/DocMergeForge`
 - Branch: `main`
 - Version declared in `pyproject.toml`: `0.1.0`
-- Checkpoint immediately before this state-file commit: `d24dc60a73d26ce3654b7329b56c84798ede2ce4`
+- Checkpoint immediately before this state-file commit: `e1e142a55535d23b6b68f4a55dd65cefb79046bc`
 - Development status: pre-stable; do not claim `v1.0.0` or production certification from source/documentation changes alone.
 
 ## Latest completed continuation: cross-platform browser security and documentation synchronization
 
-The repository already had the cross-platform delivery expansion before this checkpoint: native Windows/macOS/Linux desktop + CLI support and responsive browser-hosted access for Android, iOS/iPadOS, ChromeOS, desktop browsers, and other modern browser platforms. The latest continuation hardened that web boundary and synchronized the canonical internal references.
+The repository already had the cross-platform delivery expansion before this continuation: native Windows/macOS/Linux desktop + CLI support and responsive browser-hosted access for Android, iOS/iPadOS, ChromeOS, desktop browsers, and other modern browser platforms. The latest continuation hardened that web boundary, expanded regression coverage, corrected stale public/internal documentation, and synchronized the durable continuation record.
 
 Implementation/hardening:
 
@@ -45,14 +45,20 @@ Regression coverage:
 - `tests/unit/test_platforms.py`
   - maintained platform capability/support matrix.
 
-Canonical documentation synchronized:
+Canonical/public documentation synchronized in this continuation:
 
+- `README.md`;
 - `docs/platform-support.md`;
 - `docs/security.md`;
+- `docs/privacy.md`;
 - `docs/installation.md`;
+- `docs/architecture.md`;
 - `docs/source-code-reference.md`;
 - `docs/test-suite-reference.md`;
-- `what_changed.md`.
+- `docs/testing-and-ci.md`;
+- `docs/known-limitations.md`;
+- `what_changed.md`;
+- `PROJECT_STATE.md`.
 
 ### Cross-platform support boundary
 
@@ -70,11 +76,35 @@ The browser shell/PWA is not the document-processing engine. PDF/DOCX processing
 ### Browser/network security boundary
 
 - Loopback remains the safest local-first web mode.
-- Non-loopback binds require a token.
+- Non-loopback CLI binds require a token.
 - A token authenticates merge requests but does not encrypt manuscript bytes or PDF passwords in transit.
-- Use trusted LAN transport for plain HTTP; use HTTPS plus an appropriately hardened reverse proxy/authentication layer when traffic crosses an untrusted network.
+- The maintained browser flow keeps access tokens out of HTTP query parameters; use the masked browser field or a trusted one-time `#token=...` fragment.
+- Use trusted LAN transport for plain HTTP; use HTTPS plus an appropriately hardened reverse proxy/authentication/request-limit layer when traffic crosses an untrusted network.
 - Do not expose the built-in Uvicorn server directly to the public Internet.
-- Do not place access tokens in query parameters. Use the browser field or a trusted one-time fragment handoff.
+- `--max-upload-mib` limits uploaded file bytes copied into DocMergeForge's request workspace; it is not a complete edge request-body/connection/resource firewall. Exposed reverse-proxy deployments need independent body-size, timeout, concurrency, TLS, and authentication controls.
+
+### Browser/privacy boundary
+
+- Responsive browser use sends the selected PDF/DOCX bytes from the browser device to the chosen Python host.
+- A submitted shared encrypted-PDF password crosses that same browser-to-host connection.
+- The browser token is tab-session state and is not written into project JSON.
+- Host access/error logs and reverse-proxy/network infrastructure can contain sensitive operational metadata and must be reviewed before sharing.
+- Browser request workspaces are temporary download workspaces, not durable full-project recovery journals.
+
+## Verified configuration facts for the latest continuation
+
+The actual workflow files were inspected during this continuation:
+
+- `.github/workflows/quality.yml`
+  - Python 3.12 and 3.13 on Ubuntu;
+  - installs `.[dev,web]`;
+  - runs pre-commit config validation, Ruff, Black check, strict mypy, Markdown-link validation, repository-reference validation, and full pytest with coverage.
+- `.github/workflows/build-smoke.yml`
+  - Ubuntu, Windows, and macOS;
+  - installs `.[build,web]`;
+  - runs source compilation, `docmergeforge --help`, `docmergeforge-web --help`, accessibility smoke, and desktop packaging preflight.
+
+These workflow definitions establish configured checks only. GitHub's combined-status surface exposed no status contexts at the inspected current-continuation checkpoints, so no fresh execution pass is claimed from those definitions.
 
 ## Previous completed feature: guarded existing-project persistence
 
@@ -132,12 +162,13 @@ The earlier maintenance continuation completed a repository-wide documentation m
 Key files:
 
 - `docs/repository-reference.md` — literal inventory of every tracked repository path;
+- `docs/repository-reference-cross-platform.md` — maintained addendum for cross-platform/web additions where used by the checker/reference corpus;
 - `docs/source-code-reference.md` — module-by-module runtime responsibility map, now including platform/web modules;
 - `docs/test-suite-reference.md` — complete maintained test-file map, now including web/platform tests;
 - `docs/automation-reference.md` — scripts and GitHub Actions workflow reference;
 - `docs/configuration-reference.md` — project/tooling/governance configuration reference;
 - `docs/documentation-catalog.md` — documentation map by audience/task;
-- `scripts/check_repository_reference.py` — exact tracked-path documentation checker;
+- `scripts/check_repository_reference.py` — tracked-path documentation checker;
 - `tests/unit/test_repository_reference.py` — checker regression coverage;
 - `.github/workflows/quality.yml` — runs the repository-reference checker after Markdown-link validation.
 
@@ -164,10 +195,10 @@ Do not infer a green build merely from commits being present.
 
 For the latest continuation:
 
-- cross-platform browser hardening, regression source, and synchronized canonical documentation are committed on `main`;
-- only existing tracked paths were changed in the latest hardening pass, so no new repository-reference path entry was introduced by these commits;
-- `pyproject.toml` remains pre-stable at version `0.1.0` and retains Ruff, Black, strict mypy, pytest/coverage, documentation-link, and repository-reference configuration;
-- committed tests are implementation evidence, not execution evidence.
+- cross-platform browser hardening, regression source, and synchronized canonical/public documentation are committed on `main`;
+- only existing tracked paths were changed in this latest continuation, so no new path was introduced that would require a new repository-reference inventory entry;
+- `pyproject.toml` remains pre-stable at version `0.1.0` and retains Ruff, Black, strict mypy, pytest/coverage, documentation-link, repository-reference, and responsive-web dependency configuration;
+- committed tests and inspected workflow definitions are implementation/configuration evidence, not execution evidence.
 
 Until an actual current-head run is observed, no fresh pass is claimed for:
 
@@ -189,10 +220,11 @@ External-office, stress, accessibility, clean-machine packaging, signing/notariz
 
 1. Observe a current-head Quality run and fix any lint/format/type/test/link/reference failure without weakening repository rules.
 2. Perform representative manual browser/device acceptance for the current responsive client before broadening compatibility claims beyond the automated host/API coverage.
-3. Keep `docs/repository-reference.md`, `docs/documentation-catalog.md`, source/test references, platform/security/install docs, and `what_changed.md` synchronized with future path/responsibility/security changes.
-4. Evaluate whether the desktop project/order UI should expose the CLI's synchronization preview/apply/second-removal-approval model.
-5. If simultaneous multi-writer project editing is explicitly required, design a coordinated lock/revision protocol; otherwise retain the current simpler optimistic revision model.
-6. Continue independent release-gate work for native-office fidelity, measured multi-gigabyte stress, human accessibility, clean-machine packaged applications, Windows signing, and macOS signing/notarization.
+3. If Internet/untrusted-network hosting is intentionally supported later, define and acceptance-test the HTTPS reverse-proxy/authentication/body-limit/timeout/concurrency/host-hardening deployment profile instead of promoting the built-in server as that profile.
+4. Keep `docs/repository-reference.md`, its maintained addenda, `docs/documentation-catalog.md`, source/test references, README, architecture, privacy/security/platform/install/limitations/CI docs, and `what_changed.md` synchronized with future path/responsibility/security changes.
+5. Evaluate whether the desktop project/order UI should expose the CLI's synchronization preview/apply/second-removal-approval model.
+6. If simultaneous multi-writer project editing is explicitly required, design a coordinated lock/revision protocol; otherwise retain the current simpler optimistic revision model.
+7. Continue independent release-gate work for native-office fidelity, measured multi-gigabyte stress, human accessibility, clean-machine packaged applications, Windows signing, and macOS signing/notarization.
 
 ## Continuation rule
 
