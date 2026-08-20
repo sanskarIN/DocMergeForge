@@ -1,12 +1,13 @@
 # DocMergeForge Documentation
 
-This directory is the canonical documentation set for DocMergeForge. It covers end-user operation, CLI automation, desktop workflows, architecture, document engines, recovery, testing, packaging, release acceptance, privacy, and project maintenance.
+This directory is the canonical documentation set for DocMergeForge. It covers end-user operation, CLI automation, desktop and browser workflows, architecture, document engines, recovery, testing, packaging, release acceptance, privacy, and project maintenance.
 
 > **Made by the Sanskar** · [Buy Me a Coffee](https://buymeacoffee.com/sanskarIN)
 
 ## Start here
 
-- [Installation](installation.md) — install from source and prepare a development environment.
+- [Installation](installation.md) — install from source and prepare desktop, CLI, web, or development environments.
+- [Platform Support](platform-support.md) — exact Windows, macOS, Linux, Android, iOS/iPadOS, ChromeOS, and browser delivery matrix.
 - [Getting Started](getting-started.md) — complete first merge from discovery to verified outputs.
 - [Desktop User Guide](desktop-guide.md) — GUI workflows, ordering, settings, progress, reports, and recovery.
 - [CLI Reference](cli-reference.md) — every supported command and option.
@@ -77,13 +78,14 @@ This directory is the canonical documentation set for DocMergeForge. It covers e
 ## Repository internals
 
 - **[Documentation Catalog](documentation-catalog.md)** — every maintained guide mapped by audience and task.
-- **[Complete Repository File Reference](repository-reference.md)** — every tracked repository file and its responsibility.
+- **[Complete Repository File Reference](repository-reference.md)** — historical complete tracked-file inventory and responsibility map.
+- [Cross-Platform Repository Reference Addendum](repository-reference-cross-platform.md) — explicit inventory for newly introduced platform/web files.
 - [Source Code Reference](source-code-reference.md) — module-by-module runtime architecture and maintenance contracts.
 - [Test Suite Reference](test-suite-reference.md) — every test file, its evidence layer, and the behavior it protects.
 - [Automation and Workflow Reference](automation-reference.md) — every script and GitHub Actions workflow, including evidence boundaries.
 - [Configuration, Governance, and Asset Reference](configuration-reference.md) — package/tool configuration, GitHub metadata, policies, and branding assets.
 
-The Quality workflow enforces repository-file documentation coverage with `python scripts/check_repository_reference.py`. A newly tracked file must be named in the complete repository reference in the same change.
+The Quality workflow enforces repository-file documentation coverage with `python scripts/check_repository_reference.py`. The checker combines the main reference and maintained reference addenda; a newly tracked file must be named in that reference corpus in the same change.
 
 ## Reference
 
@@ -117,7 +119,8 @@ DocMergeForge is designed around a few non-negotiable rules:
 DocMergeForge currently exposes:
 
 - the `docmergeforge` command-line application;
-- the `docmergeforge-gui` PySide6 desktop application;
+- the `docmergeforge-gui` PySide6 desktop application on Windows, macOS, and Linux;
+- the `docmergeforge-web` responsive browser application, allowing Android, iOS/iPadOS, ChromeOS, Windows, macOS, Linux, and other modern browser clients to use the same merge engines through a DocMergeForge Python host;
 - reusable JSON project files;
 - preview-first project synchronization for rebuilding explicit numbered/in-range source selections;
 - the SQL Full Mastery 120-part guided preset;
@@ -126,6 +129,8 @@ DocMergeForge currently exposes:
 - a supervised Ubuntu LibreOffice UNO multi-document acceptance workflow plus an independent real process-group-cleanup lane;
 - a manually dispatchable Stress Acceptance workflow; and
 - a manual controlled self-hosted Microsoft Word Native Acceptance workflow containing both normal merge and controlled timeout-cleanup stages.
+
+The responsive mobile path is browser-based. The repository does not claim a native Android APK/AAB or iOS IPA package. See [Platform Support](platform-support.md) for the exact boundary and LAN security model.
 
 ## Documentation accuracy policy
 
