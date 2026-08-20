@@ -71,9 +71,12 @@ def main() -> int:
         access_token=token,
         max_upload_bytes=args.max_upload_mib * 1024 * 1024,
     )
-    scheme = "http"
-    display_host = "127.0.0.1" if args.host == "0.0.0.0" else args.host
-    print(f"DocMergeForge Web: {scheme}://{display_host}:{args.port}/")
+    if args.host in {"0.0.0.0", "::"}:
+        print(f"DocMergeForge Web listening on all interfaces at port {args.port}.")
+        print(f"On this computer: http://127.0.0.1:{args.port}/")
+        print(f"On another device: http://<this-computer-LAN-IP>:{args.port}/")
+    else:
+        print(f"DocMergeForge Web: http://{args.host}:{args.port}/")
     if token:
         print("Merge API access token is enabled.")
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
