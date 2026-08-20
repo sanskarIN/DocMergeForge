@@ -7,6 +7,8 @@ import pytest
 
 from docmergeforge.core.models import MergeProject
 from docmergeforge.project.sync import ProjectSyncPlan
+from docmergeforge.settings.config import AppSettings
+from docmergeforge.ui.recent import RecentProject
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -71,8 +73,55 @@ def _unchanged_plan(tmp_path: Path) -> ProjectSyncPlan:
     )
 
 
+def _patch_snapshot_and_plan(
+    monkeypatch: pytest.MonkeyPatch,
+    project: MergeProject,
+    plan: ProjectSyncPlan,
+) -> None:
+    monkeypatch.setattr(
+        desktop_entry,
+        "load_project_snapshot",
+        lambda _path: (project, "revision-123"),
+    )
+    monkeypatch.setattr(desktop_entry, "plan_project_sync", lambda _project: plan)
+
+
+class _StatusBar:
+    def __init__(self, events: list[str]) -> None:
+        self.events = events
+        self.messages: list[str] = []
+
+    def showMessage(self, message: str, _timeout: int = 0) -> None:
+        self.messages.append(message)
+        self.events.append("status")
+
+
+class _Logger:
+    def __init__(self, events: list[str]) -> None:
+        self.events = events
+
+    def info(self, *_args: object) -> None:
+        self.events.append("logged")
+
+
+class _WorkflowWindow:
+    def __init__(self, events: list[str]) -> None:
+        self.events = events
+        self.bar = _StatusBar(events)
+        self.logger = _Logger(events)
+
+    def statusBar(self) -> _StatusBar:
+        return self.bar
+
+    def _record_error(self, message: str) -> None:
+        self.events.append(f"error:{message}")
+
+    def _remember_project(self, _project: MergeProject, _path: Path) -> None:
+        self.events.append("remembered")
+
+
 @pytest.mark.integration
-def test_project_sync_window_exposes_accessible_action(
+def test_project_sync_window_exposes_accessible_actions(
     qt_app: QApplication,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -84,10 +133,12 @@ def test_project_sync_window_exposes_accessible_action(
 
     window = desktop_entry.ProjectSyncMainWindow()
     buttons = window.findChildren(QPushButton)
-    sync_buttons = [item for item in buttons if item.accessibleName() == "Synchronize project sources"]
+    by_name = {button.accessibleName(): button for button in buttons}
 
-    assert len(sync_buttons) == 1
-    assert sync_buttons[0].accessibleDescription()
+    assert "Synchronize project sources" in by_name
+    assert "Synchronize recent project" in by_name
+    assert by_name["Synchronize project sources"].accessibleDescription()
+    assert by_name["Synchronize recent project"].accessibleDescription()
     window.close()
 
 
@@ -132,6 +183,70 @@ def test_project_sync_dialog_blocks_ambiguous_duplicate_parts(
 
 
 @pytest.mark.integration
+def test_browse_sync_forwards_selected_project_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_path = tmp_path / "Book.json"
+    seen: list[Path] = []
+    monkeypatch.setattr(
+        desktop_entry.QFileDialog,
+        "getOpenFileName",
+        lambda *_args, **_kwargs: (str(project_path), ""),
+    )
+
+    class BrowseWindow:
+        def _synchronize_project_path(self, path: Path) -> None:
+            seen.append(path)
+
+    desktop_entry.ProjectSyncMainWindow._synchronize_project(BrowseWindow())
+    assert seen == [project_path]
+
+
+@pytest.mark.integration
+def test_recent_sync_forwards_selected_recent_project(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_path = tmp_path / "Book.json"
+    recent_project = RecentProject(
+        "Book",
+        project_path,
+        tmp_path / "source",
+        tmp_path / "output",
+    )
+    seen: list[Path] = []
+
+    class RecentStore:
+        def remove_missing(self) -> list[RecentProject]:
+            return [recent_project]
+
+    class AcceptedRecentDialog:
+        DialogCode = QDialog.DialogCode
+
+        def __init__(self, projects: list[RecentProject]) -> None:
+            assert projects == [recent_project]
+
+        def exec(self) -> int:
+            return int(QDialog.DialogCode.Accepted)
+
+        def selected(self) -> RecentProject:
+            return recent_project
+
+    monkeypatch.setattr(desktop_entry, "RecentProjectsDialog", AcceptedRecentDialog)
+
+    class RecentWindow:
+        app_settings = AppSettings(recent_project_history=True)
+        recent = RecentStore()
+
+        def _synchronize_project_path(self, path: Path) -> None:
+            seen.append(path)
+
+    desktop_entry.ProjectSyncMainWindow._synchronize_recent_project(RecentWindow())
+    assert seen == [project_path]
+
+
+@pytest.mark.integration
 def test_desktop_sync_requires_removal_approval_and_carries_revision(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -141,18 +256,7 @@ def test_desktop_sync_requires_removal_approval_and_carries_revision(
     plan = _plan(tmp_path, removed=True)
     project.selected_files = list(plan.current)
     events: list[str] = []
-
-    monkeypatch.setattr(
-        desktop_entry.QFileDialog,
-        "getOpenFileName",
-        lambda *_args, **_kwargs: (str(project_path), ""),
-    )
-    monkeypatch.setattr(
-        desktop_entry,
-        "load_project_snapshot",
-        lambda _path: (project, "revision-123"),
-    )
-    monkeypatch.setattr(desktop_entry, "plan_project_sync", lambda _project: plan)
+    _patch_snapshot_and_plan(monkeypatch, project, plan)
 
     class AcceptedDialog:
         DialogCode = QDialog.DialogCode
@@ -194,37 +298,14 @@ def test_desktop_sync_requires_removal_approval_and_carries_revision(
         return tmp_path / "Book.json.bak"
 
     monkeypatch.setattr(desktop_entry, "apply_project_sync", apply_sync)
-
-    class FakeStatusBar:
-        def showMessage(self, _message: str, _timeout: int = 0) -> None:
-            events.append("status")
-
-    class FakeLogger:
-        def info(self, *_args: object) -> None:
-            events.append("logged")
-
-    class FakeWindow:
-        logger = FakeLogger()
-        bar = FakeStatusBar()
-
-        def statusBar(self) -> FakeStatusBar:
-            return self.bar
-
-        def _record_error(self, _message: str) -> None:
-            events.append("error")
-
-        def _remember_project(self, saved_project: MergeProject, path: Path) -> None:
-            assert saved_project is project
-            assert path == project_path
-            events.append("remembered")
-
-    desktop_entry.ProjectSyncMainWindow._synchronize_project(FakeWindow())
+    window = _WorkflowWindow(events)
+    desktop_entry.ProjectSyncMainWindow._synchronize_project_path(window, project_path)
 
     assert events.index("preview-approved") < events.index("removals-approved")
     assert events.index("removals-approved") < events.index("applied")
     assert "remembered" in events
     assert "success-dialog" in events
-    assert "error" not in events
+    assert not any(event.startswith("error:") for event in events)
 
 
 @pytest.mark.integration
@@ -236,18 +317,7 @@ def test_desktop_sync_declined_removals_do_not_write_project(
     project = MergeProject("Book", [tmp_path / "source"], tmp_path / "output")
     plan = _plan(tmp_path, removed=True)
     project.selected_files = list(plan.current)
-
-    monkeypatch.setattr(
-        desktop_entry.QFileDialog,
-        "getOpenFileName",
-        lambda *_args, **_kwargs: (str(project_path), ""),
-    )
-    monkeypatch.setattr(
-        desktop_entry,
-        "load_project_snapshot",
-        lambda _path: (project, "revision-123"),
-    )
-    monkeypatch.setattr(desktop_entry, "plan_project_sync", lambda _project: plan)
+    _patch_snapshot_and_plan(monkeypatch, project, plan)
 
     class AcceptedDialog:
         DialogCode = QDialog.DialogCode
@@ -269,27 +339,12 @@ def test_desktop_sync_declined_removals_do_not_write_project(
         raise AssertionError("apply_project_sync must not run after removal approval is declined")
 
     monkeypatch.setattr(desktop_entry, "apply_project_sync", unexpected_apply)
-
-    class FakeStatusBar:
-        def __init__(self) -> None:
-            self.messages: list[str] = []
-
-        def showMessage(self, message: str, _timeout: int = 0) -> None:
-            self.messages.append(message)
-
-    class FakeWindow:
-        bar = FakeStatusBar()
-
-        def statusBar(self) -> FakeStatusBar:
-            return self.bar
-
-        def _record_error(self, _message: str) -> None:
-            raise AssertionError("no error should be recorded for an intentional cancellation")
-
-    window = FakeWindow()
-    desktop_entry.ProjectSyncMainWindow._synchronize_project(window)
+    events: list[str] = []
+    window = _WorkflowWindow(events)
+    desktop_entry.ProjectSyncMainWindow._synchronize_project_path(window, project_path)
 
     assert window.bar.messages[-1] == "Project synchronization cancelled."
+    assert "remembered" not in events
 
 
 @pytest.mark.integration
@@ -301,18 +356,7 @@ def test_desktop_sync_unchanged_plan_is_noop(
     project = MergeProject("Book", [tmp_path / "source"], tmp_path / "output")
     plan = _unchanged_plan(tmp_path)
     project.selected_files = list(plan.current)
-
-    monkeypatch.setattr(
-        desktop_entry.QFileDialog,
-        "getOpenFileName",
-        lambda *_args, **_kwargs: (str(project_path), ""),
-    )
-    monkeypatch.setattr(
-        desktop_entry,
-        "load_project_snapshot",
-        lambda _path: (project, "revision-123"),
-    )
-    monkeypatch.setattr(desktop_entry, "plan_project_sync", lambda _project: plan)
+    _patch_snapshot_and_plan(monkeypatch, project, plan)
 
     class ClosedDialog:
         DialogCode = QDialog.DialogCode
@@ -329,27 +373,12 @@ def test_desktop_sync_unchanged_plan_is_noop(
         raise AssertionError("unchanged synchronization must not write the project")
 
     monkeypatch.setattr(desktop_entry, "apply_project_sync", unexpected_apply)
-
-    class FakeStatusBar:
-        def __init__(self) -> None:
-            self.messages: list[str] = []
-
-        def showMessage(self, message: str, _timeout: int = 0) -> None:
-            self.messages.append(message)
-
-    class FakeWindow:
-        bar = FakeStatusBar()
-
-        def statusBar(self) -> FakeStatusBar:
-            return self.bar
-
-        def _record_error(self, _message: str) -> None:
-            raise AssertionError("unchanged synchronization is not an error")
-
-    window = FakeWindow()
-    desktop_entry.ProjectSyncMainWindow._synchronize_project(window)
+    events: list[str] = []
+    window = _WorkflowWindow(events)
+    desktop_entry.ProjectSyncMainWindow._synchronize_project_path(window, project_path)
 
     assert window.bar.messages[-1] == "Project sources are already synchronized."
+    assert "remembered" not in events
 
 
 @pytest.mark.integration
@@ -360,19 +389,7 @@ def test_desktop_sync_surfaces_stale_revision_failure(
     project_path = tmp_path / "Book.json"
     project = MergeProject("Book", [tmp_path / "source"], tmp_path / "output")
     plan = _plan(tmp_path)
-    errors: list[str] = []
-
-    monkeypatch.setattr(
-        desktop_entry.QFileDialog,
-        "getOpenFileName",
-        lambda *_args, **_kwargs: (str(project_path), ""),
-    )
-    monkeypatch.setattr(
-        desktop_entry,
-        "load_project_snapshot",
-        lambda _path: (project, "revision-123"),
-    )
-    monkeypatch.setattr(desktop_entry, "plan_project_sync", lambda _project: plan)
+    _patch_snapshot_and_plan(monkeypatch, project, plan)
 
     class AcceptedDialog:
         DialogCode = QDialog.DialogCode
@@ -389,25 +406,17 @@ def test_desktop_sync_surfaces_stale_revision_failure(
         raise ValueError("project changed on disk")
 
     monkeypatch.setattr(desktop_entry, "apply_project_sync", stale_apply)
+    critical_messages: list[str] = []
     monkeypatch.setattr(
         desktop_entry.QMessageBox,
         "critical",
-        lambda _parent, _title, message: errors.append(message),
+        lambda _parent, _title, message: critical_messages.append(message),
     )
 
-    class FakeStatusBar:
-        def showMessage(self, _message: str, _timeout: int = 0) -> None:
-            pass
+    events: list[str] = []
+    window = _WorkflowWindow(events)
+    desktop_entry.ProjectSyncMainWindow._synchronize_project_path(window, project_path)
 
-    class FakeWindow:
-        bar = FakeStatusBar()
-
-        def statusBar(self) -> FakeStatusBar:
-            return self.bar
-
-        def _record_error(self, message: str) -> None:
-            errors.append(message)
-
-    desktop_entry.ProjectSyncMainWindow._synchronize_project(FakeWindow())
-
-    assert errors == ["project changed on disk", "project changed on disk"]
+    assert "error:project changed on disk" in events
+    assert critical_messages == ["project changed on disk"]
+    assert "remembered" not in events
