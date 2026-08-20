@@ -7,10 +7,13 @@ from pathlib import Path
 def validate_build_root(root: Path) -> Path:
     """Validate and return a resolved DocMergeForge repository root."""
     resolved = root.resolve()
+    ui = resolved / "src" / "docmergeforge" / "ui"
     required = (
         resolved / "pyproject.toml",
-        resolved / "src" / "docmergeforge" / "ui" / "main.py",
-        resolved / "src" / "docmergeforge" / "ui" / "packaged_entry.py",
+        ui / "main.py",
+        ui / "desktop_entry.py",
+        ui / "project_sync_dialog.py",
+        ui / "packaged_entry.py",
     )
     missing = [path.relative_to(resolved) for path in required if not path.is_file()]
     if missing:
