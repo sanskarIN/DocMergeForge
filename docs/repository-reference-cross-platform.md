@@ -12,6 +12,7 @@ This addendum extends the main [Complete Repository File Reference](repository-r
 ## Cross-platform desktop follow-up
 
 - `src/docmergeforge/ui/project_sync_dialog.py` — accessible desktop preview surface for guarded reusable-project source synchronization. It presents current/proposed/add/remove/reorder/duplicate/missing evidence and exposes apply only when the existing synchronization plan is both changed and unambiguous; removal approval remains a separate workflow step.
+- `src/docmergeforge/ui/desktop_entry.py` — desktop startup wrapper and `ProjectSyncMainWindow` extension that adds the synchronization action without duplicating synchronization logic. It loads project + exact revision together, builds the shared preview plan, requires separate approval for removals, applies through `apply_project_sync(...)`, and preserves the existing desktop startup path.
 
 ## Cross-platform tests
 
