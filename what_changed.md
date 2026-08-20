@@ -4,6 +4,60 @@ This file records the current DocMergeForge development pass, verification evide
 
 An item is not treated as finished merely because code was pushed. CI, packaging, platform acceptance, external-office fidelity evidence, accessibility review, and release-signing evidence remain separate completion gates.
 
+## 2026-08-20 — Cross-platform browser security, LAN token safety, and reference synchronization
+
+### Changed
+- Hardened `src/docmergeforge/web/app.py` so LAN access tokens are no longer read from `?token=...` query parameters. The browser now provides an explicit masked **Access token (LAN only)** field and supports one-time `#token=...` fragment bootstrap instead.
+- Fragment tokens are moved into tab-scoped `sessionStorage` and removed from the visible address immediately. Because URL fragments are not included in the HTTP request, this avoids deliberately putting the token into the web-host request target/access log.
+- Browser merge requests continue to send configured tokens only in `X-DocMergeForge-Token`.
+- Upload saving now closes every `UploadFile` in a `finally` path, including unsupported-type and configured-size-limit failures.
+- Unexpected PDF/DOCX engine exceptions are now logged on the DocMergeForge host and returned to the remote browser as a generic `422` detail instead of reflecting raw exception text such as internal filesystem paths.
+- The browser shell now sends a Content Security Policy plus anti-framing, no-referrer, no-content-sniffing, and restricted browser-permissions headers.
+- `docmergeforge-web` startup guidance now tells token-enabled operators to use the browser token field or a trusted `#token=...` fragment and explicitly warns against `?token=...` query parameters.
+
+### Regression coverage
+- Expanded `tests/integration/test_web_app.py` to verify:
+  - the browser shell contains the LAN access-token field;
+  - fragment token bootstrap is present and the old query-token bootstrap is absent;
+  - the maintained referrer/content-type/frame/CSP response headers are applied;
+  - unexpected engine failures return the generic remote error and do not expose an injected sensitive host path;
+  - the configured upload-size limit fails closed with HTTP `413`;
+  - the existing PDF, DOCX, token-authentication, platform/health, filename-safety, and mixed-format behaviors remain represented in the integration surface.
+- Existing `tests/unit/test_web_main.py` continues to protect loopback host detection and safe web-parser defaults.
+- Existing `tests/unit/test_platforms.py` continues to protect the maintained platform capability matrix.
+
+### Documentation synchronized
+- `docs/platform-support.md` now documents browser token entry, fragment handoff, the query-string warning, upload-handle cleanup, generic remote failure details, shell security headers, and the HTTPS/trusted-network boundary.
+- `docs/security.md` now treats browser-to-host traffic, web access tokens, and reverse-proxy/network configuration as explicit trust boundaries and documents the maintained browser security controls.
+- `docs/installation.md` now gives a safe LAN token workflow, a `#token=...` example, the `?token=...` prohibition, and HTTPS guidance for traffic outside a trusted local environment.
+- `docs/source-code-reference.md` now includes the third executable entry point (`docmergeforge-web`), `src/docmergeforge/platforms.py`, and the complete `src/docmergeforge/web/` package with its security/cleanup contracts.
+- `docs/test-suite-reference.md` now maps `tests/integration/test_web_app.py`, `tests/unit/test_platforms.py`, and `tests/unit/test_web_main.py` instead of leaving the cross-platform runtime tests outside the document that claims to map the complete maintained suite.
+
+### Commits in this continuation
+- `a05b677fef448d01e46eb288b7c2381caa806ba5` — `fix(web): harden LAN token and error handling`.
+- `d24c820b238e2e68c56e877361b85e7788a7d08b` — `test(web): cover secure browser token flow`.
+- `117bc16f4ed8efd3a27ebcf995ff1716ccc2d998` — `docs(web): document safer LAN token handoff`.
+- `5fd740e5886cb16468a6b25fd30a7e2e9cd58827` — `docs(security): define browser and LAN trust boundary`.
+- `3da16a651685d3f3c61f48c8b830c28dece7cd84` — `docs(install): explain secure browser token entry`.
+- `b7a5b2a919b59cee08f67ba0da1b66d908a1d33a` — `feat(web): print safer LAN token guidance`.
+- `92c839c618caeaecb0a5c8b6ee6cd75cfb415676` — `docs(reference): cover platform and web runtime modules`.
+- `b9602545ccebd2ec99f0dce0333dc2babd2825eb` — `docs(test): map web and platform regression coverage`.
+
+### Verification Status
+- This continuation started from cross-platform documentation checkpoint `2156997c4acf3ba8ec3cbf3a551c7293ab65177a` on `main`.
+- Latest implementation/test/documentation checkpoint immediately before this development-record update: `b9602545ccebd2ec99f0dce0333dc2babd2825eb`.
+- The repository still declares version `0.1.0` and remains pre-stable. This hardening pass does not create or claim a `v1.0.0` release.
+- The source and regression tests above are committed implementation evidence. No fresh current-head Ruff, Black, strict mypy, documentation-link, repository-reference, pytest/coverage, Quality, 120-Part Regression, Build Smoke, Security/CodeQL, or browser/device acceptance pass is claimed here without an observed run for the applicable checkpoint.
+- Browser support continues to mean a responsive client connected to a DocMergeForge Python host. This work does not claim a native Android APK/AAB or iOS IPA, and it does not claim fully offline in-browser document processing.
+- The LAN access token authenticates merge requests but is not transport encryption. HTTPS remains required when confidentiality is needed across an untrusted network.
+
+### Remaining cross-platform / release work
+- Observe and review a current-head Quality run and fix any lint, formatting, typing, test, documentation-link, or repository-reference failure without weakening maintained rules.
+- Perform representative manual browser/device acceptance across Android, iOS/iPadOS, ChromeOS, and desktop browsers before turning the automated host/API coverage into a broader compatibility claim.
+- Keep the built-in server limited to loopback/trusted LAN usage unless it is deployed behind an appropriately hardened HTTPS reverse proxy/authentication boundary.
+- Continue independent release gates for native-office fidelity, measured multi-gigabyte stress, human accessibility, clean-machine packaged applications, Windows signing, macOS signing/notarization, and final release evidence.
+- Do not represent browser-delivered mobile access as native mobile packaging unless separate native packages, storage/lifecycle behavior, signing/store distribution, and real-device acceptance are implemented and verified.
+
 ## 2026-08-19 — Guarded resume recovery-order follow-up
 
 ### Changed
