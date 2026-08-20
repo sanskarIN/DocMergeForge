@@ -19,6 +19,7 @@ This addendum extends the main [Complete Repository File Reference](repository-r
 - `tests/unit/test_platforms.py` — verifies the maintained platform matrix and privacy-safe runtime payload contract.
 - `tests/unit/test_web_main.py` — verifies loopback recognition and safe web-server defaults.
 - `tests/integration/test_web_app.py` — exercises browser API health/platform responses, PDF merging, DOCX merging, token protection, POSIX/Windows-style filename safety, and mixed-format rejection.
+- `tests/integration/test_project_sync_desktop.py` — verifies the accessible desktop synchronization preview, duplicate-part apply blocking, exact-revision propagation, separate removal approval, and cancellation-without-write behavior.
 
 ## Cross-platform documentation
 
@@ -29,9 +30,10 @@ This addendum extends the main [Complete Repository File Reference](repository-r
 
 These paths were already documented in the main repository reference and remain covered there:
 
-- `pyproject.toml` — declares the optional web runtime, HTTPX development dependency, web classifier/keywords, and `docmergeforge-web` console entry point.
+- `pyproject.toml` — declares the optional web runtime, HTTPX development dependency, web classifier/keywords, and `docmergeforge-web` console entry point. The desktop console script is routed through the synchronization-enabled desktop entry wrapper.
 - `.github/workflows/quality.yml` — installs `.[dev,web]` so browser code participates in lint, type checking, documentation checks, and the full test suite on Python 3.12 and 3.13.
 - `.github/workflows/build-smoke.yml` — installs the web runtime and invokes `docmergeforge-web --help` on Ubuntu, Windows, and macOS in addition to the existing desktop build checks.
+- `src/docmergeforge/ui/packaged_entry.py` — uses the synchronization-enabled desktop window for packaged startup and packaged GUI smoke while preserving the existing real PDF/DOCX publication smoke.
 - `scripts/check_repository_reference.py` — treats the main reference plus this cross-platform addendum as one coverage corpus.
 - `tests/unit/test_repository_reference.py` — verifies both explicit single-reference behavior and the maintained default multi-reference corpus.
 - `docs/README.md` — exposes the platform guide, browser execution surface, and reference addendum from the documentation portal.
