@@ -4,13 +4,21 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox, QPushButton, QVBoxLayout
+from PySide6.QtWidgets import (
+    QApplication,
+    QFileDialog,
+    QHBoxLayout,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+)
 
 from docmergeforge.diagnostics.logging import configure_logging
 from docmergeforge.project.store import load_project_snapshot
 from docmergeforge.project.sync import apply_project_sync, plan_project_sync
 from docmergeforge.settings.config import AppSettings
 from docmergeforge.ui import main as ui_main
+from docmergeforge.ui.dialogs import RecentProjectsDialog
 from docmergeforge.ui.paths import log_path, settings_path
 from docmergeforge.ui.project_sync_dialog import ProjectSyncDialog
 from docmergeforge.ui.theme import apply_text_scale, apply_theme
@@ -21,21 +29,35 @@ class ProjectSyncMainWindow(ui_main.MainWindow):
 
     def __init__(self) -> None:
         super().__init__()
-        button = QPushButton("Synchronize Project Sources")
-        button.setAccessibleName("Synchronize project sources")
-        button.setAccessibleDescription(
-            "Preview and optionally apply a guarded refresh of a saved project's selected files."
+        browse_button = QPushButton("Synchronize Project Sources")
+        browse_button.setAccessibleName("Synchronize project sources")
+        browse_button.setAccessibleDescription(
+            "Browse for a saved project, preview source-selection changes, and optionally apply them."
         )
-        button.setMinimumHeight(58)
-        button.clicked.connect(self._synchronize_project)
+        browse_button.setMinimumHeight(58)
+        browse_button.clicked.connect(self._synchronize_project)
+
+        recent_button = QPushButton("Synchronize Recent Project")
+        recent_button.setAccessibleName("Synchronize recent project")
+        recent_button.setAccessibleDescription(
+            "Choose a saved recent project, then use the same guarded synchronization preview."
+        )
+        recent_button.setMinimumHeight(58)
+        recent_button.clicked.connect(self._synchronize_recent_project)
+
+        sync_row = QHBoxLayout()
+        sync_row.addWidget(browse_button)
+        sync_row.addWidget(recent_button)
 
         central = self.centralWidget()
         layout = central.layout() if central is not None else None
         if isinstance(layout, QVBoxLayout):
-            layout.insertWidget(max(0, layout.count() - 1), button)
+            layout.insertLayout(max(0, layout.count() - 1), sync_row)
         else:
-            button.setParent(central)
-            button.show()
+            browse_button.setParent(central)
+            recent_button.setParent(central)
+            browse_button.show()
+            recent_button.show()
 
     def _synchronize_project(self) -> None:
         project_file, _ = QFileDialog.getOpenFileName(
@@ -44,10 +66,30 @@ class ProjectSyncMainWindow(ui_main.MainWindow):
             "",
             "DocMergeForge Project (*.json)",
         )
-        if not project_file:
+        if project_file:
+            self._synchronize_project_path(Path(project_file))
+
+    def _synchronize_recent_project(self) -> None:
+        if not self.app_settings.recent_project_history:
+            QMessageBox.information(
+                self,
+                "Recent Projects",
+                "Recent project history is disabled in Settings.",
+            )
+            return
+        projects = self.recent.remove_missing()
+        if not projects:
+            QMessageBox.information(self, "Recent Projects", "No saved recent projects were found.")
             return
 
-        path = Path(project_file)
+        dialog = RecentProjectsDialog(projects)
+        if dialog.exec() != int(dialog.DialogCode.Accepted):
+            return
+        selected = dialog.selected()
+        if selected is not None:
+            self._synchronize_project_path(selected.project_file)
+
+    def _synchronize_project_path(self, path: Path) -> None:
         try:
             project, revision = load_project_snapshot(path)
             plan = plan_project_sync(project)
