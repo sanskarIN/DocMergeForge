@@ -6,7 +6,7 @@
 
 **Discover correctly. Order correctly. Merge safely. Validate everything. Preserve the originals. Keep companion code independent.**
 
-DocMergeForge is a local-first cross-platform desktop and CLI application for assembling very large multi-part publications into validated master PDF and DOCX editions.
+DocMergeForge is a local-first document-merging toolkit with native desktop/CLI workflows on Windows, macOS, and Linux plus a responsive browser client for Android, iOS/iPadOS, ChromeOS, desktop browsers, and other modern browser platforms connected to a DocMergeForge Python host.
 
 > **Made by the Sanskar**
 
@@ -24,6 +24,7 @@ Start with:
 
 - [Installation](docs/installation.md)
 - [Getting Started](docs/getting-started.md)
+- [Platform Support](docs/platform-support.md)
 - [Desktop User Guide](docs/desktop-guide.md)
 - [CLI Reference](docs/cli-reference.md)
 - [Project Synchronization](docs/project-sync.md)
@@ -71,7 +72,8 @@ Technical/safety/release references include:
 - PDF/DOCX outputs are validated before publication.
 - Full project outputs and generated evidence are staged and promoted as one transaction.
 - Interrupted promotion can be recovered through a durable journal and fail-closed fingerprint checks.
-- No manuscript content is uploaded by the normal local-first workflow.
+- Native desktop/CLI workflows do not upload manuscript content to a DocMergeForge-operated cloud service.
+- Browser mode sends selected files only to the DocMergeForge Python host the user connected to; LAN/remote transport is a separate trust boundary documented below.
 - No DocMergeForge account is required.
 - Encrypted-PDF passwords are not persisted by the application.
 - External DOCX fidelity acceptance writes separate validated copies and never silently changes the production merge mode.
@@ -98,10 +100,10 @@ python -m pip install --upgrade pip
 pip install -e .
 ```
 
-Developer environment:
+Developer environment including responsive-web tests:
 
 ```bash
-pip install -e ".[dev]"
+pip install -e ".[dev,web]"
 pre-commit install
 pytest
 ```
@@ -117,6 +119,33 @@ docmergeforge-gui
 The desktop application provides project setup, validation/preflight, ordering, merge progress/cancellation, reports, recent projects/recovery, audit/compare, settings, help/support, and SQL preset workflows.
 
 See [Desktop User Guide](docs/desktop-guide.md).
+
+## Web and mobile-browser access
+
+Install the optional web runtime and start the safest loopback-only host:
+
+```bash
+pip install -e ".[web]"
+docmergeforge-web
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8765/
+```
+
+For a phone, tablet, Chromebook, or another computer on the same trusted LAN, require token protection:
+
+```bash
+docmergeforge-web --host 0.0.0.0 --token auto
+```
+
+Open `http://HOST-LAN-IP:8765/` on the other device and enter the generated token in **Access token (LAN only)**. A trusted one-time link may use `#token=YOUR_LONG_RANDOM_TOKEN`; do not use `?token=...`, because query parameters can be recorded in HTTP access logs and surrounding infrastructure.
+
+Browser mode reuses the shared Python PDF/DOCX engines on the selected host. It is not represented as a native Android APK/AAB, native iOS IPA, or fully offline in-browser document engine. Plain HTTP on an untrusted network does not provide transport confidentiality; use HTTPS and a hardened reverse-proxy/authentication layer for traffic outside a trusted local environment.
+
+See [Platform Support](docs/platform-support.md), [Installation](docs/installation.md), and [Security Model](docs/security.md).
 
 ## CLI
 
@@ -199,6 +228,8 @@ python scripts/check_libreoffice_uno_merge_acceptance.py \
 ```
 
 This does not change the normal `docmergeforge docx` engine or mark LibreOffice production-ready.
+
+The controlled Word path remains a separate acceptance-only workflow on a dedicated Windows/Word environment; it is not a portable runtime dependency.
 
 SQL preset dry run:
 
@@ -295,7 +326,7 @@ pytest
 
 The repository-reference checker uses the tracked `git ls-files` set and requires every tracked path to be explicitly cataloged in `docs/repository-reference.md`, preventing new source/tests/workflows/config/assets/docs from silently becoming undocumented.
 
-CI also exercises the generated 120-part regression, cross-platform desktop build/accessibility smoke, CodeQL security analysis, package building, a real LibreOffice one-document fidelity lane, supervised real Writer multi-document insertion and process cleanup lanes, and a manual controlled Microsoft Word native acceptance workflow.
+CI also exercises the responsive web/API merge tests, generated 120-part regression, cross-platform desktop build/accessibility smoke, CodeQL security analysis, package building, a real LibreOffice one-document fidelity lane, supervised real Writer multi-document insertion and process cleanup lanes, and a manual controlled Microsoft Word native acceptance workflow.
 
 See [Testing and CI](docs/testing-and-ci.md) and [Automation and Workflow Reference](docs/automation-reference.md).
 
@@ -331,22 +362,29 @@ See [Building Executables](docs/building-executables.md) and [Release Packaging]
 
 ## Privacy and security
 
-Documents stay local under the normal workflow, passwords are not persisted, diagnostics are designed to exclude manuscript body text/passwords, companion archives are not auto-extracted, and private fidelity corpus execution does not upload source documents.
+Native desktop/CLI document processing is local-first and does not require a DocMergeForge account or upload manuscripts to a DocMergeForge-operated cloud service. Browser mode adds a browser-to-Python-host network boundary: selected manuscript bytes and any shared PDF password travel to the host you chose.
+
+The built-in web host defaults to loopback. Non-loopback binds require an access token, and the browser token is entered in a masked field or handled through a `#token=...` fragment rather than a query parameter. Token authentication does not encrypt traffic, so use HTTPS plus appropriate reverse-proxy/authentication hardening when traffic leaves a trusted local environment.
+
+Passwords are not persisted to project files, diagnostics are designed to exclude manuscript body text/passwords, companion archives are not auto-extracted, and private fidelity corpus execution does not upload source documents to a project-operated service.
 
 Common private corpus/evidence directories plus local transaction state are ignored by default, but `.gitignore` is only a safety net. Review every staged file before committing or uploading artifacts.
 
-Fidelity corpus reports replace corpus/output roots with relative/placeheld paths, but generated DOCX copies, hashes, filenames, process/environment evidence, and third-party office errors can still be sensitive and should be reviewed before sharing.
+Fidelity corpus reports replace corpus/output roots with relative/placeheld paths, but generated DOCX copies, hashes, filenames, process/environment evidence, host logs, and third-party office errors can still be sensitive and should be reviewed before sharing.
 
-Review paths/filenames in project files, project-sync previews, reports, manifests, diagnostics, audit output, and fidelity evidence before sharing them publicly.
+Review paths/filenames in project files, project-sync previews, reports, manifests, diagnostics, audit output, browser-host logs, and fidelity evidence before sharing them publicly.
 
 - [Privacy](docs/privacy.md)
 - [Security Model](docs/security.md)
+- [Platform Support](docs/platform-support.md)
 - [Security reporting policy](SECURITY.md)
 - [Diagnostics and Logging](docs/diagnostics.md)
 
 ## Accessibility
 
 Important desktop controls expose explicit accessible metadata and keyboard behavior, with an offscreen accessibility smoke exercised in cross-platform Build Smoke.
+
+The responsive browser shell uses semantic labels/status output and mobile-friendly controls, but automated host/API tests are not represented as complete assistive-technology acceptance across mobile/desktop browsers.
 
 Automated metadata checks are not represented as full human accessibility certification; screen-reader/high-contrast/scaling/reduced-motion acceptance remains part of the stable-release gate.
 
@@ -356,7 +394,7 @@ See [Accessibility](docs/accessibility.md).
 
 DocMergeForge remains pre-stable. Green source CI and unsigned PyInstaller archives do not by themselves justify a `v1.0.0` production-ready claim.
 
-Open acceptance areas include measured multi-gigabyte stress, representative real-world fidelity, reviewed supervised LibreOffice UNO multi-document/process-cleanup runs plus broader section/page-layout fidelity before LibreOffice native mode is claimed, controlled Microsoft Word normal/forced-timeout/corpus/manual acceptance before Word native mode is claimed, human accessibility, clean-machine interactive packaged-app acceptance, additional physical/filesystem/network failure modes where claimed, and platform signing/notarization where distributed.
+Open acceptance areas include representative Android/iOS/iPadOS/ChromeOS/desktop-browser acceptance for the responsive client, measured multi-gigabyte stress, representative real-world fidelity, reviewed supervised LibreOffice UNO multi-document/process-cleanup runs plus broader section/page-layout fidelity before LibreOffice native mode is claimed, controlled Microsoft Word normal/forced-timeout/corpus/manual acceptance before Word native mode is claimed, human accessibility, clean-machine interactive packaged-app acceptance, additional physical/filesystem/network failure modes where claimed, and platform signing/notarization where distributed.
 
 Controlled abrupt-process recovery and Linux real-`ENOSPC` acceptance already have recorded evidence; they are not reused as proof for the separate open environments above.
 
