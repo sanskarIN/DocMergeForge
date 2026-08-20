@@ -116,9 +116,11 @@ Full platform instructions: [docs/installation.md](docs/installation.md).
 docmergeforge-gui
 ```
 
-The desktop application provides project setup, validation/preflight, ordering, merge progress/cancellation, reports, recent projects/recovery, audit/compare, settings, help/support, and SQL preset workflows.
+The desktop application provides project setup, guarded saved-project source synchronization, validation/preflight, ordering, merge progress/cancellation, reports, recent projects/recovery, audit/compare, settings, help/support, and SQL preset workflows.
 
-See [Desktop User Guide](docs/desktop-guide.md).
+**Synchronize Project Sources** reuses the same project synchronization planner and guarded persistence path as the CLI. It shows a read-only current/proposed/add/remove/reorder/duplicate/missing preview, disables apply for ambiguous same-kind duplicate parts, requires a separate confirmation before removing paths from `selected_files`, creates a versioned project backup for changed writes, and carries the exact project revision captured before preview into the final stale-write guard. Synchronization changes project metadata only and never deletes manuscript source files.
+
+See [Desktop User Guide](docs/desktop-guide.md) and [Project Synchronization](docs/project-sync.md).
 
 ## Web and mobile-browser access
 
@@ -191,7 +193,7 @@ Apply a reviewed addition/reorder-only proposal:
 docmergeforge project-sync --project "./Book.json" --apply
 ```
 
-If the preview reports removals, review them individually before approving both mutation and removals with `--apply --allow-removals`. Synchronization changes project metadata only; it does not delete manuscript source files. See [Project Synchronization](docs/project-sync.md).
+If the preview reports removals, review them individually before approving both mutation and removals with `--apply --allow-removals`. Synchronization changes project metadata only; it does not delete manuscript source files. The desktop **Synchronize Project Sources** action follows the same review-first rule with a separate removal-confirmation dialog. See [Project Synchronization](docs/project-sync.md).
 
 Inspect DOCX fidelity capabilities:
 
@@ -324,9 +326,9 @@ python scripts/check_repository_reference.py
 pytest
 ```
 
-The repository-reference checker uses the tracked `git ls-files` set and requires every tracked path to be explicitly cataloged in `docs/repository-reference.md`, preventing new source/tests/workflows/config/assets/docs from silently becoming undocumented.
+The repository-reference checker uses the tracked `git ls-files` set and requires every tracked path to be explicitly cataloged in the maintained repository-reference corpus (`docs/repository-reference.md` plus maintained addenda), preventing new source/tests/workflows/config/assets/docs from silently becoming undocumented.
 
-CI also exercises the responsive web/API merge tests, generated 120-part regression, cross-platform desktop build/accessibility smoke, CodeQL security analysis, package building, a real LibreOffice one-document fidelity lane, supervised real Writer multi-document insertion and process cleanup lanes, and a manual controlled Microsoft Word native acceptance workflow.
+CI also exercises the responsive web/API merge tests, guarded desktop project-synchronization integration coverage, generated 120-part regression, cross-platform desktop build/accessibility smoke, CodeQL security analysis, package building, a real LibreOffice one-document fidelity lane, supervised real Writer multi-document insertion and process cleanup lanes, and a manual controlled Microsoft Word native acceptance workflow.
 
 See [Testing and CI](docs/testing-and-ci.md) and [Automation and Workflow Reference](docs/automation-reference.md).
 
@@ -372,7 +374,7 @@ Common private corpus/evidence directories plus local transaction state are igno
 
 Fidelity corpus reports replace corpus/output roots with relative/placeheld paths, but generated DOCX copies, hashes, filenames, process/environment evidence, host logs, and third-party office errors can still be sensitive and should be reviewed before sharing.
 
-Review paths/filenames in project files, project-sync previews, reports, manifests, diagnostics, audit output, browser-host logs, and fidelity evidence before sharing them publicly.
+Review paths/filenames in project files, desktop/CLI project-sync previews, reports, manifests, diagnostics, audit output, browser-host logs, and fidelity evidence before sharing them publicly.
 
 - [Privacy](docs/privacy.md)
 - [Security Model](docs/security.md)
@@ -382,7 +384,7 @@ Review paths/filenames in project files, project-sync previews, reports, manifes
 
 ## Accessibility
 
-Important desktop controls expose explicit accessible metadata and keyboard behavior, with an offscreen accessibility smoke exercised in cross-platform Build Smoke.
+Important desktop controls expose explicit accessible metadata and keyboard behavior, including the guarded project-synchronization action and read-only synchronization preview, with an offscreen accessibility smoke exercised in cross-platform Build Smoke.
 
 The responsive browser shell uses semantic labels/status output and mobile-friendly controls, but automated host/API tests are not represented as complete assistive-technology acceptance across mobile/desktop browsers.
 
