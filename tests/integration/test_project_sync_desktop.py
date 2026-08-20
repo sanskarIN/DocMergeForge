@@ -56,6 +56,21 @@ def _plan(
     )
 
 
+def _unchanged_plan(tmp_path: Path) -> ProjectSyncPlan:
+    selected = tmp_path / "Part 1.pdf"
+    return ProjectSyncPlan(
+        current=(selected,),
+        proposed=(selected,),
+        added=(),
+        removed=(),
+        reordered=False,
+        duplicate_pdf_parts=(),
+        duplicate_docx_parts=(),
+        missing_pdf_parts=(),
+        missing_docx_parts=(),
+    )
+
+
 @pytest.mark.integration
 def test_project_sync_window_exposes_accessible_action(
     qt_app: QApplication,
@@ -275,6 +290,66 @@ def test_desktop_sync_declined_removals_do_not_write_project(
     desktop_entry.ProjectSyncMainWindow._synchronize_project(window)
 
     assert window.bar.messages[-1] == "Project synchronization cancelled."
+
+
+@pytest.mark.integration
+def test_desktop_sync_unchanged_plan_is_noop(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_path = tmp_path / "Book.json"
+    project = MergeProject("Book", [tmp_path / "source"], tmp_path / "output")
+    plan = _unchanged_plan(tmp_path)
+    project.selected_files = list(plan.current)
+
+    monkeypatch.setattr(
+        desktop_entry.QFileDialog,
+        "getOpenFileName",
+        lambda *_args, **_kwargs: (str(project_path), ""),
+    )
+    monkeypatch.setattr(
+        desktop_entry,
+        "load_project_snapshot",
+        lambda _path: (project, "revision-123"),
+    )
+    monkeypatch.setattr(desktop_entry, "plan_project_sync", lambda _project: plan)
+
+    class ClosedDialog:
+        DialogCode = QDialog.DialogCode
+
+        def __init__(self, _path: Path, _plan: ProjectSyncPlan) -> None:
+            pass
+
+        def exec(self) -> int:
+            return int(QDialog.DialogCode.Rejected)
+
+    monkeypatch.setattr(desktop_entry, "ProjectSyncDialog", ClosedDialog)
+
+    def unexpected_apply(*_args: object, **_kwargs: object) -> Path:
+        raise AssertionError("unchanged synchronization must not write the project")
+
+    monkeypatch.setattr(desktop_entry, "apply_project_sync", unexpected_apply)
+
+    class FakeStatusBar:
+        def __init__(self) -> None:
+            self.messages: list[str] = []
+
+        def showMessage(self, message: str, _timeout: int = 0) -> None:
+            self.messages.append(message)
+
+    class FakeWindow:
+        bar = FakeStatusBar()
+
+        def statusBar(self) -> FakeStatusBar:
+            return self.bar
+
+        def _record_error(self, _message: str) -> None:
+            raise AssertionError("unchanged synchronization is not an error")
+
+    window = FakeWindow()
+    desktop_entry.ProjectSyncMainWindow._synchronize_project(window)
+
+    assert window.bar.messages[-1] == "Project sources are already synchronized."
 
 
 @pytest.mark.integration
