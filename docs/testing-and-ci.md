@@ -1,10 +1,18 @@
 # Testing and CI
 
-DocMergeForge uses layered automated checks because document merging, filesystem publication, desktop UI behavior, packaging, documentation, supply-chain evidence, external-office automation, and security fail in different ways. A green unit-test suite alone is not sufficient release evidence.
+DocMergeForge uses layered automated checks because document merging, filesystem publication, desktop UI behavior, responsive browser/API behavior, packaging, documentation, supply-chain evidence, external-office automation, and security fail in different ways. A green unit-test suite alone is not sufficient release evidence.
 
 For test ownership and automation details, also see [Test Suite Reference](test-suite-reference.md) and [Automation and Workflow Reference](automation-reference.md).
 
 ## Local quality commands
+
+Install the developer + responsive-web test dependencies before running the complete maintained suite:
+
+```bash
+pip install -e ".[dev,web]"
+```
+
+Then run:
 
 ```bash
 pre-commit validate-config
@@ -20,15 +28,17 @@ pytest --cov=docmergeforge --cov-report=term-missing
 
 ### Unit tests
 
-Focused coverage includes part detection/natural sorting, output naming, settings/project serialization, storage/writeability, transaction recovery, cross-process locking, PDF/DOCX helpers, native DOCX command/promotion safety, external-office round-trip adapters, supervised LibreOffice UNO insertion/evidence/process policy, fidelity capability gates/evidence, OOXML risk scanning, Microsoft Word native-merge boundaries, page-number section evidence, exact Word process cleanup, cleanup-failure escalation, packaging arguments, build provenance, documentation-link resolution, and complete repository-reference coverage.
+Focused coverage includes part detection/natural sorting, output naming, settings/project serialization, storage/writeability, transaction recovery, cross-process locking, PDF/DOCX helpers, platform capability serialization, safe web-host parser/loopback defaults, native DOCX command/promotion safety, external-office round-trip adapters, supervised LibreOffice UNO insertion/evidence/process policy, fidelity capability gates/evidence, OOXML risk scanning, Microsoft Word native-merge boundaries, page-number section evidence, exact Word process cleanup, cleanup-failure escalation, packaging arguments, build provenance, documentation-link resolution, and complete repository-reference coverage.
 
 ### Integration tests
 
-Marked `integration`. They exercise multiple components together, including real PDF/DOCX fixtures, merge flows, CLI behavior, fidelity evidence generation, supervised LibreOffice UNO smoke/explicit-command boundaries, real POSIX process-group cleanup, Word merge/timeout acceptance harness behavior through mocked external-process boundaries, UI metadata, provenance command execution, packaged-entry smoke behavior, abrupt child-process recovery, and privacy-safe resource evidence.
+Marked `integration`. They exercise multiple components together, including real PDF/DOCX fixtures, merge flows, responsive FastAPI PDF/DOCX upload/merge/download behavior, browser token enforcement/security-header/error-privacy/upload-limit behavior, CLI behavior, fidelity evidence generation, supervised LibreOffice UNO smoke/explicit-command boundaries, real POSIX process-group cleanup, Word merge/timeout acceptance harness behavior through mocked external-process boundaries, UI metadata, provenance command execution, packaged-entry smoke behavior, abrupt child-process recovery, and privacy-safe resource evidence.
 
 ```bash
 pytest -m integration
 ```
+
+The responsive web integration tests run against the Python application with generated document fixtures. They prove host/API behavior in the test environment; they do not prove every Android/iOS/iPadOS/ChromeOS/browser version or device lifecycle.
 
 ### Regression tests
 
@@ -43,7 +53,7 @@ pytest -m "regression or integration" tests/regression tests/integration
 
 `.github/workflows/quality.yml` runs on `main` pushes and pull requests using Python 3.12 and 3.13 on Ubuntu. Per-workflow/ref concurrency cancels stale runs.
 
-It runs pre-commit configuration validation, Ruff, Black check, strict mypy, repository-local Markdown link integrity, complete Git-tracked repository-reference coverage, and full pytest with coverage.
+It installs the maintained development/web dependency set and runs pre-commit configuration validation, Ruff, Black check, strict mypy, repository-local Markdown link integrity, complete Git-tracked repository-reference coverage, and full pytest with coverage. The full pytest run includes `tests/integration/test_web_app.py` when the integration marker is not excluded.
 
 Historical source checkpoint evidence:
 
@@ -54,7 +64,7 @@ Python 3.12: PASS
 Python 3.13: PASS
 ```
 
-That checkpoint predates the current native-office hardening and repository-reference gate and must not be reused as proof for the current head. Record a new run only after it actually passes.
+That checkpoint predates the current native-office hardening, responsive-web hardening, and repository-reference gate and must not be reused as proof for the current head. Record a new run only after it actually passes.
 
 ## Documentation link integrity
 
@@ -80,7 +90,7 @@ scripts/check_repository_reference.py
 tests/unit/test_repository_reference.py
 ```
 
-The checker uses `git ls-files` as the source of truth for tracked files and requires every exact repository-relative path to appear backticked in `docs/repository-reference.md`. This intentionally excludes untracked/generated local state while making added, renamed, or deleted source files, tests, workflows, configuration, assets, and documentation part of the same documentation-maintenance contract.
+The checker uses `git ls-files` as the source of truth for tracked files and requires every exact repository-relative path to appear backticked in the maintained repository-reference corpus. This intentionally excludes untracked/generated local state while making added, renamed, or deleted source files, tests, workflows, configuration, assets, and documentation part of the same documentation-maintenance contract.
 
 Path coverage is not semantic review: a passing check proves every tracked file is explicitly cataloged, not that every description is automatically correct. Reviewers remain responsible for accurate descriptions and canonical subsystem documentation.
 
@@ -92,7 +102,7 @@ The check was added after the historical Quality run IDs above. Do not reuse tho
 
 ## Build Smoke
 
-`.github/workflows/build-smoke.yml` runs on Ubuntu, Windows, and macOS and verifies source compilation, CLI availability, automated accessibility metadata/preference smoke, and packaging preflight. It does not perform the full PyInstaller build.
+`.github/workflows/build-smoke.yml` runs on Ubuntu, Windows, and macOS. It installs `.[build,web]`, compiles source, verifies both `docmergeforge --help` and `docmergeforge-web --help`, runs automated accessibility metadata/preference smoke, and validates desktop packaging configuration. It does not perform the full PyInstaller build or launch a real browser/device.
 
 Historical accessibility preference evidence:
 
@@ -103,7 +113,20 @@ macOS:   PASS
 Ubuntu:  PASS
 ```
 
-Human screen-reader/high-contrast acceptance remains separate.
+That historical run predates the current responsive-web entry-point addition and must not be reused as proof that `docmergeforge-web --help` passed at the current head. Human screen-reader/high-contrast/browser-device acceptance remains separate.
+
+## Responsive Web/API acceptance boundary
+
+The maintained automated web evidence is split across ordinary Quality pytest coverage and cross-platform Build Smoke:
+
+- `tests/integration/test_web_app.py` exercises generated PDF/DOCX upload, natural ordering, merge/download, configured-token enforcement, browser-shell security headers, fragment-token bootstrap policy, generic unexpected-error handling, upload-size fail-closed behavior, filename/path sanitization, mixed-format rejection, and health/platform endpoints.
+- `tests/unit/test_web_main.py` protects loopback-host detection and the safe default host/port/upload-limit parser configuration.
+- `tests/unit/test_platforms.py` protects the maintained platform/delivery capability matrix.
+- Build Smoke verifies the `docmergeforge-web` executable entry point can be loaded on Ubuntu, Windows, and macOS after installing the declared web extra.
+
+These checks are application/host evidence. They are **not** universal Android/iOS/iPadOS/ChromeOS/PWA/browser compatibility evidence, do not prove public-Internet deployment hardening, and do not prove transport confidentiality on plain HTTP. Representative manual device/browser acceptance plus HTTPS/reverse-proxy acceptance is required for any corresponding release claim.
+
+See [Platform Support](platform-support.md), [Security Model](security.md), and [Known Limitations](known-limitations.md).
 
 ## Recovery Acceptance
 
@@ -325,7 +348,7 @@ This ~9.9 MB source baseline is not multi-gigabyte acceptance.
 python scripts/check_accessibility.py
 ```
 
-It verifies representative accessible metadata, label buddies, keyboard metadata, theme application, text-scale behavior, and reduced-motion preference round-trip offscreen. Human assistive-technology and real OS high-contrast acceptance remain separate.
+It verifies representative PySide6 desktop accessible metadata, label buddies, keyboard metadata, theme application, text-scale behavior, and reduced-motion preference round-trip offscreen. The responsive browser shell has semantic labels/status behavior but is not part of this Qt accessibility script. Human assistive-technology, mobile/desktop browser accessibility, and real OS high-contrast acceptance remain separate.
 
 ## GitHub Actions maintenance
 
@@ -343,6 +366,8 @@ Use synthetic fixtures whenever possible. Never commit private manuscripts, pass
 
 The repository `.gitignore` excludes the common local fidelity evidence directories, private corpus directories, and transaction/lock artifacts. This is a safety net, not permission to skip reviewing files before committing.
 
+The responsive web integration tests use generated/synthetic PDF/DOCX fixtures and fixed synthetic access-token values. Real access tokens and private browser-uploaded manuscripts must never be added to committed fixtures or public CI artifacts.
+
 The controlled Word workflow uploads generated synthetic DOCX/evidence/environment/capability/process-state/timeout-cleanup data. Exact Word process identity files contain process-control values, not manuscript text, but should still be treated as technical acceptance evidence rather than publication output.
 
 The supervised LibreOffice workflow uploads only its generated synthetic source/output/evidence bundle. Private manuscript acceptance should be run locally and its output reviewed before any deliberate upload.
@@ -351,8 +376,10 @@ The supervised LibreOffice workflow uploads only its generated synthetic source/
 
 When a gate fails, inspect the exact failed step, distinguish environment from application failure, fix the root cause in a focused commit, do not disable a gate merely to make CI green, rerun because later steps may have been skipped, and record evidence only after the relevant checkpoint actually passes.
 
+For responsive-web failures, distinguish Python host/API regressions from browser/device/network/reverse-proxy acceptance. A passing TestClient run cannot erase a real-device interoperability problem, and a device-specific browser issue should not be “fixed” by weakening token, size, or error-privacy safeguards without a justified design change.
+
 ## Release CI acceptance matrix
 
-Before a stable release candidate, obtain current evidence appropriate to each support statement for Quality, documentation-link integrity, repository-reference coverage, 120-Part Regression, Build Smoke, Recovery Acceptance, filesystem exhaustion, Security/CodeQL, measured Stress, one-document external-office fidelity, supervised LibreOffice UNO multi-document and process-cleanup acceptance where claimed, controlled Microsoft Word native merge and timeout-cleanup acceptance where claimed, Package Desktop/Onefile where distributed, checksums/provenance/attestations, fresh-runner execution, representative fidelity, human accessibility/clean-machine QA, and signing/notarization where claimed.
+Before a stable release candidate, obtain current evidence appropriate to each support statement for Quality, documentation-link integrity, repository-reference coverage, 120-Part Regression, Build Smoke, responsive web/API host tests, representative Android/iOS/iPadOS/ChromeOS/desktop-browser acceptance, Recovery Acceptance, filesystem exhaustion, Security/CodeQL, measured Stress, one-document external-office fidelity, supervised LibreOffice UNO multi-document and process-cleanup acceptance where claimed, controlled Microsoft Word native merge and timeout-cleanup acceptance where claimed, Package Desktop/Onefile where distributed, checksums/provenance/attestations, fresh-runner execution, representative fidelity, human accessibility/clean-machine QA, and signing/notarization where claimed.
 
 Do not reuse older run IDs as proof after materially changing the behavior they validated.
