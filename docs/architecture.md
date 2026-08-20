@@ -1,6 +1,6 @@
 # Architecture
 
-DocMergeForge is a local-first Python application with a shared domain/application layer behind two user surfaces: a PySide6 desktop application and an `argparse` CLI. The architecture deliberately separates discovery/validation, format-specific merge engines, project orchestration, reporting, and filesystem publication safety.
+DocMergeForge is a local-first Python application with shared document-processing/domain components behind three maintained user surfaces: a PySide6 desktop application, an `argparse` CLI, and a focused FastAPI responsive browser host. The architecture deliberately separates discovery/validation, format-specific merge engines, project orchestration, reporting, filesystem publication safety, and network-delivery concerns.
 
 ## Architectural goals
 
@@ -11,42 +11,51 @@ The design prioritizes:
 - source immutability and integrity evidence;
 - companion-code separation;
 - format-specific validation;
-- transactional publication of complete output bundles;
+- transactional publication of complete project output bundles;
 - crash-recoverable final promotion;
-- local/private processing;
+- local/private desktop and CLI processing;
+- explicit browser-to-host network trust boundaries;
 - reusable project configuration;
-- cross-platform desktop/CLI operation;
-- testable packaging and CI boundaries.
+- cross-platform Windows/macOS/Linux desktop/CLI operation;
+- responsive browser delivery for Android, iOS/iPadOS, ChromeOS, desktop browsers, and other modern browser platforms;
+- testable packaging, web, and CI boundaries.
 
 ## High-level layers
 
 ```text
-┌───────────────────────────────────────────────────────────────┐
-│ User surfaces                                                 │
-│  PySide6 Desktop UI                 CLI (`docmergeforge`)      │
-└──────────────────────────────┬────────────────────────────────┘
-                               │
-┌──────────────────────────────▼────────────────────────────────┐
-│ Application orchestration                                     │
-│  MergeApplicationService · Preflight · progress/cancellation  │
-└───────────────┬───────────────────────────────┬───────────────┘
-                │                               │
-┌───────────────▼──────────────┐  ┌────────────▼───────────────┐
-│ Discovery / project / models │  │ Audit / reports / compare  │
-│ classification · ordering    │  │ manifest · checksums       │
-│ validation · settings        │  │ companion index · checklist│
-└───────────────┬──────────────┘  └────────────┬───────────────┘
-                │                               │
-┌───────────────▼───────────────────────────────▼───────────────┐
-│ Format engines                                                 │
-│  PDF (`pypdf`, publication helpers) · DOCX (OOXML/docxcompose)│
-└──────────────────────────────┬────────────────────────────────┘
-                               │
-┌──────────────────────────────▼────────────────────────────────┐
-│ Filesystem safety                                              │
-│ hashing · storage/write probe · staging · journal · rollback   │
-└───────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│ User surfaces                                                            │
+│  PySide6 Desktop UI   CLI (`docmergeforge`)   Responsive Web Browser     │
+└──────────────┬───────────────────┬──────────────────────┬────────────────┘
+               │                   │                      │
+               └──────────┬────────┘                      ▼
+                          ▼                    ┌────────────────────────────┐
+┌──────────────────────────────────────────┐  │ Focused FastAPI web adapter│
+│ Application orchestration                │  │ upload/auth/temp workspace │
+│ MergeApplicationService · Preflight      │  └──────────────┬─────────────┘
+│ project/report/publication transactions  │                 │
+└───────────────┬──────────────────────────┘                 │
+                │                                             │
+┌───────────────▼─────────────────────────────────────────────▼────────────┐
+│ Shared discovery / ordering / models / platform capabilities             │
+│ classification · natural order · validation helpers · runtime matrix     │
+└───────────────┬─────────────────────────────────────────────┬────────────┘
+                │                                             │
+┌───────────────▼──────────────────┐           ┌──────────────▼────────────┐
+│ Audit / reports / project state  │           │ Format engines             │
+│ manifest · checksums · recovery  │           │ PDF · DOCX                 │
+└───────────────┬──────────────────┘           └──────────────┬────────────┘
+                │                                             │
+                └──────────────────────┬──────────────────────┘
+                                       ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Filesystem safety                                                        │
+│ hashing · storage/write probe · atomic/staged output · journal · rollback│
+│ web request temporary workspaces                                         │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
+
+The full project/CLI/desktop publication pipeline and the focused browser merge surface intentionally have different orchestration scopes. The web host reuses shared discovery and PDF/DOCX engines but does not pretend that a one-request browser merge is equivalent to the complete reusable-project transaction/report/recovery workflow.
 
 ## Package map
 
@@ -91,7 +100,7 @@ Privacy-aware logging/diagnostic behavior.
 
 ### `discovery/`
 
-Recursive scanning, file classification, part-number detection, PDF inspection, hashing, and natural-sort helpers.
+Recursive scanning, file classification, part-number detection, PDF inspection, hashing, and natural-sort helpers. Both full project workflows and the browser host reuse these discovery primitives.
 
 ### `docx/`
 
@@ -109,6 +118,10 @@ Shared PyInstaller argument/root-validation configuration so scripts/tests/CI us
 
 PDF merge engine, passwords/encryption handling, publication helpers, and output validation.
 
+### `platforms.py`
+
+Maintained runtime/delivery capability matrix. It distinguishes native Windows/macOS/Linux desktop/CLI support from browser-delivered Android/iOS/iPadOS/ChromeOS/web access so public surfaces do not overclaim native mobile packages.
+
 ### `presets/`
 
 Guided project definitions, including SQL Full Mastery Parts 1–120.
@@ -119,7 +132,7 @@ Merge-profile definitions/selection support.
 
 ### `project/`
 
-Project JSON persistence, selected-file behavior, recent/recovery-related state.
+Project JSON persistence, selected-file behavior, synchronization, revision guards, and recovery-related state.
 
 ### `reports/`
 
@@ -141,7 +154,16 @@ Cross-cutting low-level safety helpers such as hashing, storage estimation/write
 
 Numbered-part validation and output/source comparison logic.
 
-## Core data flow
+### `web/`
+
+Responsive browser host and focused merge API.
+
+- `web/main.py` implements the `docmergeforge-web` command, loopback-safe defaults, non-loopback token requirement, generated-token support, upload limit configuration, and Uvicorn startup.
+- `web/app.py` implements the browser/PWA shell, health/platform endpoints, token-protected merge route, upload validation/sanitization, natural ordering, per-request temporary workspace, shared PDF/DOCX engine calls, generic remote error boundary, and response/workspace cleanup.
+
+The web package is a network adapter around shared document-processing components, not a separate PDF/DOCX implementation.
+
+## Full project data flow
 
 A full project run follows this conceptual path:
 
@@ -192,9 +214,41 @@ Cleanup backups/staging
 
 No full project manuscript is considered published until the final transaction promotion completes.
 
+## Responsive web merge data flow
+
+The focused browser path follows a deliberately smaller request lifecycle:
+
+```text
+Browser selects homogeneous PDF or DOCX files
+   │
+   ▼
+POST /api/merge
+   │
+   ├── optional X-DocMergeForge-Token authentication
+   ├── file-count/type/total-size enforcement
+   └── sanitized filenames
+   │
+   ▼
+Per-request temporary host workspace
+   │
+   ▼
+Shared scanner + natural part ordering
+   │
+   ▼
+Shared PdfMergeEngine or DocxMergeEngine
+   │
+   ▼
+Download response
+   │
+   ▼
+Temporary workspace cleanup after response/error
+```
+
+This route is useful for responsive cross-platform access but does not create a reusable project JSON, project report bundle, publication transaction journal, or native mobile document engine. Those are separate workflows/capabilities.
+
 ## Domain states
 
-`MergeState` models workflow state:
+`MergeState` models the full project/desktop/CLI workflow state:
 
 ```text
 CREATED
@@ -209,7 +263,7 @@ FAILED
 CANCELLED
 ```
 
-Desktop recovery/checkpoint UX can use this state, but filesystem/source validation remains authoritative after a restart.
+Desktop recovery/checkpoint UX can use this state, but filesystem/source validation remains authoritative after a restart. The focused web request does not masquerade as this full persistent project state machine.
 
 ## Discovery boundary
 
@@ -229,6 +283,8 @@ PDF inspection records page count where possible and marks encrypted files witho
 Numbered validation decides whether an expected range is complete and duplicate-free for a specific kind.
 
 The application service applies this independently to PDF and DOCX. A PDF cannot satisfy a missing DOCX part and vice versa.
+
+The browser endpoint additionally refuses a request that mixes PDF and DOCX uploads, and the shared scanner/engines still retain their format-specific validation responsibilities.
 
 ## Format-engine boundary
 
@@ -250,11 +306,15 @@ Portable mode is the current production-supported DOCX path. Risky/complex const
 
 LibreOffice and Microsoft Word high-fidelity integrations are architectural extension points, but they must not silently substitute for portable mode until their automation adapters and real acceptance tests are complete.
 
+Browser delivery does not change this fidelity boundary; it calls the same maintained engines rather than introducing a hidden mobile/browser fidelity mode.
+
 ## Source-integrity boundary
 
 Discovery hashes sources. A full project run snapshots hashes for PDF, DOCX, and companion material and verifies them again before final promotion.
 
 If a tracked file changes during a long merge, the operation fails rather than publishing a bundle assembled from inconsistent source versions.
+
+A browser request first copies uploaded bytes into an isolated temporary workspace. Its correctness boundary is the uploaded request snapshot, not a reusable source-tree/project revision contract.
 
 ## Companion-code boundary
 
@@ -267,6 +327,8 @@ The project service can:
 - create companion index evidence.
 
 It does not extract, build, refactor, or merge their contents.
+
+The browser merge route accepts only `.pdf` and `.docx`; it does not accept or process companion archives.
 
 ## Publication transaction boundary
 
@@ -284,18 +346,22 @@ The promotion algorithm supports:
 
 See [Publication Recovery](recovery.md).
 
+The browser route does not publish into a user-selected project output directory. It returns one temporary generated document as a download and removes the request workspace after completion/error; therefore it does not use or claim the full publication transaction/recovery model.
+
 ## Storage boundary
 
-The storage layer performs two independent checks:
+The full project storage layer performs two independent checks:
 
 1. output writeability probe;
 2. free-space estimate.
 
 This prevents a merge from doing expensive document work only to discover that the destination cannot create transaction files.
 
+Browser mode instead uses host temporary storage and enforces a configurable total upload-byte limit. Host operators remain responsible for sizing/protecting the underlying temporary filesystem.
+
 ## Reporting boundary
 
-Reports are generated before final transaction promotion so they remain consistent with the manuscript outputs.
+Reports are generated before final project transaction promotion so they remain consistent with the manuscript outputs.
 
 Generic project evidence includes:
 
@@ -305,7 +371,9 @@ Generic project evidence includes:
 - SHA-256 checksums when enabled;
 - publishing checklist.
 
-## UI architecture
+The focused browser route returns the merged document only; it does not silently claim the full project evidence bundle.
+
+## Desktop UI architecture
 
 The PySide6 UI uses workers/progress callbacks for long-running operations. It exposes application services rather than owning a second copy of merge logic.
 
@@ -313,19 +381,53 @@ Accessibility metadata is treated as implementation state and checked through `s
 
 ## CLI architecture
 
-The CLI is an `argparse` front end with commands for:
+The CLI is an `argparse` front end with document, project, synchronization, recovery, audit/compare, fidelity, and preset commands including:
 
 - `validate`;
 - `pdf`;
 - `docx`;
 - `sql-preset`;
 - `project-create`;
+- `project-sync`;
 - `merge`;
 - `recover-output`;
 - `audit`;
-- `compare`.
+- `compare`;
+- fidelity capability/round-trip/corpus surfaces documented in the CLI reference.
 
-JSON is used for machine-readable validation/preflight/recovery/audit/compare evidence where appropriate.
+JSON is used for machine-readable validation/preflight/recovery/audit/compare/project-maintenance evidence where appropriate.
+
+## Web architecture
+
+`docmergeforge-web` is a separate console entry point so browser dependencies and network behavior remain explicit.
+
+Safety defaults and boundaries:
+
+- default bind is `127.0.0.1`;
+- a non-loopback bind requires an access token;
+- browser tokens are entered in a password field or bootstrapped through a `#token=...` fragment rather than an HTTP query parameter;
+- token comparison uses `secrets.compare_digest`;
+- the browser sends the token in `X-DocMergeForge-Token` for merge requests;
+- browser upload/output names are sanitized before filesystem use;
+- request workspaces are isolated under temporary storage and cleaned after success/error;
+- upload handles close on validation/size failure paths;
+- unexpected engine exceptions remain in host logs and are not reflected verbatim to remote clients;
+- browser-shell security headers constrain framing/referrer/content loading/permissions;
+- access-token authentication is not transport encryption.
+
+Plain HTTP should stay on loopback or a trusted LAN. Internet/untrusted-network deployment requires HTTPS plus a deliberately configured reverse proxy/authentication/request-limit/host-hardening boundary; the built-in server is not represented as a public-Internet production deployment.
+
+See [Platform Support](platform-support.md) and [Security Model](security.md).
+
+## Platform capability architecture
+
+`docmergeforge.platforms.support_matrix()` is the programmatic source for maintained delivery claims and `GET /api/platforms` exposes that data to browser/API clients.
+
+The key distinction is delivery form:
+
+- Windows/macOS/Linux can run the native PySide6 desktop UI and CLI and can also use the browser client;
+- Android/iOS/iPadOS/ChromeOS/other modern browser platforms use the responsive browser client connected to a Python host;
+- browser support is not relabeled as a native APK/AAB/IPA package.
 
 ## Packaging architecture
 
@@ -333,34 +435,36 @@ JSON is used for machine-readable validation/preflight/recovery/audit/compare ev
 
 This shared configuration is used/tested consistently across local builds and GitHub Actions.
 
-The current packaging pipeline is an unsigned development-build foundation, not the signing/notarization layer.
+The current packaging pipeline is an unsigned development-build foundation for native desktop targets, not the signing/notarization layer and not a mobile-package builder.
 
 ## Testing architecture
 
 Quality is layered:
 
 - unit tests;
-- integration tests;
+- integration tests including real generated PDF/DOCX browser merge requests;
 - generated regression fixtures;
 - 120-Part Regression workflow;
-- cross-platform Build Smoke;
+- cross-platform Build Smoke, including web entry-point smoke on supported desktop runners;
 - CodeQL security analysis;
 - manual Stress Acceptance;
 - Package Desktop workflow;
+- representative manual browser/device acceptance;
 - human release acceptance.
 
-Each layer proves a different property; no single green workflow is treated as complete production certification.
+Each layer proves a different property; no single green workflow is treated as complete production certification. Automated FastAPI tests do not become evidence that every Android/iOS/browser version has been manually accepted.
 
 ## Extension guidelines
 
 When adding a new feature:
 
-- keep user-interface code out of core merge engines;
-- add behavior to shared application/domain services so CLI/desktop remain consistent;
-- preserve source immutability;
+- keep user-interface/network-adapter code out of core merge engines;
+- add shared behavior to application/domain/engine services so surfaces do not create contradictory document logic;
+- preserve source immutability and explicit network trust boundaries;
 - keep format-specific logic inside the relevant engine;
-- stage new publication evidence inside the same transaction when it must be coherent with outputs;
-- add recovery behavior/tests for any new final-path mutation;
+- stage new full-project publication evidence inside the same transaction when it must be coherent with outputs;
+- keep focused web-request temporary output separate from persistent project publication semantics;
+- add recovery behavior/tests for any new persistent final-path mutation;
 - update project schema conservatively;
-- add diagnostics without leaking sensitive data;
-- extend CI/acceptance documentation when a new platform/tool boundary is introduced.
+- add diagnostics without reflecting sensitive internals to remote clients;
+- extend platform/security/CI/acceptance documentation when a new OS, browser, network, or external-tool boundary is introduced.
