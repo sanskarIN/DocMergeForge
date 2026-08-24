@@ -1,5 +1,5 @@
-import zipfile
 from pathlib import Path
+import zipfile
 
 from docmergeforge.validation.ooxml import risky_docx_constructs
 
