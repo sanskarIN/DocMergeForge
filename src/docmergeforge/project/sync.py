@@ -78,7 +78,9 @@ class ProjectSyncPlan:
         }
 
 
-def _eligible_documents(project: MergeProject, discovered: list[InputDocument]) -> list[InputDocument]:
+def _eligible_documents(
+    project: MergeProject, discovered: list[InputDocument]
+) -> list[InputDocument]:
     start = project.settings.expected_start
     end = project.settings.expected_end
     unique: list[InputDocument] = []
@@ -127,9 +129,7 @@ def _missing_parts(
     end: int,
 ) -> tuple[int, ...]:
     found = {
-        item.part.number
-        for item in documents
-        if item.kind == kind and item.part.number is not None
+        item.part.number for item in documents if item.kind == kind and item.part.number is not None
     }
     if not found:
         return ()
@@ -157,9 +157,7 @@ def plan_project_sync(
     proposed_set = set(proposed_keys)
 
     added = tuple(
-        path
-        for path, key in zip(proposed, proposed_keys, strict=True)
-        if key not in current_set
+        path for path, key in zip(proposed, proposed_keys, strict=True) if key not in current_set
     )
     removed = tuple(
         path for path, key in zip(current, current_keys, strict=True) if key not in proposed_set
