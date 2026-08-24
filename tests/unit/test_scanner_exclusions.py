@@ -66,6 +66,11 @@ def test_recursive_iter_files_prunes_excluded_directory_before_descent(
     source.mkdir()
     excluded = source / "Master"
     content = source / "Content"
+    content.mkdir()
+    root_file = source / "root.txt"
+    content_file = content / "Part 1.docx"
+    root_file.write_text("root", encoding="utf-8")
+    content_file.write_text("content", encoding="utf-8")
     directory_names = ["Master", "Content"]
     walk_calls: list[tuple[Path, bool]] = []
 
@@ -75,15 +80,15 @@ def test_recursive_iter_files_prunes_excluded_directory_before_descent(
         followlinks: bool,
     ) -> Iterator[tuple[str, list[str], list[str]]]:
         walk_calls.append((root, followlinks))
-        yield str(source), directory_names, ["root.txt"]
+        yield str(source), directory_names, [root_file.name]
         assert directory_names == ["Content"]
-        yield str(content), [], ["Part 1.docx"]
+        yield str(content), [], [content_file.name]
 
     monkeypatch.setattr(scanner.os, "walk", fake_walk)
 
     discovered = list(scanner.iter_files([source], exclude_roots=[excluded]))
 
-    assert discovered == [source / "root.txt", content / "Part 1.docx"]
+    assert discovered == [root_file, content_file]
     assert walk_calls == [(source, False)]
 
 
