@@ -130,9 +130,7 @@ def _table_texts(tables: Iterable[Any]) -> list[str]:
 def _header_texts(document: Any) -> list[str]:
     values: list[str] = []
     for section in document.sections:
-        values.extend(
-            paragraph.text for paragraph in section.header.paragraphs if paragraph.text
-        )
+        values.extend(paragraph.text for paragraph in section.header.paragraphs if paragraph.text)
         values.extend(_table_texts(section.header.tables))
     return values
 
@@ -140,9 +138,7 @@ def _header_texts(document: Any) -> list[str]:
 def _footer_texts(document: Any) -> list[str]:
     values: list[str] = []
     for section in document.sections:
-        values.extend(
-            paragraph.text for paragraph in section.footer.paragraphs if paragraph.text
-        )
+        values.extend(paragraph.text for paragraph in section.footer.paragraphs if paragraph.text)
         values.extend(_table_texts(section.footer.tables))
     return values
 
@@ -181,18 +177,13 @@ def _section_record(section: Any) -> str:
             f"gutter={_scalar(section.gutter)}",
             f"header_distance={_scalar(section.header_distance)}",
             f"footer_distance={_scalar(section.footer_distance)}",
-            "different_first_page="
-            f"{int(bool(section.different_first_page_header_footer))}",
+            "different_first_page=" f"{int(bool(section.different_first_page_header_footer))}",
             f"header_linked={int(bool(section.header.is_linked_to_previous))}",
-            "first_header_linked="
-            f"{int(bool(section.first_page_header.is_linked_to_previous))}",
-            "even_header_linked="
-            f"{int(bool(section.even_page_header.is_linked_to_previous))}",
+            "first_header_linked=" f"{int(bool(section.first_page_header.is_linked_to_previous))}",
+            "even_header_linked=" f"{int(bool(section.even_page_header.is_linked_to_previous))}",
             f"footer_linked={int(bool(section.footer.is_linked_to_previous))}",
-            "first_footer_linked="
-            f"{int(bool(section.first_page_footer.is_linked_to_previous))}",
-            "even_footer_linked="
-            f"{int(bool(section.even_page_footer.is_linked_to_previous))}",
+            "first_footer_linked=" f"{int(bool(section.first_page_footer.is_linked_to_previous))}",
+            "even_footer_linked=" f"{int(bool(section.even_page_footer.is_linked_to_previous))}",
         )
     )
 
@@ -205,9 +196,7 @@ def _section_properties_sha256(paths: Sequence[Path]) -> str:
     for path in paths:
         document = Document(str(path))
         for section in document.sections:
-            records.append(
-                f"section={global_section_index}|{_section_record(section)}"
-            )
+            records.append(f"section={global_section_index}|{_section_record(section)}")
             global_section_index += 1
     return _digest_texts(records)
 
@@ -315,9 +304,7 @@ def _validate_acceptance_inputs(
     return ordered_sources
 
 
-def _verify_source_hashes(
-    sources: Sequence[Path], source_hashes: Sequence[str]
-) -> None:
+def _verify_source_hashes(sources: Sequence[Path], source_hashes: Sequence[str]) -> None:
     for source, expected_hash in zip(sources, source_hashes, strict=True):
         verify_native_source_unchanged(source, expected_hash)
 
