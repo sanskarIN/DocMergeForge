@@ -7,7 +7,6 @@ import pytest
 
 from docmergeforge.docx import libreoffice_uno_merge
 
-
 pytestmark = pytest.mark.skipif(
     os.name != "posix",
     reason="LibreOffice UNO process-group acceptance currently uses POSIX semantics.",

@@ -5,25 +5,59 @@ This file is the compact continuation checkpoint for future development sessions
 ## Current checkpoint
 
 - Repository: `sanskarIN/DocMergeForge`
-- Branch: `main`
-- Version declared in `pyproject.toml`: `0.1.0`
-- Checkpoint immediately before this state-file commit: `b2379226f7681ffe64a2dcfa3b9d59c75006bf30`
-- Continuation base for the latest completed feature: `9775190f38e613e33f20aafc82b678a1ca3a233d`
-- Development status: pre-stable; do not claim `v1.0.0`, production certification, native mobile packaging, or completed signing/notarization from source changes alone.
+- Target branch: `main`
+- Active release-preparation branch: `release/2.8.5-prep`
+- Version declared in `pyproject.toml`: `2.8.5`
+- Release-preparation base: `aac5bf6d275991e21b68e15f5ad31f084fbc72e2`
+- Development/release status: `2.8.5` candidate preparation; package versioning does **not** by itself certify production readiness, native mobile packaging, signing/notarization, human accessibility acceptance, or external-office fidelity.
 
-## Latest completed continuation: guarded desktop project synchronization
+## Latest continuation: 2.8.5 release preparation
 
-The desktop application now exposes the existing review-first project synchronization model that was previously available through the CLI.
+The `2.8.5` preparation pass is intentionally evidence-first. It updates package/runtime version metadata and release-facing documentation without converting unobserved CI, packaging, device, accessibility, stress, signing, or fidelity gates into passing claims.
+
+### Release metadata
+
+The candidate version is synchronized across:
+
+- `pyproject.toml` — package version `2.8.5`;
+- `src/docmergeforge/__init__.py` — runtime `__version__ = "2.8.5"`;
+- `tests/unit/test_version_metadata.py` — package/runtime synchronization plus an explicit `2.8.5` candidate pin.
+
+The existing pre-alpha distribution classifier remains intentionally conservative. A numeric version change is not used as a substitute for release acceptance evidence.
+
+### Workflow-generation cleanup
+
+The focused Project Sync Safety workflow was the remaining workflow still using older GitHub Action majors. The release-preparation branch aligns it with the repository's maintained Node-24-era action generations:
+
+- `actions/checkout@v7`;
+- `actions/setup-python@v7`.
+
+This incorporates the substantive changes proposed independently by Dependabot PRs #3 and #4 into one reviewed release-preparation line. The PRs should be closed as superseded after the release branch is merged, not represented as separately required product work.
+
+### Recent-project synchronization status corrected
+
+The desktop convenience shortcut from **Recent Projects** into the guarded synchronization workflow is already implemented on current `main` and covered by integration tests. It is no longer future work.
+
+`ProjectSyncMainWindow` exposes both:
+
+- **Synchronize Project Sources** — browse for a project JSON;
+- **Synchronize Recent Project** — select from maintained recent-project history.
+
+Both routes converge on the same `_synchronize_project_path(...)` guarded workflow and therefore preserve the same preview, duplicate blocking, separate removal approval, exact-revision propagation, backup, stale-write, and metadata-only semantics.
+
+## Previous completed continuation: guarded desktop project synchronization
+
+The desktop application exposes the existing review-first project synchronization model that was previously available through the CLI.
 
 ### Maintained public desktop entry
 
-`pyproject.toml` now routes:
+`pyproject.toml` routes:
 
 ```text
 docmergeforge-gui = "docmergeforge.ui.desktop_entry:main"
 ```
 
-`src/docmergeforge/ui/desktop_entry.py` provides `ProjectSyncMainWindow`, an extension of the established desktop `MainWindow` that adds **Synchronize Project Sources** without duplicating project discovery/synchronization business logic.
+`src/docmergeforge/ui/desktop_entry.py` provides `ProjectSyncMainWindow`, an extension of the established desktop `MainWindow` that adds synchronization actions without duplicating project discovery/synchronization business logic.
 
 Normal installed desktop startup and normal packaged desktop startup both route through this synchronization-enabled entry.
 
@@ -31,7 +65,7 @@ Normal installed desktop startup and normal packaged desktop startup both route 
 
 The maintained desktop flow is:
 
-1. select a saved project JSON;
+1. select a saved project JSON directly or through recent-project history;
 2. load the project and exact SHA-256 content revision from the same byte snapshot;
 3. call the shared `plan_project_sync(...)` planner;
 4. show a read-only preview containing current/proposed counts, additions, removals, reordering, duplicate parts, missing parts, and complete proposed order;
@@ -64,35 +98,42 @@ Desktop and CLI synchronization intentionally share these rules:
 
 The SHA-256 project revision mechanism is still an **optimistic stale-write guard**, not a universal cooperative cross-process lock. Do not represent simultaneous multi-writer editing as solved unless a separate coordinated locking/revision protocol is designed and accepted.
 
-## New/changed runtime paths in the latest continuation
+## Runtime and documentation paths associated with desktop synchronization
 
-### Added
+### Added in the desktop-sync continuation
 
 - `src/docmergeforge/ui/desktop_entry.py` — synchronization-enabled maintained desktop startup and workflow orchestration.
 - `src/docmergeforge/ui/project_sync_dialog.py` — accessible synchronization review dialog.
-- `tests/integration/test_project_sync_desktop.py` — offscreen Qt/workflow regression coverage for the new desktop path.
-- `docs/history/what_changed-through-2026-08-20-cross-platform.md` — verbatim archive of the previous top-level development record before this desktop-sync continuation.
+- `tests/integration/test_project_sync_desktop.py` — offscreen Qt/workflow regression coverage for the desktop path, including browse and recent-project routing.
+- `docs/history/what_changed-through-2026-08-20-cross-platform.md` — verbatim archive of the previous top-level development record before the desktop-sync continuation.
 
-### Changed
+### Changed across the synchronization/release-prep boundary
 
-- `pyproject.toml` — public GUI console-script target.
+- `pyproject.toml` — public GUI console-script target and `2.8.5` candidate package version.
+- `src/docmergeforge/__init__.py` — `2.8.5` runtime package version.
 - `src/docmergeforge/ui/packaged_entry.py` — packaged startup/smoke uses the synchronization-enabled window.
-- `src/docmergeforge/packaging/desktop.py` — packaging preflight requires the new desktop entry/dialog modules.
+- `src/docmergeforge/packaging/desktop.py` — packaging preflight requires the desktop entry/dialog modules.
+- `.github/workflows/project-sync-safety.yml` — focused safety matrix and maintained action majors.
 - `tests/unit/test_build_desktop.py` — packaging prerequisite coverage.
-- `tests/unit/test_version_metadata.py` — pins maintained CLI/GUI/web public entry points.
-- `README.md` — public desktop synchronization feature/safety description.
+- `tests/unit/test_version_metadata.py` — pins maintained CLI/GUI/web public entry points and the `2.8.5` candidate version.
+- `README.md` — public desktop synchronization feature/safety description and release-preparation status.
 - `docs/desktop-guide.md` — operator workflow.
 - `docs/project-sync.md` — shared desktop/CLI synchronization contract.
 - `docs/source-code-reference.md` — runtime responsibility map.
 - `docs/test-suite-reference.md` — test ownership/evidence map.
-- `docs/repository-reference-cross-platform.md` — tracked-path coverage for the new files/archive.
-- `what_changed.md` — current continuation record only; the preceding complete record is archived under `docs/history/`.
+- `docs/repository-reference-cross-platform.md` — tracked-path coverage for the cross-platform/desktop additions.
+- `docs/release-process.md` — versioning/release evidence policy.
+- `docs/release-evidence.md` — evidence ledger; candidate evidence must use exact run/checkpoint IDs.
+- `CHANGELOG.md` — release-preparation record.
+- `what_changed.md` — active continuation record.
 
 ## Regression coverage added/expanded
 
 `tests/integration/test_project_sync_desktop.py` protects:
 
-- presence/accessibility of the desktop synchronization action;
+- presence/accessibility of both desktop synchronization actions;
+- browse-project routing;
+- recent-project routing;
 - accessible complete preview content;
 - disabled apply for ambiguous duplicate parts;
 - exact revision propagation into the shared apply path;
@@ -104,8 +145,8 @@ The SHA-256 project revision mechanism is still an **optimistic stale-write guar
 Additional related coverage:
 
 - `tests/unit/test_build_desktop.py` requires the base window, desktop entry, sync dialog, and packaged entry in build-root preflight;
-- `tests/unit/test_version_metadata.py` pins `docmergeforge`, `docmergeforge-gui`, and `docmergeforge-web` entry targets;
-- `tests/integration/test_packaged_entry_smoke.py` now reaches the synchronization-enabled packaged window before the existing real temporary PDF/DOCX publication smoke.
+- `tests/unit/test_version_metadata.py` pins `docmergeforge`, `docmergeforge-gui`, and `docmergeforge-web` entry targets and candidate version metadata;
+- `tests/integration/test_packaged_entry_smoke.py` reaches the synchronization-enabled packaged window before the existing real temporary PDF/DOCX publication smoke.
 
 Committed test source is implementation evidence only until execution is observed.
 
@@ -146,25 +187,15 @@ The tracked-file documentation checker reads the maintained reference corpus:
 - `docs/repository-reference.md`;
 - `docs/repository-reference-cross-platform.md`.
 
-The latest continuation added exact backticked references for every new tracked runtime/test/history path before or alongside the corresponding file becoming part of the maintained checkpoint.
-
-The checker is configured in Quality and pre-commit. Configuration is not the same as an observed passing current-head execution.
+The checker is configured in Quality and pre-commit. Configuration is not the same as an observed passing candidate-head execution.
 
 ## Verification boundary
 
 Do not infer a green build merely from commits being present.
 
-During the latest continuation:
+For the `2.8.5` candidate, no fresh pass is claimed until the exact release-preparation head is observed for the relevant gates. Required source evidence includes:
 
-- focused GitHub commit/tree/file inspection was used to keep changes scoped;
-- packaging/source/test/documentation dependencies were cross-checked against the repository;
-- an unintended temporary Ruff-rule-set expansion introduced while changing the GUI entry was immediately reverted in the next focused commit;
-- the maintained Ruff rule set remains `E/F/I/B/UP/SIM/C4`;
-- a raw GitHub archive/checkout could not be obtained in the execution environment, so local quality/test execution was not available;
-- repository workflow definitions remain configured for Quality/Build Smoke, but no fresh passing current-head execution is claimed without observed run evidence.
-
-Until observed for the current head, no fresh pass is claimed for:
-
+- pre-commit configuration validation;
 - Ruff;
 - Black check;
 - strict mypy;
@@ -174,31 +205,42 @@ Until observed for the current head, no fresh pass is claimed for:
 - Quality workflow matrix;
 - 120-Part Regression;
 - Build Smoke;
-- Package Desktop / Onefile Acceptance;
-- Security/CodeQL;
+- Project Sync Safety matrix;
+- Security/CodeQL.
+
+Packaging/release evidence remains separate:
+
+- Package Desktop / Onefile Acceptance on Windows, macOS, and Linux;
+- downloaded-artifact verification;
 - representative Android/iOS/iPadOS/ChromeOS/manual browser acceptance;
-- human desktop accessibility/clean-machine acceptance.
+- human desktop accessibility/clean-machine acceptance;
+- external-office fidelity acceptance;
+- measured stress at the workload class actually claimed;
+- Windows signing;
+- macOS signing/notarization;
+- final distribution/installer acceptance where applicable.
 
-External-office, measured stress, signing/notarization, and other release gates remain independent.
+Older recorded passing runs remain historical evidence for their exact checkpoints and must not be relabeled as `2.8.5` candidate evidence.
 
-## Repository administration state observed during this continuation
+## Repository administration state
 
-GitHub branch metadata reported `main` as not protected, with required status checks disabled at the repository-rules layer at the inspected checkpoint.
+At the release-preparation base, GitHub branch metadata reported `main` as not protected, with required status checks disabled at the repository-rules layer.
 
 This is an administrative governance state, not an application correctness failure. If enforced review/CI policy on `main` is desired, configure branch protection/rulesets through repository administration with the intended required checks. Do not claim protection is enabled until repository metadata confirms it.
 
 ## Recommended next development work
 
-1. Observe a current-head Quality run; fix any lint/format/type/test/link/reference failure without weakening maintained rules.
-2. Review current Build Smoke and packaged-app results specifically for the synchronization-enabled desktop entry on Windows, macOS, and Linux.
-3. If a convenience shortcut from **Recent Projects** into synchronization is added, preserve the same preview, duplicate blocking, separate removal approval, exact revision, and backup semantics; do not bypass them.
-4. Keep synchronization domain rules centralized in `project.sync` rather than forking CLI and desktop business logic.
+1. Open/review the `release/2.8.5-prep` pull request and observe Quality plus the focused Project Sync Safety checks for the exact candidate head.
+2. Fix any Ruff/Black/mypy/docs/reference/pytest/CI failure without weakening maintained checks.
+3. Review current 120-Part Regression, Build Smoke, Security/CodeQL, Package Desktop, and Onefile Acceptance evidence for the exact candidate commit.
+4. Keep synchronization domain rules centralized in `project.sync`; both browse and recent-project desktop actions must continue to converge on the shared guarded workflow.
 5. Perform representative manual browser/device acceptance for the responsive cross-platform client.
 6. If Internet/untrusted-network hosting is intentionally supported later, define and acceptance-test an explicit HTTPS reverse-proxy/authentication/body-limit/timeout/concurrency/host-hardening deployment profile.
 7. If simultaneous multi-writer project editing becomes a supported requirement, design a separate coordinated lock/revision protocol rather than relabeling the optimistic revision guard.
 8. Continue independent release-gate work for native-office fidelity, measured multi-gigabyte stress, human accessibility, clean-machine packaged applications, Windows signing, and macOS signing/notarization.
-9. Keep README, project-sync/desktop/source/test references, repository-reference corpus, `what_changed.md`, and this checkpoint synchronized whenever the boundary changes.
+9. Native Android APK/AAB and native iOS IPA delivery remain separate implementation tracks; browser support must not be relabeled as native packaging.
+10. Keep README, changelog, release-process/evidence docs, project-sync/desktop/source/test references, repository-reference corpus, `what_changed.md`, and this checkpoint synchronized whenever the release boundary changes.
 
 ## Continuation rule
 
-Future sessions should inspect the actual current `main` head, read this file plus `what_changed.md`, and consult the repository/source/test/automation/configuration references before modifying a subsystem. Continue from repository evidence instead of re-opening completed work, and never turn configured automation or committed tests into claimed passing evidence without an observed run.
+Future sessions should inspect the actual current `main` and any active release branch, read this file plus `what_changed.md`, and consult the repository/source/test/automation/configuration/release references before modifying a subsystem. Continue from repository evidence instead of re-opening completed work, and never turn configured automation or committed tests into claimed passing evidence without an observed run for the exact checkpoint.

@@ -45,12 +45,25 @@ _HTML = r"""<!doctype html>
     input, button { box-sizing: border-box; width: 100%; min-height: 48px; border-radius: 12px; }
     input { border: 1px solid #46547a; background: #0f1629; color: #eef2ff; padding: 10px 12px; }
     input[type=file] { padding: 9px; }
-    button { margin-top: 20px; border: 0; background: #6d7cff; color: white; font-weight: 800; cursor: pointer; }
+    button {
+      margin-top: 20px;
+      border: 0;
+      background: #6d7cff;
+      color: white;
+      font-weight: 800;
+      cursor: pointer;
+    }
     button:disabled { opacity: .55; cursor: progress; }
     .muted { color: #b7c0d9; }
     .status { min-height: 28px; margin-top: 16px; font-weight: 650; }
     .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-    .pill { display: inline-block; border: 1px solid #46547a; border-radius: 999px; padding: 6px 10px; margin: 4px 4px 0 0; }
+    .pill {
+      display: inline-block;
+      border: 1px solid #46547a;
+      border-radius: 999px;
+      padding: 6px 10px;
+      margin: 4px 4px 0 0;
+    }
     a { color: #aeb8ff; }
     @media (prefers-color-scheme: light) {
       body { background: #f4f6fb; color: #182035; }
@@ -64,12 +77,25 @@ _HTML = r"""<!doctype html>
 <main>
   <section class="card">
     <h1>DocMergeForge</h1>
-    <p>Merge PDF or DOCX parts from Windows, macOS, Linux, Android, iPhone/iPad, ChromeOS, or any modern browser.</p>
-    <p class="muted">Files are processed by the DocMergeForge Python host you connected to. The default server binds only to this computer; LAN use requires an access token.</p>
+    <p>
+      Merge PDF or DOCX parts from Windows, macOS, Linux, Android, iPhone/iPad, ChromeOS,
+      or any modern browser.
+    </p>
+    <p class="muted">
+      Files are processed by the DocMergeForge Python host you connected to. The default server
+      binds only to this computer; LAN use requires an access token.
+    </p>
 
     <form id="merge-form">
       <label for="files">PDF or DOCX files</label>
-      <input id="files" name="files" type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple required>
+      <input
+        id="files"
+        name="files"
+        type="file"
+        accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        multiple
+        required
+      >
 
       <div class="grid">
         <div>
@@ -83,8 +109,16 @@ _HTML = r"""<!doctype html>
       </div>
 
       <label for="access-token">Access token (LAN only)</label>
-      <input id="access-token" type="password" autocomplete="off" aria-describedby="access-token-help">
-      <p id="access-token-help" class="muted">Leave blank for the loopback-only host. LAN tokens stay in this browser tab session and are sent only in the merge request header.</p>
+      <input
+        id="access-token"
+        type="password"
+        autocomplete="off"
+        aria-describedby="access-token-help"
+      >
+      <p id="access-token-help" class="muted">
+        Leave blank for the loopback-only host. LAN tokens stay in this browser tab session and
+        are sent only in the merge request header.
+      </p>
 
       <button id="merge-button" type="submit">Merge and download</button>
       <div id="status" class="status" role="status" aria-live="polite"></div>
@@ -100,7 +134,9 @@ _HTML = r"""<!doctype html>
 </main>
 <script>
 (() => {
-  const fragment = new URLSearchParams(location.hash.startsWith("#") ? location.hash.slice(1) : location.hash);
+  const fragment = new URLSearchParams(
+    location.hash.startsWith("#") ? location.hash.slice(1) : location.hash
+  );
   const fragmentToken = fragment.get("token");
   if (fragmentToken) {
     sessionStorage.setItem("docmergeforge-token", fragmentToken);
@@ -176,7 +212,9 @@ _ICON = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
 
 _SW = """const CACHE='docmergeforge-shell-v1';
 const SHELL=['/','/manifest.webmanifest','/icon.svg'];
-self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL))));
+self.addEventListener('install', event =>
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)))
+);
 self.addEventListener('activate', event => event.waitUntil(self.clients.claim()));
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
@@ -200,9 +238,7 @@ def ordered_documents(input_root: Path) -> tuple[DocumentKind, list[InputDocumen
     """Discover one homogeneous PDF/DOCX upload set and order numbered parts naturally."""
 
     documents = [
-        item
-        for item in scan([input_root])
-        if item.kind in {DocumentKind.PDF, DocumentKind.DOCX}
+        item for item in scan([input_root]) if item.kind in {DocumentKind.PDF, DocumentKind.DOCX}
     ]
     if not documents:
         raise ValueError("No PDF or DOCX files were uploaded.")
@@ -249,7 +285,10 @@ async def _save_uploads(
             if suffix not in {".pdf", ".docx"}:
                 raise HTTPException(
                     status_code=415,
-                    detail=f"Unsupported upload type for {filename}. Only PDF and DOCX are accepted.",
+                    detail=(
+                        f"Unsupported upload type for {filename}. "
+                        "Only PDF and DOCX are accepted."
+                    ),
                 )
             destination_dir = input_root / f"{index:04d}"
             destination_dir.mkdir(parents=True, exist_ok=True)

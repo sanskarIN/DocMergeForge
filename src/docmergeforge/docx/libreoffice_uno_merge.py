@@ -20,7 +20,7 @@ from docmergeforge.docx.native import (
 )
 from docmergeforge.utilities.hashing import sha256_file
 
-_UNO_WORKER = r'''
+_UNO_WORKER = r"""
 from __future__ import annotations
 
 import argparse
@@ -142,7 +142,7 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-'''.strip()
+""".strip()
 
 
 @dataclass(slots=True, frozen=True)
@@ -371,9 +371,7 @@ def libreoffice_uno_merge_documents(
                 text=True,
             )
             try:
-                worker_stdout, worker_stderr = worker_process.communicate(
-                    timeout=timeout_seconds
-                )
+                worker_stdout, worker_stderr = worker_process.communicate(timeout=timeout_seconds)
             except subprocess.TimeoutExpired as exc:
                 worker_process.kill()
                 worker_stdout, worker_stderr = worker_process.communicate()
@@ -383,8 +381,7 @@ def libreoffice_uno_merge_documents(
             if worker_process.returncode != 0:
                 detail = worker_stderr.strip() or worker_stdout.strip()
                 raise ValidationError(
-                    "LibreOffice UNO merge worker failed"
-                    + (f": {detail}" if detail else ".")
+                    "LibreOffice UNO merge worker failed" + (f": {detail}" if detail else ".")
                 )
         finally:
             if worker_process is not None and worker_process.poll() is None:

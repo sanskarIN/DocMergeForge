@@ -59,9 +59,7 @@ def test_word_native_merge_builds_ordered_manifest_and_preserves_sources(
         destination = Path(command[command.index("-Destination") + 1])
         sources = json.loads(manifest.read_text(encoding="utf-8"))
         captured["sources"] = sources
-        captured["script"] = Path(command[command.index("-File") + 1]).read_text(
-            encoding="utf-8"
-        )
+        captured["script"] = Path(command[command.index("-File") + 1]).read_text(encoding="utf-8")
         _write_identity_from_command(command)
 
         merged = Document()
@@ -74,9 +72,7 @@ def test_word_native_merge_builds_ordered_manifest_and_preserves_sources(
 
     cleanup_calls: list[tuple[Path, str]] = []
 
-    def fake_cleanup(
-        identity_file: Path, *, powershell: str
-    ) -> WordProcessCleanupResult:
+    def fake_cleanup(identity_file: Path, *, powershell: str) -> WordProcessCleanupResult:
         cleanup_calls.append((identity_file, powershell))
         return _clean_process_result()
 
@@ -157,9 +153,7 @@ def test_word_native_merge_cleans_exact_process_after_command_failure(
         _write_identity_from_command(command)
         raise TimeoutError("simulated PowerShell timeout")
 
-    def fake_cleanup(
-        identity_file: Path, *, powershell: str
-    ) -> WordProcessCleanupResult:
+    def fake_cleanup(identity_file: Path, *, powershell: str) -> WordProcessCleanupResult:
         cleanup_calls.append(identity_file)
         return WordProcessCleanupResult(
             identity_present=True,

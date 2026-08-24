@@ -254,9 +254,7 @@ class MainWindow(QMainWindow):
         if order_dialog.exec() != int(order_dialog.DialogCode.Accepted):
             return False
         project.selected_files = order_dialog.ordered_paths()
-        if checkpoint and not self._checkpoint_project(project, "ordering"):
-            return False
-        return True
+        return not checkpoint or self._checkpoint_project(project, "ordering")
 
     def _new_project(self, initial_source: Path | None = None) -> None:
         dialog = ProjectSetupDialog(initial_source)

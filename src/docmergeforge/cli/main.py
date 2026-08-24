@@ -278,9 +278,7 @@ def _run_direct_merge(args: argparse.Namespace) -> int:
                         "ready": False,
                         "missing": validation_result.missing_parts,
                         "duplicates": validation_result.duplicate_parts,
-                        "diagnostics": [
-                            item.to_dict() for item in validation_result.diagnostics
-                        ],
+                        "diagnostics": [item.to_dict() for item in validation_result.diagnostics],
                     },
                     indent=2,
                 )

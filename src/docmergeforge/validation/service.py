@@ -46,9 +46,7 @@ def validate_part_set(
                 )
             )
         if kind == DocumentKind.PDF and item.encrypted and is_merge_input:
-            part_label = (
-                f"Part {item.part.number}" if item.part.number is not None else "Selected"
-            )
+            part_label = f"Part {item.part.number}" if item.part.number is not None else "Selected"
             if allow_encrypted_pdf:
                 diagnostics.append(
                     Diagnostic(

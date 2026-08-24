@@ -23,9 +23,7 @@ def test_word_native_merge_surfaces_cleanup_failure_over_original_timeout(
     output = tmp_path / "merged.docx"
     _write_docx(source)
 
-    def failing_run(
-        command: list[str], *, timeout_seconds: int
-    ) -> NativeCommandResult:
+    def failing_run(command: list[str], *, timeout_seconds: int) -> NativeCommandResult:
         identity = Path(command[command.index("-ProcessIdentityFile") + 1])
         identity.write_text(
             json.dumps(

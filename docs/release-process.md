@@ -1,8 +1,8 @@
 # Release Process
 
-This document defines the evidence required to move DocMergeForge from a development checkpoint to a release candidate and, eventually, a stable `v1.0.0` release.
+This document defines the evidence required to move DocMergeForge from a development checkpoint to a release candidate and, eventually, an intentionally production-accepted release.
 
-A release is not complete merely because source tests pass or PyInstaller creates an archive.
+A release is not complete merely because source tests pass, a version number changes, or PyInstaller creates an archive.
 
 ## Release evidence levels
 
@@ -17,7 +17,9 @@ Documentation, changelogs, and releases must not collapse these levels into a si
 
 ## Versioning
 
-The project follows semantic-versioning intent. The package remains pre-stable (`0.x`) while the release matrix is being completed. `1.0.0` is reserved for the first intentionally accepted stable public contract.
+The current release-preparation target is `2.8.5`. DocMergeForge uses semantic-version-shaped package identifiers, but the repository's evidence model remains authoritative for readiness: a major version greater than zero or one does **not** by itself mean that human/production acceptance, signing/notarization, native mobile packaging, external-office fidelity, or claimed-scale stress gates have passed.
+
+The distribution classifier and release documentation must remain conservative until the corresponding evidence is accepted. For `2.8.5`, treat package/runtime metadata as a candidate identifier first; promote/tag/publish only after the intended release gates for that distribution claim are green and reviewed.
 
 ## 1. Freeze release scope
 
@@ -29,13 +31,16 @@ Review/update as appropriate:
 
 ```text
 pyproject.toml
+src/docmergeforge/__init__.py
+tests/unit/test_version_metadata.py
 CHANGELOG.md
 README.md
 docs/
+PROJECT_STATE.md
 what_changed.md
 ```
 
-Every documented command and support claim must match the candidate implementation.
+Every documented command and support claim must match the candidate implementation. Package metadata and runtime `__version__` must agree, and the release candidate should have an explicit regression pin so accidental version drift fails before publication.
 
 ## 3. Source quality and documentation gate
 
@@ -47,6 +52,7 @@ ruff check .
 black --check --diff .
 mypy src/docmergeforge
 python scripts/check_docs_links.py
+python scripts/check_repository_reference.py
 pytest --cov=docmergeforge --cov-report=term-missing
 ```
 
@@ -111,7 +117,7 @@ Run:        32033135355
 Checkpoint: 59dc14bbf1d4301177e475ac350694bdd9d90ada
 ```
 
-All Windows/macOS/Ubuntu build-host and fresh-runner jobs passed.
+All Windows/macOS/Ubuntu build-host and fresh-runner jobs passed for that historical checkpoint. Re-run/review candidate-appropriate packaging evidence before attributing it to `2.8.5`.
 
 ## 13. Optional onefile gate
 
@@ -124,7 +130,7 @@ Run:        32033541414
 Checkpoint: dc624e23d07e0ce94ef345245630d153ee60091a
 ```
 
-All Windows/macOS/Ubuntu build-host and fresh-runner jobs passed.
+All Windows/macOS/Ubuntu build-host and fresh-runner jobs passed for that historical checkpoint. Do not relabel it as `2.8.5` evidence unless the exact candidate commit is the checkpoint being verified.
 
 ## 14. Build provenance and SBOM gate
 
@@ -149,7 +155,7 @@ Before a production support claim, use representative clean end-user machines/VM
 
 ## 16. Platform signing/notarization gate
 
-Current artifacts are explicitly unsigned development builds.
+Current artifacts are explicitly unsigned development builds unless final-stage evidence says otherwise.
 
 ### Windows
 
@@ -185,7 +191,7 @@ Release notes should state supported platforms/architectures/build modes, worklo
 
 A `v*` tag can trigger packaging, but the tag itself is not acceptance and does not make current artifacts signed.
 
-Tag only the chosen reviewed commit after required gates for the release claim are green/accepted.
+Tag only the chosen reviewed commit after required gates for the release claim are green/accepted. For the current cycle, do not create or describe `v2.8.5` as accepted merely because package metadata says `2.8.5`.
 
 ## 21. Post-release verification
 
@@ -199,9 +205,11 @@ After publishing through the real user-facing channel:
 6. confirm no private/debug files were uploaded;
 7. retain run IDs, provenance/SBOM/checksums, trust evidence, and human acceptance records.
 
-## Stable `v1.0.0` gate
+## Production-acceptance gate
 
-Do not claim `v1.0.0` until required areas for the intended support statement are intentionally accepted, including core merge correctness, transaction/recovery safety, representative large/stress workloads, real-world fidelity, human accessibility, downloaded-artifact and human clean-machine package acceptance, production signing/notarization where distributed, and complete documentation/support/security processes.
+Do not claim a production-accepted release until required areas for the intended support statement are intentionally accepted, including core merge correctness, transaction/recovery safety, representative large/stress workloads, real-world fidelity, human accessibility, downloaded-artifact and human clean-machine package acceptance, production signing/notarization where distributed, and complete documentation/support/security processes.
+
+This gate applies to `2.8.5` regardless of its numeric major version.
 
 ## Release evidence template
 
@@ -210,6 +218,7 @@ Version/tag:
 Commit SHA:
 Date:
 Quality run:
+Project Sync Safety run:
 120-Part Regression run:
 Build Smoke run:
 Security run:

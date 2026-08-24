@@ -227,9 +227,7 @@ def run_libreoffice_uno_acceptance(
     capability = require_fidelity_automation("libreoffice")
     uno_python = find_uno_python()
     if uno_python is None:
-        raise ValidationError(
-            "LibreOffice UNO acceptance requires a Python UNO bridge."
-        )
+        raise ValidationError("LibreOffice UNO acceptance requires a Python UNO bridge.")
     libreoffice_uno_merge_documents(
         ordered,
         output,

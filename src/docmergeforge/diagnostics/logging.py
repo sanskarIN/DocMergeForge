@@ -15,9 +15,7 @@ _SECRET_PATTERN = re.compile(
     r"(?P=quote)?"
 )
 _BEARER_PATTERN = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+")
-_AUTH_HEADER_PATTERN = re.compile(
-    r"(?i)\bAuthorization\s*:\s*(?:Basic|Bearer)\s+[^\s,;]+"
-)
+_AUTH_HEADER_PATTERN = re.compile(r"(?i)\bAuthorization\s*:\s*(?:Basic|Bearer)\s+[^\s,;]+")
 _API_KEY_HEADER_PATTERN = re.compile(r"(?i)\b(?:X-)?Api-Key\s*:\s*[^\s,;]+")
 
 
