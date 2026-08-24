@@ -56,6 +56,25 @@ The integration suite covers both browse and recent-project routing in addition 
 - the Recent Projects shortcut as completed rather than future work;
 - exact candidate verification gates that still require observed evidence.
 
+### CI-discovered maintenance fixed without weakening gates
+
+The first candidate runs exposed pre-existing maintenance drift that was not visible from source inspection alone. The fixes stay inside the maintained contracts rather than suppressing checks:
+
+1. Project Sync Safety initially failed Black 26 formatting on four existing paths. The branch now applies Black's formatting-only result to:
+   - `src/docmergeforge/discovery/scanner.py`;
+   - `src/docmergeforge/project/sync.py`;
+   - `src/docmergeforge/cli/main.py`;
+   - `tests/unit/test_scanner_exclusions.py`.
+   A subsequent Ubuntu focused-safety run observed Black, Ruff, and strict mypy passing on the corrected files.
+2. The focused pruning regression then exposed an invalid fixture assumption: its fake `os.walk` yielded names for files/directories that had never been created, while production scanning correctly requires `Path.is_file()`. The test now creates the real root/content files before exercising pruning; production scanner behavior was not weakened.
+3. 120-Part Regression exposed two workflow collection defects:
+   - the integration suite includes FastAPI-backed web tests but the workflow installed only `[dev]`;
+   - several integration tests import repository-root `scripts`, but the workflow invoked the standalone `pytest` executable.
+   The workflow now installs `.[dev,web]` and invokes `python -m pytest`, preserving repository-root imports and the actual integration dependency set.
+4. Quality now likewise uses `python -m pip` and `python -m pytest` so its execution environment matches the repository import model deterministically.
+
+These are CI/test-environment corrections, not reductions in coverage or quality rules.
+
 ### Focused commits in this continuation
 
 - `253aed48f661b5009c95d2a298cb7038081ac1f8` — `ci(sync): align focused workflow action majors`.
@@ -63,10 +82,25 @@ The integration suite covers both browse and recent-project routing in addition 
 - `1823ff8bf406055298dbdaed82f84a83d836196a` — `chore(version): expose 2.8.5 package version`.
 - `67015d621ca4b86ab4731b79dded7e0badd967e8` — `test(version): pin 2.8.5 release candidate metadata`.
 - `1ee0e76d6714cd4c2c15c02dc6c8edaeab918454` — `docs(state): advance checkpoint to 2.8.5 preparation`.
+- `a456bf41813f20110500a1d3b5b34773239c40c9` — `docs(progress): record 2.8.5 preparation work`.
+- `55039559d7f444ddfc528c1986f4de7deeea18d6` — `docs(release): define evidence-first 2.8.5 candidate policy`.
+- `3c7ca61672be48255cb159aec81fe98e7eb11f46` — `style(discovery): apply maintained Black formatting`.
+- `2eb2fbf448a91451169c37b037e317a4a7d1b323` — `style(sync): apply maintained Black formatting`.
+- `2d85c31ea341be976a7cacf341bf957b3ec7e9ce` — `style(test): format scanner exclusion regression`.
+- `c9f9c3995558d0f087ea692fa322e70ce5cdcf2b` — `style(cli): format validation diagnostics`.
+- `01d10892af0a5f3ba66f57fb32894587dcba8e8d` — `test(discovery): create real files for pruning regression`.
+- `1b03b5aa34092b8ee7dddf6480903502bd2cade7` — `ci(regression): install integration extras and preserve repo imports`.
+- `ae302a4ee7388d4f84b7c598e97aac7d4f9b0137` — `ci(quality): preserve repository imports during pytest`.
 
 ### Verification boundary for 2.8.5
 
-No fresh candidate-head pass is claimed yet. Before `2.8.5` is treated as release-verified, observe and review the exact candidate commit for the applicable gates, including:
+Fresh candidate runs are required after the latest documentation checkpoint. Intermediate observed evidence is intentionally recorded only at the granularity actually seen:
+
+- Project Sync Safety on Ubuntu, after the formatting commits and before the later test/workflow commits, passed focused Black, Ruff, and strict mypy and then exposed the pruning-fixture failure described above.
+- Security dependency review was observed passing on a later candidate head while CodeQL was still running.
+- Earlier failed/interrupted runs are diagnostic evidence only and are superseded by newer candidate heads.
+
+Before `2.8.5` is treated as release-verified, observe and review the exact final candidate commit for the applicable gates, including:
 
 - Quality on Python 3.12 and 3.13;
 - Project Sync Safety on Ubuntu, Windows, and macOS;
@@ -83,14 +117,13 @@ Historical workflow runs remain evidence only for their exact historical checkpo
 
 ### Remaining next work after this preparation pass
 
-1. Finish release-document synchronization (`CHANGELOG.md`, README release-status wording, release-process/evidence wording) for `2.8.5`.
-2. Open/review the release-preparation PR and observe its exact CI results.
-3. Fix any candidate-head lint/format/type/test/docs/reference failure without weakening checks.
-4. Run/review cross-platform regression, build, security, packaging, and downloaded-artifact gates appropriate to the intended `2.8.5` distribution.
-5. Continue representative browser/device acceptance; browser support is not native APK/AAB/IPA packaging.
-6. Continue native-office fidelity, measured large-stress, human accessibility, clean-machine, signing/notarization, and distribution acceptance independently.
-7. Keep synchronized project discovery/business rules centralized in `project.sync`; do not fork browse/recent/CLI semantics.
-8. If simultaneous multi-writer project editing becomes required, design a coordinated lock/revision protocol rather than relabeling the optimistic SHA-256 stale-write guard.
+1. Observe the exact final PR-head Quality, Project Sync Safety, 120-Part Regression, Build Smoke, and Security/CodeQL results and fix any remaining failure without weakening maintained gates.
+2. Finish optional public release-facing wording in `CHANGELOG.md`/README only where it adds accurate value; `PROJECT_STATE.md`, `what_changed.md`, package/runtime metadata, and release policy are already synchronized to the candidate boundary.
+3. Run/review Package Desktop, Onefile Acceptance, and downloaded-artifact gates if those artifacts are intended for the `2.8.5` distribution.
+4. Continue representative browser/device acceptance; browser support is not native APK/AAB/IPA packaging.
+5. Continue native-office fidelity, measured large-stress, human accessibility, clean-machine, signing/notarization, and distribution acceptance independently.
+6. Keep synchronized project discovery/business rules centralized in `project.sync`; do not fork browse/recent/CLI semantics.
+7. If simultaneous multi-writer project editing becomes required, design a coordinated lock/revision protocol rather than relabeling the optimistic SHA-256 stale-write guard.
 
 ## 2026-08-20 — Guarded desktop project synchronization
 
