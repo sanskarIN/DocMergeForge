@@ -68,9 +68,7 @@ def page_number_section_records(path: Path) -> tuple[PageNumberSectionRecord, ..
             try:
                 document_xml = archive.read(_DOCUMENT_XML)
             except KeyError as exc:
-                raise ValidationError(
-                    f"DOCX package is missing {_DOCUMENT_XML}: {path}"
-                ) from exc
+                raise ValidationError(f"DOCX package is missing {_DOCUMENT_XML}: {path}") from exc
     except zipfile.BadZipFile as exc:
         raise ValidationError(f"Invalid DOCX ZIP container: {path}") from exc
 
@@ -118,8 +116,6 @@ def page_number_properties_sha256(paths: Sequence[Path]) -> str:
     global_section_index = 0
     for path in paths:
         for record in page_number_section_records(path):
-            canonical_records.append(
-                f"section={global_section_index}|{record.canonical()}"
-            )
+            canonical_records.append(f"section={global_section_index}|{record.canonical()}")
             global_section_index += 1
     return _digest_records(canonical_records)
