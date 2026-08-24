@@ -4,7 +4,6 @@ import sys
 import time
 
 import pytest
-
 from docmergeforge.docx import libreoffice_uno_merge
 
 
