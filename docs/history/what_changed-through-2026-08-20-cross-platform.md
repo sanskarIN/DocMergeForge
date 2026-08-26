@@ -1,6 +1,6 @@
 # What Changed
 
-This file records the current DocMergeForge development pass, verification evidence, and remaining release gates. Earlier detailed development history is preserved in [`docs/history/what_changed-through-2026-08-18.md`](docs/history/what_changed-through-2026-08-18.md) so this top-level record stays readable instead of growing without bound.
+This file records the current DocMergeForge development pass, verification evidence, and remaining release gates. Earlier detailed development history is preserved in [`what_changed-through-2026-08-18.md`](what_changed-through-2026-08-18.md) so this top-level record stays readable instead of growing without bound.
 
 An item is not treated as finished merely because code was pushed. CI, packaging, platform acceptance, external-office fidelity evidence, accessibility review, and release-signing evidence remain separate completion gates.
 

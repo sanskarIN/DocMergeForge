@@ -200,9 +200,7 @@ def ordered_documents(input_root: Path) -> tuple[DocumentKind, list[InputDocumen
     """Discover one homogeneous PDF/DOCX upload set and order numbered parts naturally."""
 
     documents = [
-        item
-        for item in scan([input_root])
-        if item.kind in {DocumentKind.PDF, DocumentKind.DOCX}
+        item for item in scan([input_root]) if item.kind in {DocumentKind.PDF, DocumentKind.DOCX}
     ]
     if not documents:
         raise ValueError("No PDF or DOCX files were uploaded.")

@@ -41,10 +41,10 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -54,7 +54,7 @@ jobs:
 
       - name: Check focused formatting
         run: >-
-          python -m black --check --diff
+          python -m ruff format --check
           src/docmergeforge/project/sync.py
           src/docmergeforge/project/drift.py
           src/docmergeforge/project/discovery.py

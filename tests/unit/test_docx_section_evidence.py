@@ -136,9 +136,9 @@ def test_page_number_fingerprint_binds_document_order(tmp_path: Path) -> None:
         chapter_separator="",
     )
 
-    assert page_number_properties_sha256(
-        [first, second]
-    ) != page_number_properties_sha256([second, first])
+    assert page_number_properties_sha256([first, second]) != page_number_properties_sha256(
+        [second, first]
+    )
 
 
 def test_page_number_evidence_rejects_non_docx(tmp_path: Path) -> None:

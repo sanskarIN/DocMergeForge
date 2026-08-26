@@ -28,9 +28,7 @@ def _inject_page_number_properties(path: Path, *, start: str, fmt: str) -> None:
     if marker not in document_xml:
         raise AssertionError("Expected section columns marker in generated DOCX fixture")
     page_number = f'<w:pgNumType w:start="{start}" w:fmt="{fmt}"/>'.encode()
-    members["word/document.xml"] = document_xml.replace(
-        marker, page_number + marker, 1
-    )
+    members["word/document.xml"] = document_xml.replace(marker, page_number + marker, 1)
     with ZipFile(path, "w", compression=ZIP_DEFLATED) as output:
         for name, payload in members.items():
             output.writestr(name, payload)
@@ -65,17 +63,13 @@ def _copy_section_layout(source: object, target: object) -> None:
         target_story.is_linked_to_previous = source_story.is_linked_to_previous
 
 
-def _merge_without_page_number_properties(
-    sources: tuple[Path, ...], output: Path
-) -> None:
+def _merge_without_page_number_properties(sources: tuple[Path, ...], output: Path) -> None:
     merged = Document()
     merged._body.clear_content()
     for index, source in enumerate(sources):
         current = Document(str(source))
         target_section = (
-            merged.sections[0]
-            if index == 0
-            else merged.add_section(WD_SECTION.NEW_PAGE)
+            merged.sections[0] if index == 0 else merged.add_section(WD_SECTION.NEW_PAGE)
         )
         _copy_section_layout(current.sections[0], target_section)
         for paragraph in current.paragraphs:
@@ -137,10 +131,7 @@ def test_word_merge_acceptance_rejects_lost_page_number_restart_and_format(
         evidence.expected_content.body_paragraphs_sha256
         == evidence.output_content.body_paragraphs_sha256
     )
-    assert (
-        evidence.expected_content.tables_sha256
-        == evidence.output_content.tables_sha256
-    )
+    assert evidence.expected_content.tables_sha256 == evidence.output_content.tables_sha256
     assert (
         evidence.expected_content.section_properties_sha256
         == evidence.output_content.section_properties_sha256

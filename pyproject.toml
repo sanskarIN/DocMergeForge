@@ -46,8 +46,7 @@ Funding = "https://buymeacoffee.com/sanskarIN"
 dev = [
   "pytest>=8.3",
   "pytest-cov>=6",
-  "ruff>=0.9",
-  "black>=25.1",
+  "ruff==0.16.3",
   "mypy>=1.15",
   "pre-commit>=4",
   "types-setuptools",
@@ -73,6 +72,7 @@ packages = ["src/docmergeforge"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 addopts = "-q --strict-markers"
 markers = [
   "integration: tests requiring document libraries",
@@ -86,9 +86,9 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM", "C4"]
 
-[tool.black]
-line-length = 100
-target-version = ["py312"]
+[tool.ruff.lint.per-file-ignores]
+"src/docmergeforge/ui/main.py" = ["SIM103"]
+"src/docmergeforge/web/app.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"

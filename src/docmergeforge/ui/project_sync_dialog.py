@@ -61,7 +61,9 @@ class ProjectSyncDialog(QDialog):
                 "make the automatic selection ambiguous. Resolve the duplicates and preview again."
             )
         elif not plan.changed:
-            guidance = "The saved selected-file list already matches the current automatic proposal."
+            guidance = (
+                "The saved selected-file list already matches the current automatic proposal."
+            )
         elif plan.removed:
             guidance = (
                 "Review the removals carefully. Applying this proposal requires a separate removal "
@@ -69,8 +71,8 @@ class ProjectSyncDialog(QDialog):
             )
         else:
             guidance = (
-                "Review the complete proposal before applying it. A versioned backup of the project "
-                "JSON will be created before the guarded update."
+                "Review the complete proposal before applying it. A versioned backup of the "
+                "project JSON will be created before the guarded update."
             )
 
         self.guidance = QLabel(guidance)

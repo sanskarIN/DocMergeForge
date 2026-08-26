@@ -72,9 +72,8 @@ def _required_string(data: dict[str, Any], key: str) -> str:
 
 
 def _path_list(value: object, label: str, *, allow_empty: bool) -> list[Path]:
-    if (
-        not isinstance(value, list)
-        or not all(isinstance(item, str) and item.strip() for item in value)
+    if not isinstance(value, list) or not all(
+        isinstance(item, str) and item.strip() for item in value
     ):
         raise ValueError(f"Project field '{label}' must be a JSON array of non-empty path strings.")
     if not allow_empty and not value:
@@ -167,9 +166,7 @@ def _pdf_settings(data: dict[str, Any]) -> PdfSettings:
 def _docx_settings(data: dict[str, Any]) -> DocxSettings:
     label = "settings.docx"
     return DocxSettings(
-        start_each_part_on_new_page=_bool_value(
-            data, "start_each_part_on_new_page", True, label
-        ),
+        start_each_part_on_new_page=_bool_value(data, "start_each_part_on_new_page", True, label),
         preserve_sections=_bool_value(data, "preserve_sections", True, label),
         fidelity_mode=_choice(
             data,
@@ -196,9 +193,7 @@ def _docx_settings(data: dict[str, Any]) -> DocxSettings:
         ),
         header_text=_optional_string(data, "header_text", label),
         footer_text=_optional_string(data, "footer_text", label),
-        continuous_page_numbering=_bool_value(
-            data, "continuous_page_numbering", True, label
-        ),
+        continuous_page_numbering=_bool_value(data, "continuous_page_numbering", True, label),
     )
 
 
@@ -223,16 +218,10 @@ def _project_from_raw(raw: object) -> MergeProject:
     settings = MergeSettings(
         expected_start=expected_start,
         expected_end=expected_end,
-        checksum_generation=_bool_value(
-            settings_data, "checksum_generation", True, "settings"
-        ),
-        automatic_validation=_bool_value(
-            settings_data, "automatic_validation", True, "settings"
-        ),
+        checksum_generation=_bool_value(settings_data, "checksum_generation", True, "settings"),
+        automatic_validation=_bool_value(settings_data, "automatic_validation", True, "settings"),
         overwrite=_bool_value(settings_data, "overwrite", False, "settings"),
-        profile_name=_string_value(
-            settings_data, "profile_name", "Exact Preservation", "settings"
-        ),
+        profile_name=_string_value(settings_data, "profile_name", "Exact Preservation", "settings"),
         filename_template=_string_value(
             settings_data, "filename_template", "{series}_Master", "settings"
         ),

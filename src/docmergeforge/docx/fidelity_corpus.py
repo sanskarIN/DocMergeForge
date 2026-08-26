@@ -67,11 +67,7 @@ class FidelityCorpusReport:
 
     @property
     def accepted(self) -> bool:
-        return (
-            self.discovered_count > 0
-            and not self.stopped_early
-            and self.failed_count == 0
-        )
+        return self.discovered_count > 0 and not self.stopped_early and self.failed_count == 0
 
     def to_dict(self) -> dict[str, Any]:
         return {

@@ -67,9 +67,7 @@ def _synthetic_merge(sources: tuple[Path, ...], output: Path) -> None:
     for index, source in enumerate(sources):
         current = Document(str(source))
         target_section = (
-            merged.sections[0]
-            if index == 0
-            else merged.add_section(WD_SECTION.NEW_PAGE)
+            merged.sections[0] if index == 0 else merged.add_section(WD_SECTION.NEW_PAGE)
         )
         _copy_section_layout(current.sections[0], target_section)
         for paragraph in current.paragraphs:

@@ -68,9 +68,7 @@ def test_run_fidelity_corpus_keeps_report_paths_relative(
     monkeypatch.setattr(
         fidelity_corpus,
         "run_fidelity_roundtrip_acceptance",
-        lambda source, destination, mode, **kwargs: _accepted_evidence(
-            source, destination, mode
-        ),
+        lambda source, destination, mode, **kwargs: _accepted_evidence(source, destination, mode),
     )
     report = fidelity_corpus.run_fidelity_corpus(corpus, output, "libreoffice")
     payload = report.to_dict()

@@ -66,6 +66,9 @@ def test_recursive_iter_files_prunes_excluded_directory_before_descent(
     source.mkdir()
     excluded = source / "Master"
     content = source / "Content"
+    content.mkdir()
+    (source / "root.txt").write_text("root", encoding="utf-8")
+    (content / "Part 1.docx").write_text("part", encoding="utf-8")
     directory_names = ["Master", "Content"]
     walk_calls: list[tuple[Path, bool]] = []
 
@@ -107,9 +110,7 @@ def test_non_recursive_iter_files_still_honors_excluded_root(tmp_path: Path) -> 
     included.write_text("one", encoding="utf-8")
     excluded_file.write_text("two", encoding="utf-8")
 
-    discovered = list(
-        scanner.iter_files([source], recursive=False, exclude_roots=[excluded])
-    )
+    discovered = list(scanner.iter_files([source], recursive=False, exclude_roots=[excluded]))
 
     assert discovered == [included]
 

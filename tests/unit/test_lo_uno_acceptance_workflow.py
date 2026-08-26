@@ -3,12 +3,7 @@ from pathlib import Path
 
 def _workflow_text() -> str:
     repository_root = Path(__file__).resolve().parents[2]
-    workflow = (
-        repository_root
-        / ".github"
-        / "workflows"
-        / "libreoffice-uno-acceptance.yml"
-    )
+    workflow = repository_root / ".github" / "workflows" / "libreoffice-uno-acceptance.yml"
     return workflow.read_text(encoding="utf-8")
 
 

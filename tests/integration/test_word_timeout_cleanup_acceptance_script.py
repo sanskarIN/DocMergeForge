@@ -34,9 +34,7 @@ def test_word_timeout_cleanup_acceptance_records_timeout_and_cleanup(
         lambda mode: _capability(),
     )
 
-    def fake_run(
-        command: list[str], *, timeout_seconds: int
-    ) -> NativeCommandResult:
+    def fake_run(command: list[str], *, timeout_seconds: int) -> NativeCommandResult:
         nonlocal captured_script
         identity = Path(command[command.index("-ProcessIdentityFile") + 1])
         identity.write_text(
@@ -49,9 +47,7 @@ def test_word_timeout_cleanup_acceptance_records_timeout_and_cleanup(
             ),
             encoding="utf-8",
         )
-        captured_script = Path(command[command.index("-File") + 1]).read_text(
-            encoding="utf-8"
-        )
+        captured_script = Path(command[command.index("-File") + 1]).read_text(encoding="utf-8")
         raise ValidationError(
             f"Native DOCX fidelity command timed out after {timeout_seconds} seconds."
         )
@@ -78,9 +74,7 @@ def test_word_timeout_cleanup_acceptance_records_timeout_and_cleanup(
         ]
     )
     payload = json.loads(
-        (output_dir / "word-timeout-cleanup-evidence.json").read_text(
-            encoding="utf-8"
-        )
+        (output_dir / "word-timeout-cleanup-evidence.json").read_text(encoding="utf-8")
     )
 
     assert exit_code == 0
@@ -103,9 +97,7 @@ def test_word_timeout_cleanup_acceptance_rejects_non_timeout_failure(
         lambda mode: _capability(),
     )
 
-    def fail_before_timeout(
-        command: list[str], **kwargs: object
-    ) -> NativeCommandResult:
+    def fail_before_timeout(command: list[str], **kwargs: object) -> NativeCommandResult:
         raise ValidationError("Word COM automation failed before timeout.")
 
     monkeypatch.setattr(script, "run_native_command", fail_before_timeout)

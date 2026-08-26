@@ -61,9 +61,7 @@ def test_word_native_merge_acceptance_script_writes_json(
         timeout_seconds: int,
         start_each_on_new_page: bool,
     ) -> WordMergeAcceptanceEvidence:
-        calls.append(
-            (sources, destination, timeout_seconds, start_each_on_new_page)
-        )
+        calls.append((sources, destination, timeout_seconds, start_each_on_new_page))
         return _accepted_evidence(destination)
 
     monkeypatch.setattr(script, "run_word_merge_acceptance", fake_acceptance)

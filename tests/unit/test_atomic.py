@@ -76,9 +76,10 @@ def test_atomic_output_preserves_published_file_when_fsync_fails(
 
     monkeypatch.setattr(atomic.os, "fsync", failing_fsync)
 
-    with pytest.raises(OSError, match="simulated fsync failure"), atomic_output(
-        target, overwrite=True
-    ) as temp:
+    with (
+        pytest.raises(OSError, match="simulated fsync failure"),
+        atomic_output(target, overwrite=True) as temp,
+    ):
         temp.write_bytes(b"new")
 
     assert target.read_bytes() == b"published"

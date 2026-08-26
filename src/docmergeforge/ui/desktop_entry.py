@@ -32,7 +32,8 @@ class ProjectSyncMainWindow(ui_main.MainWindow):
         self.sync_project_button = QPushButton("Synchronize Project Sources")
         self.sync_project_button.setAccessibleName("Synchronize project sources")
         self.sync_project_button.setAccessibleDescription(
-            "Browse for a saved project, preview source-selection changes, and optionally apply them."
+            "Browse for a saved project, preview source-selection changes, "
+            "and optionally apply them."
         )
         self.sync_project_button.setMinimumHeight(58)
         self.sync_project_button.clicked.connect(self._synchronize_project)

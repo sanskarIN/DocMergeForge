@@ -58,9 +58,7 @@ def _iter_directory(
     for directory, directory_names, file_names in os.walk(root, followlinks=False):
         directory_path = Path(directory)
         directory_names[:] = [
-            name
-            for name in directory_names
-            if not _is_excluded(directory_path / name, excluded)
+            name for name in directory_names if not _is_excluded(directory_path / name, excluded)
         ]
         for name in file_names:
             path = directory_path / name
