@@ -47,7 +47,6 @@ dev = [
   "pytest>=8.3",
   "pytest-cov>=6",
   "ruff>=0.9",
-  "black>=25.1",
   "mypy>=1.15",
   "pre-commit>=4",
   "types-setuptools",
@@ -90,10 +89,6 @@ select = ["E", "F", "I", "B", "UP", "SIM", "C4"]
 [tool.ruff.lint.per-file-ignores]
 "src/docmergeforge/ui/main.py" = ["SIM103"]
 "src/docmergeforge/web/app.py" = ["E501"]
-
-[tool.black]
-line-length = 100
-target-version = ["py312"]
 
 [tool.mypy]
 python_version = "3.12"
