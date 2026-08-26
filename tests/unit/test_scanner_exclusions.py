@@ -66,6 +66,9 @@ def test_recursive_iter_files_prunes_excluded_directory_before_descent(
     source.mkdir()
     excluded = source / "Master"
     content = source / "Content"
+    content.mkdir()
+    (source / "root.txt").write_text("root", encoding="utf-8")
+    (content / "Part 1.docx").write_text("part", encoding="utf-8")
     directory_names = ["Master", "Content"]
     walk_calls: list[tuple[Path, bool]] = []
 
