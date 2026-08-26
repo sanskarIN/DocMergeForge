@@ -1,8 +1,7 @@
-from pathlib import Path
 import zipfile
+from pathlib import Path
 
 from docmergeforge.validation.ooxml import risky_docx_constructs
-
 
 _CONTENT_TYPES = """<?xml version="1.0" encoding="UTF-8"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
