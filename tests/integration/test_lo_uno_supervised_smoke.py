@@ -60,9 +60,7 @@ def test_supervised_uno_smoke_builds_two_distinct_sources(
     first_doc = Document(str(first))
     second_doc = Document(str(second))
     payload = json.loads(
-        (output_dir / "libreoffice-uno-merge-evidence.json").read_text(
-            encoding="utf-8"
-        )
+        (output_dir / "libreoffice-uno-merge-evidence.json").read_text(encoding="utf-8")
     )
 
     assert exit_code == 0

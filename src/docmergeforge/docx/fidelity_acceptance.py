@@ -128,12 +128,8 @@ def snapshot_docx_structure(path: Path) -> DocxStructureSnapshot:
         inline_shapes=len(document.inline_shapes),
         sections=len(document.sections),
         headings=headings,
-        header_paragraphs=sum(
-            len(section.header.paragraphs) for section in document.sections
-        ),
-        footer_paragraphs=sum(
-            len(section.footer.paragraphs) for section in document.sections
-        ),
+        header_paragraphs=sum(len(section.header.paragraphs) for section in document.sections),
+        footer_paragraphs=sum(len(section.footer.paragraphs) for section in document.sections),
         header_tables=sum(len(section.header.tables) for section in document.sections),
         footer_tables=sum(len(section.footer.tables) for section in document.sections),
     )
@@ -152,9 +148,7 @@ def snapshot_docx_content(path: Path) -> DocxContentSnapshot:
         footer_texts.extend(_table_texts(section.footer.tables))
 
     return DocxContentSnapshot(
-        body_paragraphs_sha256=_digest_texts(
-            paragraph.text for paragraph in document.paragraphs
-        ),
+        body_paragraphs_sha256=_digest_texts(paragraph.text for paragraph in document.paragraphs),
         tables_sha256=_digest_texts(_table_texts(document.tables)),
         headers_sha256=_digest_texts(header_texts),
         footers_sha256=_digest_texts(footer_texts),

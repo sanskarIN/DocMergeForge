@@ -34,9 +34,7 @@ def _entry(
         "backup_name": backup_name,
         "staged_size": len(staged_data) if staged_size is None else staged_size,
         "staged_sha256": (
-            hashlib.sha256(staged_data).hexdigest()
-            if staged_sha256 is None
-            else staged_sha256
+            hashlib.sha256(staged_data).hexdigest() if staged_sha256 is None else staged_sha256
         ),
     }
 

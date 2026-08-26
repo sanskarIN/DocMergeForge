@@ -13,9 +13,7 @@ def build_fixture(path: Path) -> None:
     document = Document()
     document.core_properties.title = "DocMergeForge Fidelity Acceptance"
     document.add_heading("Fidelity Acceptance", level=1)
-    document.add_paragraph(
-        "Representative smoke content with bold, italic, and list formatting."
-    )
+    document.add_paragraph("Representative smoke content with bold, italic, and list formatting.")
     formatted = document.add_paragraph()
     formatted.add_run("Bold text").bold = True
     formatted.add_run(" and ")
