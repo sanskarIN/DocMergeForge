@@ -78,7 +78,10 @@ class ProjectSyncPlan:
         }
 
 
-def _eligible_documents(project: MergeProject, discovered: list[InputDocument]) -> list[InputDocument]:
+def _eligible_documents(
+    project: MergeProject,
+    discovered: list[InputDocument],
+) -> list[InputDocument]:
     start = project.settings.expected_start
     end = project.settings.expected_end
     unique: list[InputDocument] = []
