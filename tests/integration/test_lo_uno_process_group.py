@@ -4,9 +4,7 @@ import sys
 import time
 
 import pytest
-
 from docmergeforge.docx import libreoffice_uno_merge
-
 
 pytestmark = pytest.mark.skipif(
     os.name != "posix",
