@@ -46,7 +46,7 @@ Funding = "https://buymeacoffee.com/sanskarIN"
 dev = [
   "pytest>=8.3",
   "pytest-cov>=6",
-  "ruff==0.16.3",
+  "ruff==0.16.6",
   "mypy>=1.15",
   "pre-commit>=4",
   "types-setuptools",
