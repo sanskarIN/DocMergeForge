@@ -132,7 +132,7 @@ class DocxMergeEngine:
             diagnostics = validate_docx_package(temporary)
             if any(diag.level.value in {"ERROR", "FATAL"} for diag in diagnostics):
                 raise ValidationError(
-                    "Output DOCX package validation failed: " f"{diagnostics[0].message}"
+                    f"Output DOCX package validation failed: {diagnostics[0].message}"
                 )
 
             Document(str(temporary))

@@ -70,10 +70,10 @@ def word_roundtrip_copy(
         raise ValidationError("Microsoft Word fidelity round-trip accepts DOCX paths only.")
     if not source.exists() or not source.is_file():
         raise FileNotFoundError(source)
-    if destination.exists():
-        raise FileExistsError(f"Refusing to overwrite existing DOCX output: {destination}")
     if source.resolve() == destination.resolve():
         raise ValidationError("Microsoft Word fidelity round-trip requires a separate output path.")
+    if destination.exists():
+        raise FileExistsError(f"Refusing to overwrite existing DOCX output: {destination}")
 
     host = powershell or find_word_powershell_host()
     if host is None:

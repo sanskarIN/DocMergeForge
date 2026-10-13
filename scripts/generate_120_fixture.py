@@ -47,8 +47,7 @@ def main() -> int:
             zf.writestr("example.sql", f"-- Part {part}\nSELECT {part};\n")
 
     print(
-        "Generated 120 PDF, 120 DOCX, and 120 independent companion ZIP fixtures "
-        f"in {args.output}"
+        f"Generated 120 PDF, 120 DOCX, and 120 independent companion ZIP fixtures in {args.output}"
     )
     return 0
 

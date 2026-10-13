@@ -55,13 +55,14 @@ def configure_logging(path: Path, level: str = "INFO") -> logging.Logger:
     logger.setLevel(getattr(logging, level.upper(), logging.INFO))
     logger.propagate = False
 
-    for handler in list(logger.handlers):
-        handler.close()
-        logger.removeHandler(handler)
+    for existing_handler in list(logger.handlers):
+        existing_handler.close()
+        logger.removeHandler(existing_handler)
 
+    handler: logging.Handler
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        handler: logging.Handler = RotatingFileHandler(
+        handler = RotatingFileHandler(
             path,
             maxBytes=5 * 1024 * 1024,
             backupCount=3,

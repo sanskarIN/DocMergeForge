@@ -54,7 +54,7 @@ jobs:
 
       - name: Check focused formatting
         run: >-
-          python -m black --check --diff
+          python -m ruff format --check
           src/docmergeforge/project/sync.py
           src/docmergeforge/project/drift.py
           src/docmergeforge/project/discovery.py

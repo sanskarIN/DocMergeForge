@@ -26,7 +26,7 @@ At the intended release commit:
 - [ ] Quality workflow green.
 - [ ] `pre-commit validate-config` green.
 - [ ] Ruff green.
-- [ ] Black green.
+- [ ] Ruff formatting green.
 - [ ] strict mypy green.
 - [ ] repository-local Markdown link integrity green.
 - [ ] full pytest green.
