@@ -3,6 +3,8 @@ from pathlib import Path
 
 from docmergeforge import __version__
 
+EXPECTED_RELEASE_VERSION = "2.8.5"
+
 
 def _pyproject() -> dict[str, object]:
     root = Path(__file__).resolve().parents[2]
@@ -14,6 +16,14 @@ def test_pyproject_version_matches_package_version() -> None:
     project = pyproject["project"]
     assert isinstance(project, dict)
     assert project["version"] == __version__
+
+
+def test_release_version_is_pinned_for_candidate() -> None:
+    pyproject = _pyproject()
+    project = pyproject["project"]
+    assert isinstance(project, dict)
+    assert project["version"] == EXPECTED_RELEASE_VERSION
+    assert __version__ == EXPECTED_RELEASE_VERSION
 
 
 def test_public_console_scripts_use_maintained_entry_points() -> None:

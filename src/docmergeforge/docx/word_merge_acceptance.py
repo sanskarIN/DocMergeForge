@@ -177,13 +177,13 @@ def _section_record(section: Any) -> str:
             f"gutter={_scalar(section.gutter)}",
             f"header_distance={_scalar(section.header_distance)}",
             f"footer_distance={_scalar(section.footer_distance)}",
-            f"different_first_page={int(bool(section.different_first_page_header_footer))}",
+            "different_first_page=" f"{int(bool(section.different_first_page_header_footer))}",
             f"header_linked={int(bool(section.header.is_linked_to_previous))}",
-            f"first_header_linked={int(bool(section.first_page_header.is_linked_to_previous))}",
-            f"even_header_linked={int(bool(section.even_page_header.is_linked_to_previous))}",
+            "first_header_linked=" f"{int(bool(section.first_page_header.is_linked_to_previous))}",
+            "even_header_linked=" f"{int(bool(section.even_page_header.is_linked_to_previous))}",
             f"footer_linked={int(bool(section.footer.is_linked_to_previous))}",
-            f"first_footer_linked={int(bool(section.first_page_footer.is_linked_to_previous))}",
-            f"even_footer_linked={int(bool(section.even_page_footer.is_linked_to_previous))}",
+            "first_footer_linked=" f"{int(bool(section.first_page_footer.is_linked_to_previous))}",
+            "even_footer_linked=" f"{int(bool(section.even_page_footer.is_linked_to_previous))}",
         )
     )
 
