@@ -61,6 +61,7 @@ from docmergeforge.ui.order_dialog import OrderEditorDialog
 from docmergeforge.ui.paths import log_path, recent_projects_path, recovery_dir, settings_path
 from docmergeforge.ui.pdf_passwords import collect_pdf_passwords
 from docmergeforge.ui.recent import RecentProject, RecentProjectsStore
+from docmergeforge.ui.resources import BMC_URL, REPOSITORY_URL, WEBSITE_URL
 from docmergeforge.ui.sql_wizard import SQLPresetWizard
 from docmergeforge.ui.support_dialog import SupportDialog
 from docmergeforge.ui.theme import apply_text_scale, apply_theme
@@ -150,7 +151,7 @@ class MainWindow(QMainWindow):
         bmc = QPushButton("☕ Buy Me a Coffee")
         bmc.setAccessibleName("Buy Me a Coffee support link")
         bmc.clicked.connect(
-            lambda: QDesktopServices.openUrl(QUrl("https://buymeacoffee.com/sanskarIN"))
+            lambda: QDesktopServices.openUrl(QUrl(BMC_URL))
         )
         support_row.addWidget(bmc)
         outer.addLayout(support_row)
@@ -645,8 +646,9 @@ class MainWindow(QMainWindow):
             "6. Review generated reports, checksums, and manifests.\n\n"
             "Original documents are never overwritten. Companion code remains separate.\n\n"
             "Support: supportramsandesh@gmail.com\n"
-            "Repository: https://github.com/sanskarIN/DocMergeForge\n"
-            "Buy Me a Coffee: https://buymeacoffee.com/sanskarIN",
+            f"Repository: {REPOSITORY_URL}\n"
+            f"Buy Me a Coffee: {BMC_URL}\n"
+            f"More info available at {WEBSITE_URL}",
         ).exec()
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
