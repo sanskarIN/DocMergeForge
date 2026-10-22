@@ -36,11 +36,11 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/sanskarIN/DocMergeForge"
-Repository = "https://github.com/sanskarIN/DocMergeForge"
-Documentation = "https://github.com/sanskarIN/DocMergeForge/tree/main/docs"
-Issues = "https://github.com/sanskarIN/DocMergeForge/issues"
-Funding = "https://buymeacoffee.com/sanskarIN"
+Homepage = "https://sanskarin.github.io"
+Repository = "https://github.com/sanskarIN/foliolane"
+Documentation = "https://github.com/sanskarIN/foliolane/tree/main/docs"
+Issues = "https://github.com/sanskarIN/foliolane/issues"
+Funding = "https://buymeacoffee.com/SanskarCodes"
 
 [project.optional-dependencies]
 dev = [
