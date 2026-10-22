@@ -221,6 +221,7 @@ Do not open a public issue containing a private manuscript, password, token, or 
 Use the contacts in [`SECURITY.md`](../SECURITY.md):
 
 - `supportramsandesh@gmail.com`
-- `sanskarin@outlook.in`
+- `sanskar.businesswork@outlook.com`
+- `sanskar.businesswork@gmail.com`
 
 Include a minimal privacy-safe reproduction, operating system, DocMergeForge version/commit, and relevant diagnostics without confidential manuscript content.
