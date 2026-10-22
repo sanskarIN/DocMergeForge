@@ -18,8 +18,8 @@ Core Python dependencies are declared in `pyproject.toml` and include `pypdf`, `
 Clone the repository and create a virtual environment.
 
 ```bash
-git clone https://github.com/sanskarIN/DocMergeForge.git
-cd DocMergeForge
+git clone https://github.com/sanskarIN/foliolane.git
+cd foliolane
 python -m venv .venv
 ```
 
