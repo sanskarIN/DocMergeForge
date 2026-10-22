@@ -8,7 +8,7 @@ def _docx(path: Path, part: int) -> None:
     text = (
         "SQL Full Mastery Part "
         f"{part} — Ram Sandesh — August 2026 — Copyright and author information "
-        "GitHub github.com/sanskarIN — Buy Me a Coffee buymeacoffee.com/sanskarIN"
+        "GitHub github.com/sanskarIN — Buy Me a Coffee buymeacoffee.com/SanskarCodes"
     )
     document = f"""<?xml version="1.0" encoding="UTF-8"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
