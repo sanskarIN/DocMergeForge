@@ -36,4 +36,4 @@ Maintainers may edit or remove content, reject or close contributions, limit par
 
 For ordinary project support, use the guidance in [`docs/support.md`](docs/support.md). Security-sensitive reports must follow [`SECURITY.md`](SECURITY.md) and should not be posted publicly.
 
-For a private conduct concern, contact `supportramsandesh@gmail.com`. Include only the information needed to understand the concern, and do not attach unrelated private manuscript data or credentials.
+For a private conduct concern, contact `sanskar.businesswork@outlook.com`. Include only the information needed to understand the concern, and do not attach unrelated private manuscript data or credentials.
