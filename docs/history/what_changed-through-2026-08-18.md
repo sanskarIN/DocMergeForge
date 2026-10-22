@@ -568,5 +568,5 @@ This file records meaningful DocMergeForge development changes, validation evide
 - The project continues to enforce the core safety rule: PDF manuscripts may merge with PDF manuscripts and DOCX manuscripts may merge with DOCX manuscripts, while companion/source code remains separate and is never merged into a manuscript.
 
 ### Repository / Commit Identity
-- Repository: `https://github.com/sanskarIN/DocMergeForge`
+- Repository: `https://github.com/sanskarIN/foliolane`
 - Development commits made through the connected repository use `Sanskar <sanskarin@outlook.in>`.
