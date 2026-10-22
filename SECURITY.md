@@ -17,7 +17,7 @@ Do **not** post a sensitive vulnerability publicly if doing so could expose user
 Private security contacts:
 
 - Support: `supportramsandesh@gmail.com`
-- Business: `sanskarin@outlook.in`
+- Business: `sanskar.businesswork@outlook.com`
 
 A useful private report includes:
 
@@ -93,3 +93,5 @@ Actual signature/notarization bypasses or failures in a future production signin
 ## Public non-sensitive bugs
 
 For ordinary bugs with no sensitive/security impact, use the repository issue templates and follow [docs/support.md](docs/support.md). Do not attach confidential manuscripts to a public issue.
+
+For other business inquiries, use `sanskar.businesswork@gmail.com`.
