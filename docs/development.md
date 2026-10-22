@@ -23,8 +23,8 @@ Changes should preserve the project's core invariants:
 ## Environment setup
 
 ```bash
-git clone https://github.com/sanskarIN/DocMergeForge.git
-cd DocMergeForge
+git clone https://github.com/sanskarIN/foliolane.git
+cd foliolane
 python -m venv .venv
 ```
 
