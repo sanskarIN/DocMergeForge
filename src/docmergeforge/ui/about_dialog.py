@@ -11,20 +11,20 @@ from docmergeforge.ui.resources import (
     BUSINESS_EMAIL,
     BUSINESS_EMAIL_SECONDARY,
     GITHUB_PROFILE_URL,
-    LINKEDIN_URL,
+    PAYPAL_URL,
+    RAZORPAY_URL,
     REPOSITORY_URL,
     SUPPORT_EMAIL,
-    X_URL,
-    YOUTUBE_URL,
+    WEBSITE_URL,
 )
 
 LINKS = {
+    "Website": WEBSITE_URL,
     "GitHub": GITHUB_PROFILE_URL,
-    "LinkedIn": LINKEDIN_URL,
-    "Buy Me a Coffee": BMC_URL,
-    "YouTube": YOUTUBE_URL,
-    "X": X_URL,
     "Repository": REPOSITORY_URL,
+    "Buy Me a Coffee": BMC_URL,
+    "Razorpay": RAZORPAY_URL,
+    "PayPal": PAYPAL_URL,
 }
 
 
@@ -46,3 +46,4 @@ class AboutDialog(QDialog):
             layout.addWidget(button)
         layout.addWidget(QLabel(f"Business: {BUSINESS_EMAIL} · {BUSINESS_EMAIL_SECONDARY}"))
         layout.addWidget(QLabel(f"Support: {SUPPORT_EMAIL}"))
+        layout.addWidget(QLabel(f"More info available at {WEBSITE_URL}"))
