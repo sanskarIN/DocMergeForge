@@ -10,11 +10,11 @@ DocMergeForge is a local-first document-merging toolkit with native desktop/CLI 
 
 > **Made by the Sanskar**
 
-[Buy Me a Coffee](https://buymeacoffee.com/sanskarIN) ·
-[GitHub](https://www.github.com/sanskarIN) ·
-[LinkedIn](https://www.linkedin.com/in/sanskarIN) ·
-[YouTube](https://youtube.com/@Sanskar-in) ·
-[X](https://x.com/x_sanskarIN)
+[Buy Me a Coffee](https://buymeacoffee.com/SanskarCodes) ·
+[Website](https://sanskarin.github.io) ·
+[GitHub](https://github.com/sanskarIN) ·
+[Razorpay](https://razorpay.me/@SanskarCodes) ·
+[PayPal](https://paypal.me/SanskarCodes)
 
 ## Documentation
 
@@ -412,12 +412,9 @@ MIT — see [LICENSE](LICENSE).
 
 ## Support and creator
 
-- Repository: https://github.com/sanskarIN/DocMergeForge
-- GitHub: https://www.github.com/sanskarIN
-- LinkedIn: https://www.linkedin.com/in/sanskarIN
-- **Buy Me a Coffee:** https://buymeacoffee.com/sanskarIN
-- YouTube: https://youtube.com/@Sanskar-in
-- X: https://x.com/x_sanskarIN
+- Repository: https://github.com/sanskarIN/foliolane
+- GitHub: https://github.com/sanskarIN
+- **Buy Me a Coffee:** https://buymeacoffee.com/SanskarCodes
 - Business: `sanskarin@outlook.in`
 - Business: `sanskarin.business@gmail.com`
 - Support: `supportramsandesh@gmail.com`
