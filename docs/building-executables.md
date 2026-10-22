@@ -4,7 +4,7 @@ This is the canonical entry point for building DocMergeForge desktop executable 
 
 The complete executable-build manual is split into focused guides under [`docs/build/`](build/README.md) so platform-specific details, signing requirements, verification, and troubleshooting are not compressed into a single page.
 
-> **Made by the Sanskar** · [Buy Me a Coffee](https://buymeacoffee.com/sanskarIN)
+> **Made by the Sanskar** · [Buy Me a Coffee](https://buymeacoffee.com/SanskarCodes)
 
 ## Complete manual
 
