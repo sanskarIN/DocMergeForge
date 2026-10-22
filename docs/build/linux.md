@@ -9,8 +9,8 @@ The repository currently builds an unsigned PyInstaller application on `ubuntu-l
 ## 1. Prepare the checkout
 
 ```bash
-git clone https://github.com/sanskarIN/DocMergeForge.git
-cd DocMergeForge
+git clone https://github.com/sanskarIN/foliolane.git
+cd foliolane
 git status
 git rev-parse HEAD
 ```
