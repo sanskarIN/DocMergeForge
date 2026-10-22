@@ -4,12 +4,12 @@ This guide explains how to get help with DocMergeForge while protecting private 
 
 ## Project links
 
-- Repository: https://github.com/sanskarIN/DocMergeForge
+- Repository: https://github.com/sanskarIN/foliolane
+- Website: https://sanskarin.github.io
 - GitHub profile: https://www.github.com/sanskarIN
-- LinkedIn: https://www.linkedin.com/in/sanskarIN
-- Buy Me a Coffee: https://buymeacoffee.com/sanskarIN
-- YouTube: https://youtube.com/@Sanskar-in
-- X: https://x.com/x_sanskarIN
+- Buy Me a Coffee: https://buymeacoffee.com/SanskarCodes
+- Razorpay: https://razorpay.me/@SanskarCodes
+- PayPal: https://paypal.me/SanskarCodes
 
 > **Made by the Sanskar**
 
@@ -17,14 +17,16 @@ This guide explains how to get help with DocMergeForge while protecting private 
 
 Business:
 
-- `sanskarin@outlook.in`
-- `sanskarin.business@gmail.com`
+- `sanskar.businesswork@outlook.com`
+- `sanskar.businesswork@gmail.com`
 
 Support:
 
 - `supportramsandesh@gmail.com`
 
 Security reports should follow [`SECURITY.md`](../SECURITY.md) and should not be posted publicly when sensitive.
+
+More info available at https://sanskarin.github.io.
 
 ## Before requesting help
 
@@ -216,6 +218,8 @@ Advanced Microsoft Word/LibreOffice fidelity issues may require reproducing the 
 
 If DocMergeForge is useful, the project highlights:
 
-**Buy Me a Coffee:** https://buymeacoffee.com/sanskarIN
+**Buy Me a Coffee:** https://buymeacoffee.com/SanskarCodes  
+**Razorpay:** https://razorpay.me/@SanskarCodes  
+**PayPal:** https://paypal.me/SanskarCodes
 
 Support contributions do not change technical acceptance requirements: code still needs quality, regression, security, accessibility, and release verification.
