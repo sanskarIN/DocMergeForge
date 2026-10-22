@@ -13,8 +13,8 @@ Use Windows 11 or a compatible Windows runner with Python 3.12. GitHub Actions c
 ## 1. Clone and enter the repository
 
 ```powershell
-git clone https://github.com/sanskarIN/DocMergeForge.git
-Set-Location DocMergeForge
+git clone https://github.com/sanskarIN/foliolane.git
+Set-Location foliolane
 ```
 
 For release work, checkout the intended tag/commit and record it:
