@@ -2,7 +2,7 @@
 
 This directory is the canonical documentation set for DocMergeForge. It covers end-user operation, CLI automation, desktop and browser workflows, architecture, document engines, recovery, testing, packaging, release acceptance, privacy, and project maintenance.
 
-> **Made by the Sanskar** · [Buy Me a Coffee](https://buymeacoffee.com/sanskarIN)
+> **Made by the Sanskar** · [Website](https://sanskarin.github.io) · [Buy Me a Coffee](https://buymeacoffee.com/SanskarCodes) · [Razorpay](https://razorpay.me/@SanskarCodes) · [PayPal](https://paypal.me/SanskarCodes)
 
 ## Start here
 
