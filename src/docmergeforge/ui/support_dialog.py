@@ -17,19 +17,27 @@ from docmergeforge.diagnostics.export import export_diagnostics
 from docmergeforge.ui.resources import (
     BMC_URL,
     BUSINESS_EMAIL,
+    BUSINESS_EMAIL_SECONDARY,
     DOCS_URL,
+    PAYPAL_URL,
+    RAZORPAY_URL,
     REPOSITORY_URL,
     SUPPORT_EMAIL,
+    WEBSITE_URL,
 )
 
 _LINKS = {
+    "Website": WEBSITE_URL,
     "Open Documentation": DOCS_URL,
     "Report a Bug": f"{REPOSITORY_URL}/issues/new?template=bug_report.yml",
     "Request a Feature": f"{REPOSITORY_URL}/issues/new?template=feature_request.yml",
     "Open GitHub Repository": REPOSITORY_URL,
-    "Business Email": f"mailto:{BUSINESS_EMAIL}",
+    "Business Email (Outlook)": f"mailto:{BUSINESS_EMAIL}",
+    "Business Email (Gmail)": f"mailto:{BUSINESS_EMAIL_SECONDARY}",
     "Support Email": f"mailto:{SUPPORT_EMAIL}",
     "☕ Buy Me a Coffee": BMC_URL,
+    "Razorpay": RAZORPAY_URL,
+    "PayPal": PAYPAL_URL,
 }
 
 
