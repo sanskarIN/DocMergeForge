@@ -10,7 +10,7 @@ DocMergeForge currently uses **PyInstaller** through `scripts/build_desktop.py`.
 
 The repository does **not** currently claim production-signed Windows binaries, macOS Developer ID/notarized applications, native installers, or a stable `v1.0.0` release.
 
-> **Made by the Sanskar** · [Buy Me a Coffee](https://buymeacoffee.com/sanskarIN)
+> **Made by the Sanskar** · [Buy Me a Coffee](https://buymeacoffee.com/SanskarCodes)
 
 ## Build documentation map
 
