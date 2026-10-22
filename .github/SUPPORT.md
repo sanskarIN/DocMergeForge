@@ -1,4 +1,4 @@
-# DocMergeForge Support
+# FolioLane Support
 
 For installation, usage, troubleshooting, recovery, fidelity, accessibility, packaging, and privacy-safe support guidance, see [`docs/support.md`](../docs/support.md).
 
