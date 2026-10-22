@@ -16,8 +16,8 @@ Do **not** post a sensitive vulnerability publicly if doing so could expose user
 
 Private security contacts:
 
-- Support: `supportramsandesh@gmail.com`
-- Business: `sanskarin@outlook.in`
+- Business: `sanskar.businesswork@outlook.com`
+- Business (alternative): `sanskar.businesswork@gmail.com`
 
 A useful private report includes:
 
